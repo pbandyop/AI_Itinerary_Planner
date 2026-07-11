@@ -1,51 +1,48 @@
-"""Phase 0 LangGraph stub: START → orchestrator → END.
+"""Phase 1 LangGraph stub using full shared GraphState.
 
-Later phases add specialist nodes (POI, itinerary, knowledge), merger,
-reviewer, and conditional revise loops.
+Graph shape remains START → orchestrator → END until Phase 4 adds specialists.
 """
 
 from __future__ import annotations
 
-from typing import Literal, TypedDict
-
 from langgraph.graph import END, START, StateGraph
 
-
-class GraphState(TypedDict, total=False):
-    """Shared graph state — expanded in Phase 1."""
-
-    user_message: str
-    intent: str
-    safety_status: Literal["ok", "blocked", "needs_clarify"]
-    user_reply: str
-    revision_count: int
+from agent.schemas.state import GraphState, empty_graph_state
 
 
-def orchestrator(state: GraphState) -> GraphState:
+def orchestrator(state: GraphState) -> dict:
     """Stub orchestrator: acknowledge input; no specialist dispatch yet."""
     message = (state.get("user_message") or "").strip()
+    revision_count = state.get("revision_count", 0)
+
     if not message:
         return {
-            **state,
             "safety_status": "needs_clarify",
             "intent": "confirm",
             "user_reply": (
-                "Phase 0 stub: I did not receive a trip request yet. "
+                "I did not receive a trip request yet. "
                 "Say something like “Plan a 3-day trip to Jaipur.”"
             ),
-            "revision_count": state.get("revision_count", 0),
+            "revision_count": revision_count,
         }
 
     return {
-        **state,
         "safety_status": "ok",
         "intent": "plan",
         "user_reply": (
-            "Phase 0 stub: orchestrator reached. "
+            "Phase 1: schema + graph state ready. "
             f"Heard: “{message}”. "
-            "Specialist agents (POI / itinerary / knowledge) arrive in Phase 4."
+            "Specialist agents arrive in Phase 4; MCP tools in Phase 2."
         ),
-        "revision_count": state.get("revision_count", 0),
+        "revision_count": revision_count,
+        "trip_constraints": {
+            "city": "Jaipur",
+            "num_days": 3,
+            "interests": [],
+            "pace": "relaxed",
+            "constraints": [],
+            "confirmed": False,
+        },
     }
 
 
@@ -57,5 +54,9 @@ def build_graph():
     return graph.compile()
 
 
-# Compiled app used by CLI and HTTP API
 app = build_graph()
+
+
+def invoke_stub(user_message: str) -> GraphState:
+    initial = empty_graph_state(user_message=user_message)
+    return app.invoke(initial)  # type: ignore[return-value]

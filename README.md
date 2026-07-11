@@ -42,7 +42,8 @@ See [`docs/implementationPlan.md`](docs/implementationPlan.md) for the full phas
 ```
 apps/web/           Next.js companion UI
 services/agent/     Python LangGraph + FastAPI agent service
-docs/               Problem statement + implementation plan
+evals/              Golden fixtures + eval runners (stubs → Phase 7)
+docs/               Problem statement, implementation plan, schema
 ```
 
 ## Prerequisites
@@ -121,9 +122,11 @@ Open [http://localhost:3000](http://localhost:3000).
 2. Edit correctness (targeted patches only)
 3. Grounding / hallucination (OSM ids + citations)
 
+Phase 1 stubs already load golden fixtures:
+
 ```bash
-# Placeholder — wired in Phase 7
-# npm run eval   or   python -m evals
+python -m evals --suite fixtures
+python -m evals
 ```
 
 ## Sample test transcripts (placeholder)
@@ -135,8 +138,21 @@ Why did you pick this place?
 What if it rains?
 ```
 
+## Schema (Phase 1)
+
+- Docs: [`docs/schema.md`](docs/schema.md)
+- Python: `services/agent/src/agent/schemas/`
+- TypeScript: `apps/web/src/types/itinerary.ts`
+- Golden fixtures: `evals/fixtures/*.json`
+
+```bash
+# From repo root (agent venv activated + pip install -e services/agent)
+python -m evals --suite fixtures
+python -m evals
+```
+
 ## Current phase
 
-**Phase 0 complete:** repo structure, stack lock, `.env.example`, README, Next.js stub UI, LangGraph `START → orchestrator → END` stub.
+**Phase 1 complete:** itinerary JSON + LangGraph `GraphState`, golden Jaipur fixtures, validation helpers, eval stubs.
 
-Next: **Phase 1** — itinerary JSON schema + LangGraph shared state.
+Next: **Phase 2** — POI Search + Itinerary Builder MCP tools (LangChain wrappers).

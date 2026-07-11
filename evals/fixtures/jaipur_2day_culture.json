@@ -1,0 +1,221 @@
+{
+  "schema_version": "1.0",
+  "summary": "A compact 2-day culture-forward Jaipur itinerary with moderate walking in the Old City and one fort morning.",
+  "uncertainty_notes": [
+    "Travel times are heuristic estimates, not live transit data."
+  ],
+  "trip": {
+    "city": "Jaipur",
+    "num_days": 2,
+    "start_date": "2026-08-01",
+    "end_date": "2026-08-02",
+    "interests": ["culture", "heritage"],
+    "pace": "moderate",
+    "constraints": [],
+    "daily_time_window_min": 600,
+    "confirmed": true
+  },
+  "sources": [
+    {
+      "title": "Jaipur — Wikivoyage",
+      "url": "https://en.wikivoyage.org/wiki/Jaipur",
+      "dataset": "wikivoyage",
+      "snippet": "City guide covering districts, sights, and practical tips."
+    }
+  ],
+  "days": [
+    {
+      "day_index": 1,
+      "calendar_date": "2026-08-01",
+      "theme": "Pink City core",
+      "morning": {
+        "time_of_day": "morning",
+        "stops": [
+          {
+            "name": "City Palace",
+            "osm_type": "relation",
+            "osm_id": 321098765,
+            "lat": 26.9258,
+            "lon": 75.8236,
+            "category": "heritage",
+            "duration_min": 120,
+            "travel_to_next_min": 5,
+            "reason": "Central heritage complex to anchor a culture-first day.",
+            "citations": [
+              {
+                "title": "Jaipur — See — Wikivoyage",
+                "url": "https://en.wikivoyage.org/wiki/Jaipur#See",
+                "dataset": "wikivoyage",
+                "snippet": "City Palace is a primary cultural attraction in Jaipur."
+              }
+            ],
+            "uncertainty": null
+          },
+          {
+            "name": "Jantar Mantar",
+            "osm_type": "way",
+            "osm_id": 246901235,
+            "lat": 26.9248,
+            "lon": 75.8246,
+            "category": "heritage",
+            "duration_min": 60,
+            "travel_to_next_min": null,
+            "reason": "Adjacent observatory; minimal travel from City Palace.",
+            "citations": [
+              {
+                "title": "Jaipur — See — Wikivoyage",
+                "url": "https://en.wikivoyage.org/wiki/Jaipur#See",
+                "dataset": "wikivoyage",
+                "snippet": "Jantar Mantar is next to the City Palace complex."
+              }
+            ],
+            "uncertainty": null
+          }
+        ]
+      },
+      "afternoon": {
+        "time_of_day": "afternoon",
+        "stops": [
+          {
+            "name": "Hawa Mahal",
+            "osm_type": "way",
+            "osm_id": 246901234,
+            "lat": 26.9239,
+            "lon": 75.8267,
+            "category": "heritage",
+            "duration_min": 45,
+            "travel_to_next_min": 10,
+            "reason": "Short landmark visit; keeps afternoon from becoming overpacked.",
+            "citations": [
+              {
+                "title": "Jaipur — See — Wikivoyage",
+                "url": "https://en.wikivoyage.org/wiki/Jaipur#See",
+                "dataset": "wikivoyage",
+                "snippet": "Hawa Mahal is among Jaipur's best-known monuments."
+              }
+            ],
+            "uncertainty": null
+          },
+          {
+            "name": "Isar Lat / Tripolia Bazaar area walk",
+            "osm_type": "node",
+            "osm_id": 4123456800,
+            "lat": 26.922,
+            "lon": 75.8255,
+            "category": "heritage",
+            "duration_min": 60,
+            "travel_to_next_min": null,
+            "reason": "Neighborhood walk to absorb Old City streetscape without a long transfer.",
+            "citations": [],
+            "uncertainty": "Specific tower access and hours are not fully covered in retrieved tips; outdoor area walk assumed."
+          }
+        ]
+      },
+      "evening": {
+        "time_of_day": "evening",
+        "stops": [
+          {
+            "name": "Johari Bazaar",
+            "osm_type": "way",
+            "osm_id": 246901240,
+            "lat": 26.9192,
+            "lon": 75.8269,
+            "category": "market",
+            "duration_min": 75,
+            "travel_to_next_min": null,
+            "reason": "Evening market time near day-1 sights; low extra travel.",
+            "citations": [
+              {
+                "title": "Jaipur — Buy — Wikivoyage",
+                "url": "https://en.wikivoyage.org/wiki/Jaipur#Buy",
+                "dataset": "wikivoyage",
+                "snippet": "Traditional bazaars are concentrated in the Old City."
+              }
+            ],
+            "uncertainty": null
+          }
+        ]
+      }
+    },
+    {
+      "day_index": 2,
+      "calendar_date": "2026-08-02",
+      "theme": "Amber Fort + museum",
+      "morning": {
+        "time_of_day": "morning",
+        "stops": [
+          {
+            "name": "Amber Fort",
+            "osm_type": "way",
+            "osm_id": 246908001,
+            "lat": 26.9855,
+            "lon": 75.8513,
+            "category": "heritage",
+            "duration_min": 150,
+            "travel_to_next_min": null,
+            "reason": "Single major morning outing north of the city for a culture highlight.",
+            "citations": [
+              {
+                "title": "Jaipur — See — Wikivoyage",
+                "url": "https://en.wikivoyage.org/wiki/Jaipur#See",
+                "dataset": "wikivoyage",
+                "snippet": "Amber Fort is a principal fort complex near Jaipur."
+              }
+            ],
+            "uncertainty": null
+          }
+        ]
+      },
+      "afternoon": {
+        "time_of_day": "afternoon",
+        "stops": [
+          {
+            "name": "Albert Hall Museum",
+            "osm_type": "way",
+            "osm_id": 246908010,
+            "lat": 26.9117,
+            "lon": 75.8197,
+            "category": "museum",
+            "duration_min": 90,
+            "travel_to_next_min": null,
+            "reason": "Indoor museum after returning from Amber; balances outdoor morning.",
+            "citations": [
+              {
+                "title": "Jaipur — See — Wikivoyage",
+                "url": "https://en.wikivoyage.org/wiki/Jaipur#See",
+                "dataset": "wikivoyage",
+                "snippet": "Albert Hall Museum houses decorative arts and historical exhibits."
+              }
+            ],
+            "uncertainty": null
+          }
+        ]
+      },
+      "evening": {
+        "time_of_day": "evening",
+        "stops": [
+          {
+            "name": "Nahargarh Fort sunset viewpoint",
+            "osm_type": "way",
+            "osm_id": 246908040,
+            "lat": 26.9373,
+            "lon": 75.8155,
+            "category": "viewpoint",
+            "duration_min": 90,
+            "travel_to_next_min": null,
+            "reason": "Closing viewpoint for the trip; one evening stop only.",
+            "citations": [
+              {
+                "title": "Jaipur — See — Wikivoyage",
+                "url": "https://en.wikivoyage.org/wiki/Jaipur#See",
+                "dataset": "wikivoyage",
+                "snippet": "Nahargarh offers panoramic views over Jaipur."
+              }
+            ],
+            "uncertainty": null
+          }
+        ]
+      }
+    }
+  ]
+}

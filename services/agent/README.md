@@ -1,6 +1,8 @@
 # AI Itinerary Planner — Agent Service
 
-Phase 0 LangGraph stub: `START → orchestrator → END`.
+Phase 1: shared itinerary + `GraphState` schemas; LangGraph stub still `START → orchestrator → END`.
+
+See [`docs/schema.md`](../../docs/schema.md).
 
 ## Setup
 

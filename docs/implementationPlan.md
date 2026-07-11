@@ -119,7 +119,7 @@ Shared **LangGraph state** holds: user message, intent, trip slots, specialist o
 **Goal:** One shared contract for itinerary JSON **and** LangGraph graph state.
 
 ### Tasks
-- [ ] Define itinerary types / JSON Schema:
+- [x] Define itinerary types / JSON Schema:
   - Trip metadata: city, dates/window, interests, pace, constraints, confirmed flags
   - Day → Morning / Afternoon / Evening blocks
   - Stop: name, OSM id, lat/lon, category, duration_min, travel_to_next_min, reason, citations[], uncertainty?
@@ -127,21 +127,21 @@ Shared **LangGraph state** holds: user message, intent, trip slots, specialist o
   - Specialist result envelopes (POI list, itinerary draft, knowledge snippets)
   - Edit patch format: `{ target: { day, block }, operation, payload }`
   - Reviewer verdict: `{ status: "approve" | "revise", issues[], affected_sections[] }`
-- [ ] Define **LangGraph state schema** (TypedDict / Pydantic / Zod) including:
+- [x] Define **LangGraph state schema** (TypedDict / Pydantic / Zod) including:
   - `messages`, `intent`, `safety_status`
   - `trip_constraints`, `dispatch_plan`
   - `poi_results`, `itinerary_draft`, `knowledge_results`
   - `merged_itinerary`, `previous_itinerary`
   - `reviewer_verdict`, `revision_count`
   - `user_reply`, `sources`
-- [ ] Write 1–2 **golden sample itineraries** (hand-authored JSON) for Jaipur
-- [ ] Add schema validation used by Merger, Reviewer, API, and evals
-- [ ] Stub empty eval runners that load golden JSON
+- [x] Write 1–2 **golden sample itineraries** (hand-authored JSON) for Jaipur
+- [x] Add schema validation used by Merger, Reviewer, API, and evals
+- [x] Stub empty eval runners that load golden JSON
 
 ### Exit criteria
-- Itinerary + graph state schemas documented
-- Sample itinerary validates
-- Rule: **no POI without OSM id; no tip without citation or explicit “data missing”**
+- [x] Itinerary + graph state schemas documented (`docs/schema.md`)
+- [x] Sample itinerary validates (`python -m evals --suite fixtures`)
+- [x] Rule: **no POI without OSM id; no tip without citation or explicit “data missing”**
 
 ---
 
@@ -411,4 +411,4 @@ Never cut Phase 1, 2, 3, or 7. Phase 4 is the longest build block because of Lan
 
 ## Next immediate action
 
-Start **Phase 0–1**: lock Python vs JS LangGraph, define itinerary + graph state schemas, and stand up a stub `StateGraph` (`START → orchestrator → END`). Then implement POI Search MCP as a LangChain tool (Phase 2a).
+Phase 0–1 are done. Next: **Phase 2a** — implement POI Search MCP (Overpass) and wrap it as a LangChain tool.
