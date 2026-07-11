@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import Any, Literal
 
 from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field
 
 from agent.mcp.itinerary_builder import build_itinerary
 from agent.mcp.poi_search import poi_search
+from agent.mcp.travel_time import estimate_travel_times
+from agent.mcp.weather import weather_adjustment
 from agent.schemas.itinerary import Pace
 from agent.schemas.specialists import POICandidate
 
@@ -43,6 +45,22 @@ class ItineraryBuilderInput(BaseModel):
     pace: Pace = Field(default="relaxed")
     daily_time_window_min: int = Field(default=540, ge=180, le=840)
     interests: list[str] = Field(default_factory=list)
+
+
+class TravelTimeInput(BaseModel):
+    points_json: str = Field(
+        ...,
+        description="JSON array of ordered stops with name/lat/lon/osm fields",
+    )
+    mode: Literal["walk", "city"] = "city"
+
+
+class WeatherInput(BaseModel):
+    city: str = Field(default="Jaipur")
+    start_date: str | None = Field(
+        default=None, description="YYYY-MM-DD; defaults to today"
+    )
+    num_days: int = Field(default=3, ge=2, le=4)
 
 
 def _poi_search_tool(
@@ -107,6 +125,45 @@ def _itinerary_builder_tool(
     return json.dumps(draft.model_dump(mode="json"), indent=2)
 
 
+def _travel_time_tool(points_json: str, mode: Literal["walk", "city"] = "city") -> str:
+    logger.info("TOOL travel_time_estimator_mcp mode=%s", mode)
+    points: list[dict[str, Any]] = json.loads(points_json)
+    result = estimate_travel_times(points=points, mode=mode)
+    logger.info(
+        "TOOL travel_time_estimator_mcp → %d legs total=%dm missing=%s",
+        len(result.legs),
+        result.total_duration_min,
+        result.missing_data,
+    )
+    return json.dumps(result.model_dump(mode="json"), indent=2)
+
+
+def _weather_tool(
+    city: str = "Jaipur",
+    start_date: str | None = None,
+    num_days: int = 3,
+) -> str:
+    logger.info(
+        "TOOL weather_adjustment_mcp city=%s start=%s days=%s",
+        city,
+        start_date,
+        num_days,
+    )
+    city_arg = "Jaipur" if city.lower() == "jaipur" else city
+    result = weather_adjustment(
+        city=city_arg,  # type: ignore[arg-type]
+        start_date=start_date,
+        num_days=num_days,
+    )
+    logger.info(
+        "TOOL weather_adjustment_mcp → %d days missing=%s adjustments=%d",
+        len(result.days),
+        result.missing_data,
+        len(result.adjustments),
+    )
+    return json.dumps(result.model_dump(mode="json"), indent=2)
+
+
 poi_search_tool = StructuredTool.from_function(
     name="poi_search_mcp",
     description=(
@@ -127,6 +184,31 @@ itinerary_builder_tool = StructuredTool.from_function(
     args_schema=ItineraryBuilderInput,
 )
 
+travel_time_tool = StructuredTool.from_function(
+    name="travel_time_estimator_mcp",
+    description=(
+        "Travel Time Estimator MCP: heuristic travel minutes between ordered "
+        "Jaipur stops (haversine; walk or city mode). Not live transit."
+    ),
+    func=_travel_time_tool,
+    args_schema=TravelTimeInput,
+)
+
+weather_tool = StructuredTool.from_function(
+    name="weather_adjustment_mcp",
+    description=(
+        "Weather Adjustment MCP: Open-Meteo forecast for Jaipur with rain-risk "
+        "labels and indoor/outdoor adjustment suggestions (what if it rains?)."
+    ),
+    func=_weather_tool,
+    args_schema=WeatherInput,
+)
+
 
 def get_mcp_tools() -> list[StructuredTool]:
-    return [poi_search_tool, itinerary_builder_tool]
+    return [
+        poi_search_tool,
+        itinerary_builder_tool,
+        travel_time_tool,
+        weather_tool,
+    ]

@@ -51,14 +51,61 @@ class KnowledgeResult(BaseModel):
     notes: str | None = None
 
 
+class TravelLeg(BaseModel):
+    from_name: str
+    to_name: str
+    from_osm: str | None = None
+    to_osm: str | None = None
+    distance_km: float | None = None
+    duration_min: int
+    mode: Literal["walk", "city"] = "city"
+    method: Literal["haversine_heuristic"] = "haversine_heuristic"
+
+
+class TravelTimeResult(BaseModel):
+    legs: list[TravelLeg] = Field(default_factory=list)
+    total_duration_min: int = 0
+    missing_data: bool = False
+    notes: str | None = None
+
+
+class DayWeather(BaseModel):
+    calendar_date: str
+    weather_code: int | None = None
+    weather_label: str | None = None
+    precip_probability_max: float | None = None
+    precip_mm_sum: float | None = None
+    temp_max_c: float | None = None
+    temp_min_c: float | None = None
+    rain_risk: Literal["low", "moderate", "high"] = "low"
+    recommendation: str | None = None
+
+
+class WeatherAdjustment(BaseModel):
+    section: str = Field(description="e.g. day1.afternoon")
+    action: Literal["prefer_indoor", "shorten_outdoor", "keep", "add_buffer"]
+    reason: str
+
+
+class WeatherResult(BaseModel):
+    city: Literal["Jaipur"] = "Jaipur"
+    latitude: float
+    longitude: float
+    days: list[DayWeather] = Field(default_factory=list)
+    adjustments: list[WeatherAdjustment] = Field(default_factory=list)
+    missing_data: bool = False
+    notes: str | None = None
+    source: str = "Open-Meteo"
+
+
 class DispatchPlan(BaseModel):
     """Orchestrator instructions for which specialists to run."""
 
     run_poi: bool = True
     run_itinerary: bool = True
     run_knowledge: bool = True
-    run_weather: bool = False
-    run_travel_time: bool = False
+    run_weather: bool = True
+    run_travel_time: bool = True
     edit_patch: dict[str, Any] | None = Field(
         default=None,
         description="Serialized EditPatch when intent is edit.",

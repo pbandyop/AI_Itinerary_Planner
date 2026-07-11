@@ -14,6 +14,8 @@ from agent.schemas.specialists import (
     ItineraryDraftResult,
     KnowledgeResult,
     POISearchResult,
+    TravelTimeResult,
+    WeatherResult,
 )
 
 Intent = Literal["plan", "edit", "explain", "confirm"]
@@ -39,6 +41,8 @@ class GraphState(TypedDict, total=False):
     poi_results: POISearchResult | dict[str, Any]
     itinerary_draft: ItineraryDraftResult | dict[str, Any]
     knowledge_results: KnowledgeResult | dict[str, Any]
+    travel_time_results: TravelTimeResult | dict[str, Any]
+    weather_results: WeatherResult | dict[str, Any]
 
     # Merger / Reviewer
     merged_itinerary: Itinerary | dict[str, Any]

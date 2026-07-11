@@ -44,4 +44,6 @@ python -m agent.main --serve
 - `GET /mcp/tools`
 - `POST /mcp/poi_search`
 - `POST /mcp/itinerary_builder`
+- `POST /mcp/travel_time`
+- `POST /mcp/weather`
 - `POST /invoke`

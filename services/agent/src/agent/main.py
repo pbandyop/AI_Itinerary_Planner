@@ -15,6 +15,8 @@ from pydantic import BaseModel, Field
 from agent.graph import app as graph_app
 from agent.mcp.itinerary_builder import build_itinerary
 from agent.mcp.poi_search import poi_search
+from agent.mcp.travel_time import estimate_travel_times
+from agent.mcp.weather import weather_adjustment
 from agent.schemas.itinerary import Pace
 from agent.schemas.specialists import POICandidate
 from agent.schemas.state import empty_graph_state
@@ -26,8 +28,8 @@ logging.basicConfig(level=logging.INFO)
 
 api = FastAPI(
     title="AI Itinerary Planner Agent",
-    description="LangGraph multi-agent service (Phase 2: MCP tools)",
-    version="0.2.0",
+    description="LangGraph multi-agent service (Phase 2: 4 MCP tools)",
+    version="0.2.1",
 )
 
 
@@ -58,6 +60,18 @@ class ItineraryBuilderRequest(BaseModel):
     pace: Pace = "relaxed"
     daily_time_window_min: int = Field(default=540, ge=180, le=840)
     interests: list[str] = Field(default_factory=list)
+
+
+class TravelTimeRequest(BaseModel):
+    points: list[dict[str, Any]] = Field(default_factory=list)
+    legs: list[dict[str, Any]] = Field(default_factory=list)
+    mode: Literal["walk", "city"] = "city"
+
+
+class WeatherRequest(BaseModel):
+    city: Literal["Jaipur"] = "Jaipur"
+    start_date: str | None = None
+    num_days: int = Field(default=3, ge=2, le=4)
 
 
 @api.get("/health")
@@ -110,6 +124,26 @@ def mcp_itinerary_builder(body: ItineraryBuilderRequest) -> dict[str, Any]:
         interests=body.interests,
     )
     return draft.model_dump(mode="json")
+
+
+@api.post("/mcp/travel_time")
+def mcp_travel_time(body: TravelTimeRequest) -> dict[str, Any]:
+    result = estimate_travel_times(
+        points=body.points or None,
+        legs=body.legs or None,
+        mode=body.mode,
+    )
+    return result.model_dump(mode="json")
+
+
+@api.post("/mcp/weather")
+def mcp_weather(body: WeatherRequest) -> dict[str, Any]:
+    result = weather_adjustment(
+        city=body.city,
+        start_date=body.start_date,
+        num_days=body.num_days,
+    )
+    return result.model_dump(mode="json")
 
 
 @api.post("/invoke", response_model=InvokeResponse)

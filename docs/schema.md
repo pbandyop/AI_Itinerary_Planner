@@ -35,6 +35,8 @@ If citations are empty, `uncertainty` **must** explain the missing data.
 
 - `POISearchResult` — ranked POIs with OSM ids (POI Agent)
 - `ItineraryDraftResult` — day packing from Itinerary Builder
+- `TravelTimeResult` — heuristic legs between stops (Travel-Time Agent)
+- `WeatherResult` — Open-Meteo forecast + rain adjustments (Weather Agent)
 - `KnowledgeResult` — RAG snippets + citations (Knowledge Agent)
 - `DispatchPlan` — which specialists the Orchestrator should run
 

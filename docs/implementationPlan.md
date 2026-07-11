@@ -26,8 +26,10 @@ Voice (STT)
 │  Specialist Agents (LangGraph nodes + LangChain tools)  │
 │    ├── POI Agent       → POI Search MCP                 │
 │    ├── Itinerary Agent → Itinerary Builder MCP          │
+│    ├── Travel-Time Agent → Travel Time Estimator MCP    │
+│    ├── Weather Agent   → Weather Adjustment MCP         │
 │    ├── Knowledge Agent → RAG (Wikivoyage / Wikipedia)   │
-│    └── Optional: Weather / Travel-Time Agents           │
+│    └── (Knowledge is Phase 3; other MCPs are Phase 2)   │
 │         ↓                                               │
 │  Merger Agent                                           │
 │    • Fuse specialist outputs → one itinerary JSON       │
@@ -61,6 +63,8 @@ Companion UI  →  n8n (PDF + email)
 | **Orchestrator** | `orchestrator` | Yes | No (dispatches only) | Safety gate, intent, slots, confirmations, dispatch plan |
 | **POI Agent** | `poi_agent` | No | POI Search MCP (LangChain tool) | Ranked POIs with OSM ids |
 | **Itinerary Agent** | `itinerary_agent` | No | Itinerary Builder MCP | Day/block packing from candidate POIs |
+| **Travel-Time Agent** | `travel_time_agent` | No | Travel Time Estimator MCP | Heuristic leg times between stops |
+| **Weather Agent** | `weather_agent` | No | Weather Adjustment MCP (Open-Meteo) | Rain risk + indoor/outdoor adjustments |
 | **Knowledge Agent** | `knowledge_agent` | No | LangChain RAG retriever | Tips + citations for explanations |
 | **Merger** | `merger` | No | No | Fuse specialist results → schema-valid JSON |
 | **Reviewer** | `reviewer` | No | No | Approve or return structured issues |
@@ -70,13 +74,13 @@ Companion UI  →  n8n (PDF + email)
 ```
 START → orchestrator
           ├─(unsafe / need_clarify)→ END (reply to user)
-          └─(ready)→ [poi_agent ∥ itinerary_agent ∥ knowledge_agent]
+          └─(ready)→ [poi ∥ itinerary ∥ knowledge ∥ travel_time ∥ weather]
                           → merger → reviewer
                                        ├─(approve)→ END
                                        └─(revise, revision_count < 2)→ orchestrator
 ```
 
-Shared **LangGraph state** holds: user message, intent, trip slots, specialist outputs, merged itinerary, previous itinerary (for edits), reviewer verdict, `revision_count`, sources, and the user-facing reply.
+Shared **LangGraph state** holds: user message, intent, trip slots, specialist outputs (`poi_results`, `itinerary_draft`, `knowledge_results`, `travel_time_results`, `weather_results`), merged itinerary, previous itinerary (for edits), reviewer verdict, `revision_count`, sources, and the user-facing reply.
 
 **Rubric focus (effort allocation):**
 
@@ -145,9 +149,9 @@ Shared **LangGraph state** holds: user message, intent, trip slots, specialist o
 
 ---
 
-## Phase 2 — MCP tools: POI Search + Itinerary Builder (2–3 days)
+## Phase 2 — MCP tools (4 tools) (2–3 days)
 
-**Goal:** Required MCP integration; wrap as **LangChain tools** for specialist nodes.
+**Goal:** Required + bonus MCP integration; wrap as **LangChain tools** for specialist nodes.
 
 ### 2a — POI Search MCP
 - [x] Implement Overpass (OpenStreetMap) queries for Jaipur POIs
@@ -160,19 +164,37 @@ Shared **LangGraph state** holds: user message, intent, trip slots, specialist o
 - [x] Outputs: day-wise structure matching Phase 1 schema
 - [x] Heuristic travel times; respect pace
 
-### 2c — LangChain tool wrappers + smoke test
-- [x] Expose each MCP as a LangChain `@tool` / StructuredTool
+### 2c — Travel Time Estimator MCP
+- [x] Inputs: ordered stops or explicit from/to legs + mode (`walk` | `city`)
+- [x] Outputs: per-leg distance_km + duration_min (haversine heuristic)
+- [x] Honest notes that estimates are not live transit
+- [x] LangChain tool: `travel_time_estimator_mcp` · HTTP: `POST /mcp/travel_time`
+
+### 2d — Weather Adjustment MCP (Open-Meteo)
+- [x] Inputs: city (Jaipur), start_date, num_days
+- [x] Outputs: daily forecast, rain_risk, indoor/outdoor `adjustments[]`
+- [x] Supports “What if it rains?” grounded in Open-Meteo (state missing data if API fails)
+- [x] LangChain tool: `weather_adjustment_mcp` · HTTP: `POST /mcp/weather`
+
+### 2e — LangChain tool wrappers + smoke test
+- [x] Expose all four MCPs as LangChain `StructuredTool`s
 - [x] Call tools directly (no full graph yet) → validated partial JSON
-- [x] Log tool/MCP traces for demo
+- [x] Log tool/MCP traces for demo (`python -m agent.smoke_mcp`)
 
 ### Exit criteria
-- [x] Both MCPs work and are callable as LangChain tools
+- [x] All four MCPs work and are callable as LangChain tools
 - [x] OSM ids present on every POI
+- [x] Travel-time and weather results include honest uncertainty / method notes
 - [x] Tool traces visible in logs
 
-### Bonus (defer unless Phase 2 finishes early)
-- Travel Time Estimator MCP
-- Weather Adjustment MCP (Open-Meteo)
+### Specialist agents (wired in Phase 4)
+| Agent node | MCP tool |
+|------------|----------|
+| POI Agent | `poi_search_mcp` |
+| Itinerary Agent | `itinerary_builder_mcp` |
+| Travel-Time Agent | `travel_time_estimator_mcp` |
+| Weather Agent | `weather_adjustment_mcp` |
+| Knowledge Agent | RAG (Phase 3) |
 
 ---
 
@@ -224,7 +246,8 @@ Shared **LangGraph state** holds: user message, intent, trip slots, specialist o
 - [ ] **POI Agent** — LangChain tool → POI Search MCP
 - [ ] **Itinerary Agent** — LangChain tool → Itinerary Builder MCP
 - [ ] **Knowledge Agent** — LangChain retriever / RAG chain
-- [ ] Optional Weather / Travel-Time nodes
+- [ ] **Weather Agent** — wraps Weather Adjustment MCP (Open-Meteo)
+- [ ] **Travel-Time Agent** — wraps Travel Time Estimator MCP
 - [ ] Specialists write only their state slice; **no user chat**
 
 ### 4d — Merger node

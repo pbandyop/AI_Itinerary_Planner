@@ -1,4 +1,4 @@
-"""Phase 2 smoke test: POI Search MCP → Itinerary Builder MCP via LangChain tools."""
+"""Phase 2 smoke test: all four MCP tools via LangChain wrappers."""
 
 from __future__ import annotations
 
@@ -9,9 +9,16 @@ import sys
 
 from agent.mcp.itinerary_builder import build_itinerary
 from agent.mcp.poi_search import poi_search
+from agent.mcp.travel_time import estimate_travel_times
+from agent.mcp.weather import weather_adjustment
 from agent.schemas.itinerary import Itinerary, TripConstraints
 from agent.schemas.validation import validate_grounding_rules, validate_itinerary
-from agent.tools.mcp_tools import itinerary_builder_tool, poi_search_tool
+from agent.tools.mcp_tools import (
+    itinerary_builder_tool,
+    poi_search_tool,
+    travel_time_tool,
+    weather_tool,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -25,6 +32,18 @@ def _safe(text: str) -> str:
     return text.encode("ascii", errors="replace").decode("ascii")
 
 
+def _first_day_points(draft_payload: dict) -> list[dict]:
+    points: list[dict] = []
+    days = draft_payload.get("days") or []
+    if not days:
+        return points
+    day = days[0]
+    for block_name in ("morning", "afternoon", "evening"):
+        for stop in (day.get(block_name) or {}).get("stops") or []:
+            points.append(stop)
+    return points
+
+
 def run_smoke(
     *,
     interests: list[str],
@@ -33,7 +52,7 @@ def run_smoke(
     use_tools: bool,
     use_overpass: bool,
 ) -> int:
-    print("=== Phase 2 MCP smoke test ===")
+    print("=== Phase 2 MCP smoke test (4 tools) ===")
     print(f"interests={interests} days={num_days} pace={pace} tools={use_tools}")
 
     if use_tools:
@@ -47,9 +66,10 @@ def run_smoke(
             }
         )
         poi_payload = json.loads(poi_raw)
-        print(f"\n[poi_search_mcp] pois={len(poi_payload.get('pois', []))} "
-              f"missing_data={poi_payload.get('missing_data')} "
-              f"notes={poi_payload.get('notes')}")
+        print(
+            f"\n[poi_search_mcp] pois={len(poi_payload.get('pois', []))} "
+            f"missing_data={poi_payload.get('missing_data')}"
+        )
         for p in poi_payload.get("pois", [])[:5]:
             print(
                 f"  - {_safe(p['name'])} ({p['osm_type']}/{p['osm_id']}) "
@@ -66,6 +86,17 @@ def run_smoke(
             }
         )
         draft_payload = json.loads(draft_raw)
+
+        points = _first_day_points(draft_payload)
+        travel_raw = travel_time_tool.invoke(
+            {"points_json": json.dumps(points), "mode": "city"}
+        )
+        travel_payload = json.loads(travel_raw)
+
+        weather_raw = weather_tool.invoke(
+            {"city": "Jaipur", "start_date": None, "num_days": num_days}
+        )
+        weather_payload = json.loads(weather_raw)
     else:
         poi_result = poi_search(
             interests=interests,
@@ -74,12 +105,8 @@ def run_smoke(
         )
         print(
             f"\n[poi_search] pois={len(poi_result.pois)} "
-            f"missing_data={poi_result.missing_data} notes={poi_result.notes}"
+            f"missing_data={poi_result.missing_data}"
         )
-        for p in poi_result.pois[:5]:
-            print(
-                f"  - {_safe(p.name)} ({p.osm_type}/{p.osm_id}) score={p.rank_score}"
-            )
         draft = build_itinerary(
             candidate_pois=poi_result.pois,
             num_days=num_days,
@@ -88,14 +115,40 @@ def run_smoke(
         )
         draft_payload = draft.model_dump(mode="json")
         poi_payload = poi_result.model_dump(mode="json")
+        points = _first_day_points(draft_payload)
+        travel_payload = estimate_travel_times(points=points, mode="city").model_dump(
+            mode="json"
+        )
+        weather_payload = weather_adjustment(
+            city="Jaipur", num_days=num_days
+        ).model_dump(mode="json")
 
     print(
-        f"\n[itinerary_builder] days={len(draft_payload.get('days', []))} "
-        f"missing_data={draft_payload.get('missing_data')} "
-        f"notes={draft_payload.get('notes')}"
+        f"\n[itinerary_builder_mcp] days={len(draft_payload.get('days', []))} "
+        f"missing_data={draft_payload.get('missing_data')}"
     )
+    print(
+        f"[travel_time_estimator_mcp] legs={len(travel_payload.get('legs', []))} "
+        f"total={travel_payload.get('total_duration_min')}m "
+        f"missing_data={travel_payload.get('missing_data')}"
+    )
+    for leg in (travel_payload.get("legs") or [])[:3]:
+        print(
+            f"  - {_safe(leg['from_name'])} -> {_safe(leg['to_name'])}: "
+            f"{leg['duration_min']}m ({leg.get('distance_km')} km)"
+        )
 
-    # Assemble a full Itinerary for schema validation
+    print(
+        f"[weather_adjustment_mcp] days={len(weather_payload.get('days', []))} "
+        f"missing_data={weather_payload.get('missing_data')} "
+        f"adjustments={len(weather_payload.get('adjustments', []))}"
+    )
+    for day in weather_payload.get("days") or []:
+        print(
+            f"  - {day.get('calendar_date')}: {day.get('weather_label')} "
+            f"risk={day.get('rain_risk')} precip%={day.get('precip_probability_max')}"
+        )
+
     trip = TripConstraints(
         city="Jaipur",
         num_days=num_days,
@@ -112,11 +165,24 @@ def run_smoke(
                 "url": "https://www.openstreetmap.org",
                 "dataset": "openstreetmap",
                 "snippet": "POIs resolved to osm_type/osm_id records.",
-            }
+            },
+            {
+                "title": "Open-Meteo Forecast",
+                "url": "https://open-meteo.com/",
+                "dataset": "open-meteo",
+                "snippet": "Daily weather used for rain-risk adjustments.",
+            },
         ],
         summary="Phase 2 smoke-test draft itinerary",
         uncertainty_notes=[
-            n for n in [poi_payload.get("notes"), draft_payload.get("notes")] if n
+            n
+            for n in [
+                poi_payload.get("notes"),
+                draft_payload.get("notes"),
+                travel_payload.get("notes"),
+                weather_payload.get("notes"),
+            ]
+            if n
         ],
     )
     result = validate_itinerary(itinerary)
@@ -128,6 +194,9 @@ def run_smoke(
     if grounding:
         print("FAIL grounding:", grounding)
         return 1
+
+    if weather_payload.get("missing_data"):
+        print("WARN: weather missing_data=True (stated honestly).")
 
     for day in result.itinerary.days:
         print(
@@ -141,17 +210,25 @@ def run_smoke(
                 f"{stop.duration_min}m"
             )
 
-    print("\nPASS: MCP pipeline produced a schema-valid, OSM-grounded draft.")
+    print(
+        "\nPASS: All 4 MCP tools ran; itinerary is schema-valid and OSM-grounded."
+    )
     return 0
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Smoke test POI + Itinerary MCPs")
+    parser = argparse.ArgumentParser(description="Smoke test Phase 2 MCP tools")
     parser.add_argument("--interests", nargs="*", default=["food", "culture"])
     parser.add_argument("--days", type=int, default=3)
-    parser.add_argument("--pace", default="relaxed", choices=["relaxed", "moderate", "packed"])
-    parser.add_argument("--no-tools", action="store_true", help="Call MCP functions directly")
-    parser.add_argument("--no-overpass", action="store_true", help="Skip live Overpass (seed only)")
+    parser.add_argument(
+        "--pace", default="relaxed", choices=["relaxed", "moderate", "packed"]
+    )
+    parser.add_argument(
+        "--no-tools", action="store_true", help="Call MCP functions directly"
+    )
+    parser.add_argument(
+        "--no-overpass", action="store_true", help="Skip live Overpass (seed only)"
+    )
     args = parser.parse_args(argv)
     return run_smoke(
         interests=args.interests,

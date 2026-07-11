@@ -13,12 +13,17 @@ from agent.schemas.itinerary import (
 )
 from agent.schemas.review import ReviewIssue, ReviewStatus, ReviewerVerdict
 from agent.schemas.specialists import (
+    DayWeather,
     DispatchPlan,
     ItineraryDraftResult,
     KnowledgeResult,
     KnowledgeSnippet,
     POICandidate,
     POISearchResult,
+    TravelLeg,
+    TravelTimeResult,
+    WeatherAdjustment,
+    WeatherResult,
 )
 from agent.schemas.state import GraphState, Intent, SafetyStatus, empty_graph_state
 from agent.schemas.validation import (
@@ -31,6 +36,7 @@ from agent.schemas.validation import (
 
 __all__ = [
     "DayPlan",
+    "DayWeather",
     "DispatchPlan",
     "EditOperation",
     "EditPatch",
@@ -52,8 +58,12 @@ __all__ = [
     "Stop",
     "TimeBlock",
     "TimeOfDay",
+    "TravelLeg",
+    "TravelTimeResult",
     "TripConstraints",
     "ValidationResult",
+    "WeatherAdjustment",
+    "WeatherResult",
     "empty_graph_state",
     "itinerary_to_json_schema",
     "load_and_validate_itinerary",

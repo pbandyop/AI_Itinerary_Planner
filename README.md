@@ -117,14 +117,14 @@ Open [http://localhost:3000](http://localhost:3000).
 |-----|--------|------|
 | POI Search (OpenStreetMap / Overpass) | Phase 2 ✅ | `poi_search_mcp` / `POST /mcp/poi_search` |
 | Itinerary Builder | Phase 2 ✅ | `itinerary_builder_mcp` / `POST /mcp/itinerary_builder` |
-| Weather Adjustment (Open-Meteo) | Optional bonus | — |
-| Travel Time Estimator | Optional bonus | heuristic in `agent.mcp.geo` |
+| Travel Time Estimator | Phase 2 ✅ | `travel_time_estimator_mcp` / `POST /mcp/travel_time` |
+| Weather Adjustment (Open-Meteo) | Phase 2 ✅ | `weather_adjustment_mcp` / `POST /mcp/weather` |
 
 ## Datasets
 
 - OpenStreetMap (Overpass API) — POIs (+ `data/jaipur_pois_seed.json` OSM-id fallback)
+- Open-Meteo — weather forecasts / rain-risk adjustments
 - Wikivoyage / Wikipedia — city tips (RAG) — Phase 3
-- Open-Meteo — weather (optional)
 
 ## Evaluations (planned — Phase 7)
 
@@ -163,6 +163,6 @@ python -m evals
 
 ## Current phase
 
-**Phase 2 complete:** POI Search + Itinerary Builder MCPs, LangChain tool wrappers, smoke test.
+**Phase 2 complete:** four MCP tools (POI Search, Itinerary Builder, Travel Time Estimator, Weather Adjustment), LangChain wrappers, smoke test.
 
 Next: **Phase 3** — RAG grounding (Wikivoyage/Wikipedia).
