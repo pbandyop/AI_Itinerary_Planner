@@ -1,0 +1,167 @@
+[
+  {
+    "name": "Hawa Mahal",
+    "osm_type": "way",
+    "osm_id": 159621166,
+    "lat": 26.9239,
+    "lon": 75.8267,
+    "category": "heritage",
+    "tags": { "historic": "monument", "tourism": "attraction", "wikipedia": "en:Hawa Mahal" },
+    "rank_score": 9.5,
+    "matched_interests": ["culture", "heritage"]
+  },
+  {
+    "name": "City Palace",
+    "osm_type": "relation",
+    "osm_id": 2319806,
+    "lat": 26.9258,
+    "lon": 75.8236,
+    "category": "heritage",
+    "tags": { "historic": "palace", "tourism": "attraction", "wikipedia": "en:City Palace, Jaipur" },
+    "rank_score": 9.4,
+    "matched_interests": ["culture", "heritage"]
+  },
+  {
+    "name": "Jantar Mantar",
+    "osm_type": "way",
+    "osm_id": 159621200,
+    "lat": 26.9248,
+    "lon": 75.8246,
+    "category": "heritage",
+    "tags": { "historic": "yes", "tourism": "attraction", "wikipedia": "en:Jantar Mantar, Jaipur" },
+    "rank_score": 9.2,
+    "matched_interests": ["culture", "heritage"]
+  },
+  {
+    "name": "Amber Fort",
+    "osm_type": "way",
+    "osm_id": 246908001,
+    "lat": 26.9855,
+    "lon": 75.8513,
+    "category": "heritage",
+    "tags": { "historic": "castle", "tourism": "attraction", "wikipedia": "en:Amber Fort" },
+    "rank_score": 9.6,
+    "matched_interests": ["culture", "heritage"]
+  },
+  {
+    "name": "Jal Mahal",
+    "osm_type": "way",
+    "osm_id": 159650001,
+    "lat": 26.9539,
+    "lon": 75.8463,
+    "category": "viewpoint",
+    "tags": { "tourism": "attraction", "wikipedia": "en:Jal Mahal" },
+    "rank_score": 8.0,
+    "matched_interests": ["culture"]
+  },
+  {
+    "name": "Albert Hall Museum",
+    "osm_type": "way",
+    "osm_id": 159650010,
+    "lat": 26.9117,
+    "lon": 75.8197,
+    "category": "museum",
+    "tags": { "tourism": "museum", "wikipedia": "en:Albert Hall Museum" },
+    "rank_score": 8.5,
+    "matched_interests": ["culture"]
+  },
+  {
+    "name": "Nahargarh Fort",
+    "osm_type": "way",
+    "osm_id": 159650020,
+    "lat": 26.9373,
+    "lon": 75.8155,
+    "category": "heritage",
+    "tags": { "historic": "castle", "tourism": "attraction", "wikipedia": "en:Nahargarh Fort" },
+    "rank_score": 8.8,
+    "matched_interests": ["heritage", "culture"]
+  },
+  {
+    "name": "Birla Mandir",
+    "osm_type": "way",
+    "osm_id": 159650030,
+    "lat": 26.8923,
+    "lon": 75.8155,
+    "category": "temple",
+    "tags": { "amenity": "place_of_worship", "tourism": "attraction" },
+    "rank_score": 7.5,
+    "matched_interests": ["culture"]
+  },
+  {
+    "name": "Johari Bazaar",
+    "osm_type": "way",
+    "osm_id": 159650040,
+    "lat": 26.9192,
+    "lon": 75.8269,
+    "category": "market",
+    "tags": { "highway": "pedestrian" },
+    "rank_score": 7.8,
+    "matched_interests": ["shopping", "culture"]
+  },
+  {
+    "name": "Bapu Bazaar",
+    "osm_type": "way",
+    "osm_id": 159650050,
+    "lat": 26.9168,
+    "lon": 75.8189,
+    "category": "market",
+    "tags": {},
+    "rank_score": 7.2,
+    "matched_interests": ["shopping"]
+  },
+  {
+    "name": "Laxmi Misthan Bhandar",
+    "osm_type": "node",
+    "osm_id": 4123456789,
+    "lat": 26.9215,
+    "lon": 75.8251,
+    "category": "food",
+    "tags": { "amenity": "restaurant", "cuisine": "rajasthani" },
+    "rank_score": 8.1,
+    "matched_interests": ["food"]
+  },
+  {
+    "name": "Rawat Misthan Bhandar",
+    "osm_type": "node",
+    "osm_id": 4123456793,
+    "lat": 26.9175,
+    "lon": 75.8142,
+    "category": "food",
+    "tags": { "amenity": "restaurant" },
+    "rank_score": 7.9,
+    "matched_interests": ["food"]
+  },
+  {
+    "name": "Chokhi Dhani",
+    "osm_type": "node",
+    "osm_id": 4123456791,
+    "lat": 26.7665,
+    "lon": 75.8372,
+    "category": "food",
+    "tags": { "tourism": "theme_park" },
+    "rank_score": 7.6,
+    "matched_interests": ["food", "culture"]
+  },
+  {
+    "name": "Patrika Gate",
+    "osm_type": "node",
+    "osm_id": 4123456792,
+    "lat": 26.8401,
+    "lon": 75.8012,
+    "category": "attraction",
+    "tags": { "tourism": "attraction" },
+    "rank_score": 6.5,
+    "matched_interests": ["culture"]
+  },
+  {
+    "name": "Central Park Jaipur",
+    "osm_type": "way",
+    "osm_id": 159650060,
+    "lat": 26.9052,
+    "lon": 75.8085,
+    "category": "park",
+    "tags": { "leisure": "park" },
+    "rank_score": 6.0,
+    "matched_interests": ["nature"]
+  }
+]

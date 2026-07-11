@@ -150,25 +150,25 @@ Shared **LangGraph state** holds: user message, intent, trip slots, specialist o
 **Goal:** Required MCP integration; wrap as **LangChain tools** for specialist nodes.
 
 ### 2a — POI Search MCP
-- [ ] Implement Overpass (OpenStreetMap) queries for Jaipur POIs
-- [ ] Inputs: city, interests, constraints
-- [ ] Outputs: ranked POIs with metadata + **stable OSM ids**
-- [ ] Handle missing/empty results honestly
+- [x] Implement Overpass (OpenStreetMap) queries for Jaipur POIs
+- [x] Inputs: city, interests, constraints
+- [x] Outputs: ranked POIs with metadata + **stable OSM ids**
+- [x] Handle missing/empty results honestly
 
 ### 2b — Itinerary Builder MCP
-- [ ] Inputs: candidate POIs, daily time windows, pace
-- [ ] Outputs: day-wise structure matching Phase 1 schema
-- [ ] Heuristic travel times; respect pace
+- [x] Inputs: candidate POIs, daily time windows, pace
+- [x] Outputs: day-wise structure matching Phase 1 schema
+- [x] Heuristic travel times; respect pace
 
 ### 2c — LangChain tool wrappers + smoke test
-- [ ] Expose each MCP as a LangChain `@tool` / StructuredTool
-- [ ] Call tools directly (no full graph yet) → validated partial JSON
-- [ ] Log tool/MCP traces for demo
+- [x] Expose each MCP as a LangChain `@tool` / StructuredTool
+- [x] Call tools directly (no full graph yet) → validated partial JSON
+- [x] Log tool/MCP traces for demo
 
 ### Exit criteria
-- Both MCPs work and are callable as LangChain tools
-- OSM ids present on every POI
-- Tool traces visible in logs
+- [x] Both MCPs work and are callable as LangChain tools
+- [x] OSM ids present on every POI
+- [x] Tool traces visible in logs
 
 ### Bonus (defer unless Phase 2 finishes early)
 - Travel Time Estimator MCP
@@ -411,4 +411,4 @@ Never cut Phase 1, 2, 3, or 7. Phase 4 is the longest build block because of Lan
 
 ## Next immediate action
 
-Phase 0–1 are done. Next: **Phase 2a** — implement POI Search MCP (Overpass) and wrap it as a LangChain tool.
+Phase 0–2 are done. Next: **Phase 3** — Wikivoyage/Wikipedia RAG with LangChain retriever + citations.

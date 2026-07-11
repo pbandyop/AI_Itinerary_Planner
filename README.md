@@ -89,6 +89,16 @@ Or HTTP API:
 python -m agent.main --serve
 # GET  http://localhost:8000/health
 # POST http://localhost:8000/invoke
+# GET  http://localhost:8000/mcp/tools
+# POST http://localhost:8000/mcp/poi_search
+# POST http://localhost:8000/mcp/itinerary_builder
+```
+
+MCP smoke test:
+
+```bash
+python -m agent.smoke_mcp --interests food culture --days 3 --pace relaxed
+python -m agent.smoke_mcp --no-overpass   # seed-only / offline
 ```
 
 ### 3. Web app
@@ -101,19 +111,19 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-## MCP tools (planned)
+## MCP tools
 
-| MCP | Status |
-|-----|--------|
-| POI Search (OpenStreetMap / Overpass) | Phase 2 |
-| Itinerary Builder | Phase 2 |
-| Weather Adjustment (Open-Meteo) | Optional bonus |
-| Travel Time Estimator | Optional bonus |
+| MCP | Status | Call |
+|-----|--------|------|
+| POI Search (OpenStreetMap / Overpass) | Phase 2 ✅ | `poi_search_mcp` / `POST /mcp/poi_search` |
+| Itinerary Builder | Phase 2 ✅ | `itinerary_builder_mcp` / `POST /mcp/itinerary_builder` |
+| Weather Adjustment (Open-Meteo) | Optional bonus | — |
+| Travel Time Estimator | Optional bonus | heuristic in `agent.mcp.geo` |
 
-## Datasets (planned)
+## Datasets
 
-- OpenStreetMap (Overpass API) — POIs
-- Wikivoyage / Wikipedia — city tips (RAG)
+- OpenStreetMap (Overpass API) — POIs (+ `data/jaipur_pois_seed.json` OSM-id fallback)
+- Wikivoyage / Wikipedia — city tips (RAG) — Phase 3
 - Open-Meteo — weather (optional)
 
 ## Evaluations (planned — Phase 7)
@@ -153,6 +163,6 @@ python -m evals
 
 ## Current phase
 
-**Phase 1 complete:** itinerary JSON + LangGraph `GraphState`, golden Jaipur fixtures, validation helpers, eval stubs.
+**Phase 2 complete:** POI Search + Itinerary Builder MCPs, LangChain tool wrappers, smoke test.
 
-Next: **Phase 2** — POI Search + Itinerary Builder MCP tools (LangChain wrappers).
+Next: **Phase 3** — RAG grounding (Wikivoyage/Wikipedia).

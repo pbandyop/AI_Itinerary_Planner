@@ -1,6 +1,6 @@
 # AI Itinerary Planner — Agent Service
 
-Phase 1: shared itinerary + `GraphState` schemas; LangGraph stub still `START → orchestrator → END`.
+Phase 2: POI Search + Itinerary Builder MCPs (LangChain tools). LangGraph stub remains `START → orchestrator → END` until Phase 4.
 
 See [`docs/schema.md`](../../docs/schema.md).
 
@@ -26,10 +26,22 @@ pip install -e .
 python -m agent.main "Plan a 3-day trip to Jaipur"
 ```
 
-## Run HTTP API
+## MCP smoke test (Phase 2)
+
+```bash
+python -m agent.smoke_mcp --interests food culture --days 3
+python -m agent.smoke_mcp --no-overpass
+python -m agent.main --smoke-mcp
+```
+
+## HTTP API
 
 ```bash
 python -m agent.main --serve
-# GET  http://localhost:8000/health
-# POST http://localhost:8000/invoke  {"user_message":"..."}
 ```
+
+- `GET /health`
+- `GET /mcp/tools`
+- `POST /mcp/poi_search`
+- `POST /mcp/itinerary_builder`
+- `POST /invoke`
