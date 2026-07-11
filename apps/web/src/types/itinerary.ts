@@ -48,7 +48,8 @@ export interface DayPlan {
 }
 
 export interface TripConstraints {
-  city: "Jaipur";
+  city: string; // Indian city from data/india_cities.json
+  country: "India";
   num_days: 2 | 3 | 4;
   start_date?: string | null;
   end_date?: string | null;

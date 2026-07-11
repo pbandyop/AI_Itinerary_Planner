@@ -13,6 +13,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
 from agent.graph import app as graph_app
+from agent.mcp.geo import list_india_city_names
 from agent.mcp.itinerary_builder import build_itinerary
 from agent.mcp.poi_search import poi_search
 from agent.mcp.travel_time import estimate_travel_times
@@ -47,7 +48,7 @@ class InvokeResponse(BaseModel):
 
 
 class POISearchRequest(BaseModel):
-    city: Literal["Jaipur"] = "Jaipur"
+    city: str = "Jaipur"
     interests: list[str] = Field(default_factory=lambda: ["food", "culture"])
     constraints: list[str] = Field(default_factory=list)
     limit: int = Field(default=30, ge=5, le=80)
@@ -60,6 +61,7 @@ class ItineraryBuilderRequest(BaseModel):
     pace: Pace = "relaxed"
     daily_time_window_min: int = Field(default=540, ge=180, le=840)
     interests: list[str] = Field(default_factory=list)
+    city: str = "Jaipur"
 
 
 class TravelTimeRequest(BaseModel):
@@ -69,7 +71,7 @@ class TravelTimeRequest(BaseModel):
 
 
 class WeatherRequest(BaseModel):
-    city: Literal["Jaipur"] = "Jaipur"
+    city: str = "Jaipur"
     start_date: str | None = None
     num_days: int = Field(default=3, ge=2, le=4)
 
@@ -89,6 +91,17 @@ def health() -> dict[str, Any]:
 @api.get("/schema/itinerary")
 def itinerary_schema() -> dict[str, Any]:
     return itinerary_to_json_schema()
+
+
+@api.get("/mcp/cities")
+def mcp_cities() -> dict[str, Any]:
+    names = list_india_city_names()
+    return {
+        "country": "India",
+        "count": len(names),
+        "cities": names,
+        "notes": "One city per trip. POIs via Overpass bbox; optional seeds in data/pois/.",
+    }
 
 
 @api.get("/mcp/tools")
@@ -122,6 +135,7 @@ def mcp_itinerary_builder(body: ItineraryBuilderRequest) -> dict[str, Any]:
         pace=body.pace,
         daily_time_window_min=body.daily_time_window_min,
         interests=body.interests,
+        city=body.city,
     )
     return draft.model_dump(mode="json")
 

@@ -104,7 +104,12 @@ class DayPlan(BaseModel):
 class TripConstraints(BaseModel):
     """User preferences collected / confirmed by the Orchestrator."""
 
-    city: Literal["Jaipur"] = "Jaipur"
+    city: str = Field(
+        ...,
+        min_length=2,
+        description="Indian city from data/india_cities.json (one city per trip).",
+    )
+    country: Literal["India"] = "India"
     num_days: int = Field(..., ge=2, le=4)
     start_date: date | None = None
     end_date: date | None = None
@@ -121,6 +126,18 @@ class TripConstraints(BaseModel):
         description="Available activity minutes per day (default 9h).",
     )
     confirmed: bool = False
+
+    @field_validator("city")
+    @classmethod
+    def _normalize_city(cls, value: str) -> str:
+        from agent.mcp.geo import resolve_city
+
+        info = resolve_city(value)
+        if info is None:
+            raise ValueError(
+                f"City {value!r} is not in the India catalog (data/india_cities.json)."
+            )
+        return info.name
 
     @field_validator("interests")
     @classmethod

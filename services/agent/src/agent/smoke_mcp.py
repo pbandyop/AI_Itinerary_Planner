@@ -46,19 +46,22 @@ def _first_day_points(draft_payload: dict) -> list[dict]:
 
 def run_smoke(
     *,
+    city: str,
     interests: list[str],
     num_days: int,
     pace: str,
     use_tools: bool,
     use_overpass: bool,
 ) -> int:
-    print("=== Phase 2 MCP smoke test (4 tools) ===")
-    print(f"interests={interests} days={num_days} pace={pace} tools={use_tools}")
+    print("=== Phase 2 MCP smoke test (4 tools, India) ===")
+    print(
+        f"city={city} interests={interests} days={num_days} pace={pace} tools={use_tools}"
+    )
 
     if use_tools:
         poi_raw = poi_search_tool.invoke(
             {
-                "city": "Jaipur",
+                "city": city,
                 "interests": interests,
                 "constraints": [],
                 "limit": 30,
@@ -67,7 +70,8 @@ def run_smoke(
         )
         poi_payload = json.loads(poi_raw)
         print(
-            f"\n[poi_search_mcp] pois={len(poi_payload.get('pois', []))} "
+            f"\n[poi_search_mcp] city={poi_payload.get('city')} "
+            f"pois={len(poi_payload.get('pois', []))} "
             f"missing_data={poi_payload.get('missing_data')}"
         )
         for p in poi_payload.get("pois", [])[:5]:
@@ -83,6 +87,7 @@ def run_smoke(
                 "pace": pace,
                 "daily_time_window_min": 540,
                 "interests": interests,
+                "city": city,
             }
         )
         draft_payload = json.loads(draft_raw)
@@ -94,17 +99,18 @@ def run_smoke(
         travel_payload = json.loads(travel_raw)
 
         weather_raw = weather_tool.invoke(
-            {"city": "Jaipur", "start_date": None, "num_days": num_days}
+            {"city": city, "start_date": None, "num_days": num_days}
         )
         weather_payload = json.loads(weather_raw)
     else:
         poi_result = poi_search(
+            city=city,
             interests=interests,
             limit=30,
             use_overpass=use_overpass,
         )
         print(
-            f"\n[poi_search] pois={len(poi_result.pois)} "
+            f"\n[poi_search] city={poi_result.city} pois={len(poi_result.pois)} "
             f"missing_data={poi_result.missing_data}"
         )
         draft = build_itinerary(
@@ -112,6 +118,7 @@ def run_smoke(
             num_days=num_days,
             pace=pace,  # type: ignore[arg-type]
             interests=interests,
+            city=city,
         )
         draft_payload = draft.model_dump(mode="json")
         poi_payload = poi_result.model_dump(mode="json")
@@ -120,7 +127,7 @@ def run_smoke(
             mode="json"
         )
         weather_payload = weather_adjustment(
-            city="Jaipur", num_days=num_days
+            city=city, num_days=num_days
         ).model_dump(mode="json")
 
     print(
@@ -150,7 +157,8 @@ def run_smoke(
         )
 
     trip = TripConstraints(
-        city="Jaipur",
+        city=city,
+        country="India",
         num_days=num_days,
         interests=interests,
         pace=pace,  # type: ignore[arg-type]
@@ -218,6 +226,7 @@ def run_smoke(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Smoke test Phase 2 MCP tools")
+    parser.add_argument("--city", default="Jaipur", help="Indian city from catalog")
     parser.add_argument("--interests", nargs="*", default=["food", "culture"])
     parser.add_argument("--days", type=int, default=3)
     parser.add_argument(
@@ -231,6 +240,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     return run_smoke(
+        city=args.city,
         interests=args.interests,
         num_days=args.days,
         pace=args.pace,

@@ -2,7 +2,7 @@
 
 **Project:** Graduation Capstone (Applied Generative AI Bootcamp)  
 **Deadline:** Jul 25, 2026  
-**Scope:** One city (Jaipur), 2–4 day itineraries  
+**Scope:** India-wide (any city in `data/india_cities.json`), **one city per trip**, 2–4 day itineraries  
 **Architecture:** Multi-agent pipeline on **LangGraph** — Orchestrator (with safety gate) → specialist agents (MCP/RAG via LangChain tools) → Merger → Reviewer — plus voice UX and n8n PDF/email
 
 This plan is derived from `docs/problemStatement.md` and the design decisions agreed during brainstorming. Build in order; do not skip ahead to UI/voice until the itinerary contract and MCP loop are solid.
@@ -82,6 +82,19 @@ START → orchestrator
 
 Shared **LangGraph state** holds: user message, intent, trip slots, specialist outputs (`poi_results`, `itinerary_draft`, `knowledge_results`, `travel_time_results`, `weather_results`), merged itinerary, previous itinerary (for edits), reviewer verdict, `revision_count`, sources, and the user-facing reply.
 
+### Data (India)
+
+| Asset | Path | Role |
+|-------|------|------|
+| City catalog | `data/india_cities.json` | ~130 Indian cities with lat/lon/bbox/aliases |
+| POI seeds | `data/pois/<city_slug>.json` | Optional OSM-id fallbacks (Jaipur, Delhi, Mumbai, Bengaluru, Agra, …) |
+| Legacy seed | `data/jaipur_pois_seed.json` | Kept for compatibility; prefer `data/pois/jaipur.json` |
+| Docs | `data/README.md` | How to add cities / seeds |
+
+**Resolution order for POIs:** India catalog city → Overpass bbox query → merge city seed if sparse → else `missing_data=true`.  
+**Weather:** Open-Meteo at the city’s coordinates.  
+**Constraint:** country is always India; one city per itinerary.
+
 **Rubric focus (effort allocation):**
 
 | Area | Weight | Plan emphasis |
@@ -108,7 +121,7 @@ Shared **LangGraph state** holds: user message, intent, trip slots, specialist o
   - **Next.js** companion UI + STT (Browser Web Speech API; Whisper optional)
   - Agent service: **Python + langgraph** (locked)
   - Local/simple vector store for RAG (LangChain-compatible) — Phase 3
-- [x] Freeze scope: **Jaipur only**, **2–4 days**, heuristic travel times OK
+- [x] Freeze scope: **India** (catalog cities), **one city per trip**, **2–4 days**, heuristic travel times OK
 - [x] Create `.env.example` (LLM keys, n8n webhook, Overpass if needed)
 - [x] Draft README skeleton (architecture diagram, LangGraph nodes, MCP list, datasets, evals)
 
@@ -124,7 +137,7 @@ Shared **LangGraph state** holds: user message, intent, trip slots, specialist o
 
 ### Tasks
 - [x] Define itinerary types / JSON Schema:
-  - Trip metadata: city, dates/window, interests, pace, constraints, confirmed flags
+  - Trip metadata: city (India catalog), country=`India`, dates/window, interests, pace, constraints, confirmed flags
   - Day → Morning / Afternoon / Evening blocks
   - Stop: name, OSM id, lat/lon, category, duration_min, travel_to_next_min, reason, citations[], uncertainty?
   - Sources list (dataset + URL/title)
@@ -138,7 +151,7 @@ Shared **LangGraph state** holds: user message, intent, trip slots, specialist o
   - `merged_itinerary`, `previous_itinerary`
   - `reviewer_verdict`, `revision_count`
   - `user_reply`, `sources`
-- [x] Write 1–2 **golden sample itineraries** (hand-authored JSON) for Jaipur
+- [x] Write 1–2 **golden sample itineraries** (hand-authored JSON) for Jaipur (India)
 - [x] Add schema validation used by Merger, Reviewer, API, and evals
 - [x] Stub empty eval runners that load golden JSON
 
@@ -154,10 +167,10 @@ Shared **LangGraph state** holds: user message, intent, trip slots, specialist o
 **Goal:** Required + bonus MCP integration; wrap as **LangChain tools** for specialist nodes.
 
 ### 2a — POI Search MCP
-- [x] Implement Overpass (OpenStreetMap) queries for Jaipur POIs
-- [x] Inputs: city, interests, constraints
+- [x] Implement Overpass (OpenStreetMap) queries for **Indian cities** (bbox from `data/india_cities.json`)
+- [x] Inputs: city (India catalog), interests, constraints
 - [x] Outputs: ranked POIs with metadata + **stable OSM ids**
-- [x] Handle missing/empty results honestly
+- [x] Handle missing/empty results honestly; optional per-city seeds in `data/pois/`
 
 ### 2b — Itinerary Builder MCP
 - [x] Inputs: candidate POIs, daily time windows, pace
@@ -171,7 +184,7 @@ Shared **LangGraph state** holds: user message, intent, trip slots, specialist o
 - [x] LangChain tool: `travel_time_estimator_mcp` · HTTP: `POST /mcp/travel_time`
 
 ### 2d — Weather Adjustment MCP (Open-Meteo)
-- [x] Inputs: city (Jaipur), start_date, num_days
+- [x] Inputs: city (India catalog), start_date, num_days
 - [x] Outputs: daily forecast, rain_risk, indoor/outdoor `adjustments[]`
 - [x] Supports “What if it rains?” grounded in Open-Meteo (state missing data if API fails)
 - [x] LangChain tool: `weather_adjustment_mcp` · HTTP: `POST /mcp/weather`
@@ -203,7 +216,7 @@ Shared **LangGraph state** holds: user message, intent, trip slots, specialist o
 **Goal:** Cited city guidance via a LangChain retriever; owned later by the Knowledge Agent node.
 
 ### Tasks
-- [ ] Collect Wikivoyage / Wikipedia content for Jaipur
+- [ ] Collect Wikivoyage / Wikipedia content for major Indian cities (start with trip city; expand corpus over time)
 - [ ] Chunk + embed; store in a LangChain-compatible vector store
 - [ ] Build retriever used by Knowledge Agent for planning context and “why / doable / rain” answers
 - [ ] Citation objects: title, URL/source id, snippet
@@ -419,7 +432,8 @@ Never cut Phase 1, 2, 3, or 7. Phase 4 is the longest build block because of Lan
 
 ## Explicit non-goals (protect scope)
 
-- Multi-city support
+- Multi-city itineraries in a **single** trip (one Indian city per plan)
+- Countries outside India
 - Perfect real-time transit routing
 - Highly polished marketing UI
 - More than 4 days per trip
@@ -429,6 +443,7 @@ Never cut Phase 1, 2, 3, or 7. Phase 4 is the longest build block because of Lan
 - Reviewer inventing POIs or calling MCPs
 - Merger inventing facts not present in specialist outputs
 - Unbounded Reviewer→Orchestrator loops (hard cap at 1–2)
+- Shipping a full offline dump of every OSM POI in India (live Overpass + selective seeds instead)
 
 ---
 

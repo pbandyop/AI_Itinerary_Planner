@@ -22,7 +22,8 @@ class POICandidate(BaseModel):
 
 
 class POISearchResult(BaseModel):
-    city: Literal["Jaipur"] = "Jaipur"
+    city: str
+    country: Literal["India"] = "India"
     query_interests: list[str] = Field(default_factory=list)
     pois: list[POICandidate] = Field(default_factory=list)
     missing_data: bool = False
@@ -88,7 +89,8 @@ class WeatherAdjustment(BaseModel):
 
 
 class WeatherResult(BaseModel):
-    city: Literal["Jaipur"] = "Jaipur"
+    city: str
+    country: Literal["India"] = "India"
     latitude: float
     longitude: float
     days: list[DayWeather] = Field(default_factory=list)

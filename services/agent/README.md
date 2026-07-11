@@ -40,7 +40,7 @@ python -m agent.main --smoke-mcp
 python -m agent.main --serve
 ```
 
-- `GET /health`
+- `GET /mcp/cities`
 - `GET /mcp/tools`
 - `POST /mcp/poi_search`
 - `POST /mcp/itinerary_builder`

@@ -1,0 +1,68 @@
+[
+  {
+    "name": "Lalbagh Botanical Garden",
+    "osm_type": "way",
+    "osm_id": 246820001,
+    "lat": 12.9507,
+    "lon": 77.5848,
+    "category": "park",
+    "tags": { "leisure": "garden" },
+    "rank_score": 8.5,
+    "matched_interests": ["nature"]
+  },
+  {
+    "name": "Cubbon Park",
+    "osm_type": "way",
+    "osm_id": 246820002,
+    "lat": 12.9763,
+    "lon": 77.5929,
+    "category": "park",
+    "tags": { "leisure": "park" },
+    "rank_score": 8.2,
+    "matched_interests": ["nature"]
+  },
+  {
+    "name": "Bangalore Palace",
+    "osm_type": "way",
+    "osm_id": 246820003,
+    "lat": 12.9987,
+    "lon": 77.5920,
+    "category": "heritage",
+    "tags": { "historic": "palace", "tourism": "attraction" },
+    "rank_score": 8.8,
+    "matched_interests": ["heritage", "culture"]
+  },
+  {
+    "name": "Vidhana Soudha",
+    "osm_type": "way",
+    "osm_id": 246820004,
+    "lat": 12.9794,
+    "lon": 77.5908,
+    "category": "heritage",
+    "tags": { "tourism": "attraction" },
+    "rank_score": 8.0,
+    "matched_interests": ["culture"]
+  },
+  {
+    "name": "Commercial Street",
+    "osm_type": "way",
+    "osm_id": 246820005,
+    "lat": 12.9820,
+    "lon": 77.6080,
+    "category": "market",
+    "tags": {},
+    "rank_score": 7.5,
+    "matched_interests": ["shopping"]
+  },
+  {
+    "name": "ISKCON Temple Bengaluru",
+    "osm_type": "way",
+    "osm_id": 246820006,
+    "lat": 13.0098,
+    "lon": 77.5511,
+    "category": "temple",
+    "tags": { "amenity": "place_of_worship" },
+    "rank_score": 8.1,
+    "matched_interests": ["culture"]
+  }
+]

@@ -1,0 +1,90 @@
+[
+  {
+    "name": "India Gate",
+    "osm_type": "way",
+    "osm_id": 246800001,
+    "lat": 28.6129,
+    "lon": 77.2295,
+    "category": "heritage",
+    "tags": { "tourism": "attraction", "wikipedia": "en:India Gate" },
+    "rank_score": 9.5,
+    "matched_interests": ["culture", "heritage"]
+  },
+  {
+    "name": "Red Fort",
+    "osm_type": "way",
+    "osm_id": 246800002,
+    "lat": 28.6562,
+    "lon": 77.2410,
+    "category": "heritage",
+    "tags": { "historic": "castle", "wikipedia": "en:Red Fort" },
+    "rank_score": 9.6,
+    "matched_interests": ["culture", "heritage"]
+  },
+  {
+    "name": "Qutub Minar",
+    "osm_type": "way",
+    "osm_id": 246800003,
+    "lat": 28.5244,
+    "lon": 77.1855,
+    "category": "heritage",
+    "tags": { "historic": "monument", "wikipedia": "en:Qutb Minar" },
+    "rank_score": 9.4,
+    "matched_interests": ["heritage"]
+  },
+  {
+    "name": "Humayun's Tomb",
+    "osm_type": "way",
+    "osm_id": 246800004,
+    "lat": 28.5933,
+    "lon": 77.2507,
+    "category": "heritage",
+    "tags": { "historic": "tomb", "wikipedia": "en:Humayun's Tomb" },
+    "rank_score": 9.0,
+    "matched_interests": ["heritage", "culture"]
+  },
+  {
+    "name": "Lotus Temple",
+    "osm_type": "way",
+    "osm_id": 246800005,
+    "lat": 28.5535,
+    "lon": 77.2588,
+    "category": "temple",
+    "tags": { "tourism": "attraction" },
+    "rank_score": 8.5,
+    "matched_interests": ["culture"]
+  },
+  {
+    "name": "Chandni Chowk",
+    "osm_type": "way",
+    "osm_id": 246800006,
+    "lat": 28.6506,
+    "lon": 77.2303,
+    "category": "market",
+    "tags": {},
+    "rank_score": 8.2,
+    "matched_interests": ["food", "shopping"]
+  },
+  {
+    "name": "National Museum",
+    "osm_type": "way",
+    "osm_id": 246800007,
+    "lat": 28.6118,
+    "lon": 77.2190,
+    "category": "museum",
+    "tags": { "tourism": "museum" },
+    "rank_score": 8.0,
+    "matched_interests": ["culture"]
+  },
+  {
+    "name": "Connaught Place",
+    "osm_type": "node",
+    "osm_id": 4123400001,
+    "lat": 28.6315,
+    "lon": 77.2167,
+    "category": "market",
+    "tags": {},
+    "rank_score": 7.8,
+    "matched_interests": ["shopping", "food"]
+  }
+]

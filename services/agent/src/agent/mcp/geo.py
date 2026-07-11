@@ -1,15 +1,116 @@
-"""Geo helpers for heuristic travel-time estimates."""
+"""India geography helpers — city catalog, bbox, and travel heuristics."""
 
 from __future__ import annotations
 
+import json
 import math
+from dataclasses import dataclass
+from functools import lru_cache
+from pathlib import Path
 
 
-# Approx Jaipur Old City center (City Palace area)
+@dataclass(frozen=True)
+class CityInfo:
+    name: str
+    state: str
+    lat: float
+    lon: float
+    bbox: tuple[float, float, float, float]  # south, west, north, east
+    aliases: tuple[str, ...] = ()
+
+    @property
+    def slug(self) -> str:
+        return (
+            self.name.lower()
+            .replace(" ", "_")
+            .replace(".", "")
+            .replace("'", "")
+        )
+
+
+def _repo_data_dir() -> Path:
+    # geo.py → mcp → agent → src → services/agent → repo
+    return Path(__file__).resolve().parents[5] / "data"
+
+
+@lru_cache(maxsize=1)
+def load_india_cities() -> dict[str, CityInfo]:
+    path = _repo_data_dir() / "india_cities.json"
+    if not path.exists():
+        return {}
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    cities: dict[str, CityInfo] = {}
+    for item in raw.get("cities", []):
+        info = CityInfo(
+            name=item["name"],
+            state=item.get("state", ""),
+            lat=float(item["lat"]),
+            lon=float(item["lon"]),
+            bbox=(
+                float(item["bbox"][0]),
+                float(item["bbox"][1]),
+                float(item["bbox"][2]),
+                float(item["bbox"][3]),
+            ),
+            aliases=tuple(item.get("aliases") or []),
+        )
+        cities[info.name.lower()] = info
+        for alias in info.aliases:
+            cities[alias.lower()] = info
+    return cities
+
+
+def list_india_city_names() -> list[str]:
+    seen: set[str] = set()
+    names: list[str] = []
+    for info in load_india_cities().values():
+        if info.name not in seen:
+            seen.add(info.name)
+            names.append(info.name)
+    return sorted(names)
+
+
+def resolve_city(name: str) -> CityInfo | None:
+    """Resolve an Indian city by name or alias (case-insensitive)."""
+    if not name or not name.strip():
+        return None
+    key = name.strip().lower()
+    cities = load_india_cities()
+    if key in cities:
+        return cities[key]
+    # Soft contains match (e.g. "New Delhi" vs "Delhi")
+    for info in cities.values():
+        if key in info.name.lower() or info.name.lower() in key:
+            return info
+        for alias in info.aliases:
+            if key in alias.lower() or alias.lower() in key:
+                return info
+    return None
+
+
+def is_supported_indian_city(name: str) -> bool:
+    return resolve_city(name) is not None
+
+
+def city_center(name: str) -> tuple[float, float]:
+    info = resolve_city(name)
+    if info:
+        return info.lat, info.lon
+    # Geographic center-ish fallback for India if unknown
+    return 22.0, 79.0
+
+
+def city_bbox(name: str) -> tuple[float, float, float, float]:
+    info = resolve_city(name)
+    if info:
+        return info.bbox
+    # Broad India mainland fallback (last resort)
+    return (8.0, 68.0, 37.0, 97.5)
+
+
+# Back-compat aliases used by older modules
 JAIPUR_CENTER = (26.9258, 75.8236)
-
-# Rough Jaipur bounding box for Overpass
-JAIPUR_BBOX = (26.78, 75.70, 27.05, 75.95)  # south, west, north, east
+JAIPUR_BBOX = (26.78, 75.70, 27.05, 75.95)
 
 
 def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -34,7 +135,5 @@ def estimate_travel_minutes(
         return 20
     km = haversine_km(lat1, lon1, lat2, lon2)
     if mode == "walk":
-        # ~4.5 km/h + 3 min overhead
         return max(5, int(round(km / 4.5 * 60 + 3)))
-    # Mixed city traffic heuristic ~18 km/h effective + overhead
     return max(8, int(round(km / 18.0 * 60 + 5)))

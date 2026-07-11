@@ -1,0 +1,79 @@
+[
+  {
+    "name": "Gateway of India",
+    "osm_type": "way",
+    "osm_id": 246810001,
+    "lat": 18.9220,
+    "lon": 72.8347,
+    "category": "heritage",
+    "tags": { "tourism": "attraction", "wikipedia": "en:Gateway of India" },
+    "rank_score": 9.5,
+    "matched_interests": ["culture", "heritage"]
+  },
+  {
+    "name": "Chhatrapati Shivaji Maharaj Terminus",
+    "osm_type": "way",
+    "osm_id": 246810002,
+    "lat": 18.9398,
+    "lon": 72.8355,
+    "category": "heritage",
+    "tags": { "historic": "yes", "wikipedia": "en:Chhatrapati Shivaji Terminus" },
+    "rank_score": 9.2,
+    "matched_interests": ["heritage"]
+  },
+  {
+    "name": "Elephanta Caves ferry point",
+    "osm_type": "node",
+    "osm_id": 4123410001,
+    "lat": 18.9217,
+    "lon": 72.8342,
+    "category": "attraction",
+    "tags": { "tourism": "attraction" },
+    "rank_score": 8.5,
+    "matched_interests": ["culture", "heritage"]
+  },
+  {
+    "name": "Marine Drive",
+    "osm_type": "way",
+    "osm_id": 246810003,
+    "lat": 18.9432,
+    "lon": 72.8235,
+    "category": "viewpoint",
+    "tags": { "tourism": "attraction" },
+    "rank_score": 8.8,
+    "matched_interests": ["culture"]
+  },
+  {
+    "name": "Colaba Causeway",
+    "osm_type": "way",
+    "osm_id": 246810004,
+    "lat": 18.9140,
+    "lon": 72.8270,
+    "category": "market",
+    "tags": {},
+    "rank_score": 7.9,
+    "matched_interests": ["shopping", "food"]
+  },
+  {
+    "name": "Siddhivinayak Temple",
+    "osm_type": "way",
+    "osm_id": 246810005,
+    "lat": 19.0169,
+    "lon": 72.8309,
+    "category": "temple",
+    "tags": { "amenity": "place_of_worship" },
+    "rank_score": 8.3,
+    "matched_interests": ["culture"]
+  },
+  {
+    "name": "Chhatrapati Shivaji Maharaj Vastu Sangrahalaya",
+    "osm_type": "way",
+    "osm_id": 246810006,
+    "lat": 18.9267,
+    "lon": 72.8322,
+    "category": "museum",
+    "tags": { "tourism": "museum" },
+    "rank_score": 8.4,
+    "matched_interests": ["culture"]
+  }
+]

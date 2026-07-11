@@ -20,7 +20,10 @@ logger = logging.getLogger(__name__)
 
 
 class POISearchInput(BaseModel):
-    city: str = Field(default="Jaipur", description="City to search (Jaipur only)")
+    city: str = Field(
+        default="Jaipur",
+        description="Indian city from data/india_cities.json",
+    )
     interests: list[str] = Field(
         default_factory=lambda: ["food", "culture"],
         description="Traveler interests e.g. food, culture, heritage",
@@ -45,6 +48,7 @@ class ItineraryBuilderInput(BaseModel):
     pace: Pace = Field(default="relaxed")
     daily_time_window_min: int = Field(default=540, ge=180, le=840)
     interests: list[str] = Field(default_factory=list)
+    city: str = Field(default="Jaipur", description="Indian city for travel clustering")
 
 
 class TravelTimeInput(BaseModel):
@@ -78,9 +82,9 @@ def _poi_search_tool(
         limit,
         use_overpass,
     )
-    city_arg = "Jaipur" if city.lower() == "jaipur" else city
+    city_arg = city.strip()
     result = poi_search(
-        city=city_arg,  # type: ignore[arg-type]
+        city=city_arg,
         interests=interests,
         constraints=constraints,
         limit=limit,
@@ -101,9 +105,11 @@ def _itinerary_builder_tool(
     pace: Pace = "relaxed",
     daily_time_window_min: int = 540,
     interests: list[str] | None = None,
+    city: str = "Jaipur",
 ) -> str:
     logger.info(
-        "TOOL itinerary_builder_mcp days=%s pace=%s window=%s",
+        "TOOL itinerary_builder_mcp city=%s days=%s pace=%s window=%s",
+        city,
         num_days,
         pace,
         daily_time_window_min,
@@ -116,6 +122,7 @@ def _itinerary_builder_tool(
         pace=pace,
         daily_time_window_min=daily_time_window_min,
         interests=interests or [],
+        city=city,
     )
     logger.info(
         "TOOL itinerary_builder_mcp → %d days missing_data=%s",
@@ -149,9 +156,9 @@ def _weather_tool(
         start_date,
         num_days,
     )
-    city_arg = "Jaipur" if city.lower() == "jaipur" else city
+    city_arg = city.strip()
     result = weather_adjustment(
-        city=city_arg,  # type: ignore[arg-type]
+        city=city_arg,
         start_date=start_date,
         num_days=num_days,
     )
@@ -167,8 +174,9 @@ def _weather_tool(
 poi_search_tool = StructuredTool.from_function(
     name="poi_search_mcp",
     description=(
-        "POI Search MCP: find Jaipur points of interest from OpenStreetMap "
-        "(Overpass). Returns ranked POIs with stable osm_type/osm_id."
+        "POI Search MCP: find points of interest in an Indian city from OpenStreetMap "
+        "(Overpass). City must be in data/india_cities.json. Returns ranked POIs with "
+        "stable osm_type/osm_id."
     ),
     func=_poi_search_tool,
     args_schema=POISearchInput,
@@ -178,7 +186,7 @@ itinerary_builder_tool = StructuredTool.from_function(
     name="itinerary_builder_mcp",
     description=(
         "Itinerary Builder MCP: pack candidate POIs into a day-wise "
-        "morning/afternoon/evening draft itinerary for Jaipur (2–4 days)."
+        "morning/afternoon/evening draft itinerary for one Indian city (2–4 days)."
     ),
     func=_itinerary_builder_tool,
     args_schema=ItineraryBuilderInput,
@@ -188,7 +196,7 @@ travel_time_tool = StructuredTool.from_function(
     name="travel_time_estimator_mcp",
     description=(
         "Travel Time Estimator MCP: heuristic travel minutes between ordered "
-        "Jaipur stops (haversine; walk or city mode). Not live transit."
+        "stops in an Indian city (haversine; walk or city mode). Not live transit."
     ),
     func=_travel_time_tool,
     args_schema=TravelTimeInput,
@@ -197,7 +205,7 @@ travel_time_tool = StructuredTool.from_function(
 weather_tool = StructuredTool.from_function(
     name="weather_adjustment_mcp",
     description=(
-        "Weather Adjustment MCP: Open-Meteo forecast for Jaipur with rain-risk "
+        "Weather Adjustment MCP: Open-Meteo forecast for an Indian city with rain-risk "
         "labels and indoor/outdoor adjustment suggestions (what if it rains?)."
     ),
     func=_weather_tool,

@@ -21,7 +21,7 @@ def orchestrator(state: GraphState) -> dict:
             "intent": "confirm",
             "user_reply": (
                 "I did not receive a trip request yet. "
-                "Say something like “Plan a 3-day trip to Jaipur.”"
+                "Say something like “Plan a 3-day trip to Jaipur” or another Indian city."
             ),
             "revision_count": revision_count,
         }
@@ -37,6 +37,7 @@ def orchestrator(state: GraphState) -> dict:
         "revision_count": revision_count,
         "trip_constraints": {
             "city": "Jaipur",
+            "country": "India",
             "num_days": 3,
             "interests": [],
             "pace": "relaxed",

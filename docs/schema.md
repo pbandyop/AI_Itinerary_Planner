@@ -8,7 +8,7 @@ Shared contracts used by Orchestrator, specialists, Merger, Reviewer, UI, PDF, a
 
 | Field | Description |
 |-------|-------------|
-| `trip` | City (Jaipur), `num_days` (2–4), interests, pace, constraints, `confirmed`, daily time window |
+| `trip` | Indian city (catalog), `country: India`, `num_days` (2–4), interests, pace, constraints, `confirmed`, daily time window |
 | `days[]` | `day_index` 1..N, optional `calendar_date`, with `morning` / `afternoon` / `evening` blocks |
 | `days[].*.stops[]` | Place visits with OSM id, duration, travel-to-next, reason, citations, uncertainty |
 | `sources[]` | Trip-level references for the UI Sources panel |

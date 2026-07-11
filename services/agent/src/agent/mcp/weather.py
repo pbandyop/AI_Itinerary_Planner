@@ -1,4 +1,4 @@
-"""Weather Adjustment MCP — Open-Meteo forecasts for Jaipur."""
+"""Weather Adjustment MCP — Open-Meteo forecasts for Indian cities."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from typing import Any, Literal
 
 import httpx
 
-from agent.mcp.geo import JAIPUR_CENTER
+from agent.mcp.geo import city_center, resolve_city
 from agent.schemas.specialists import DayWeather, WeatherAdjustment, WeatherResult
 
 logger = logging.getLogger(__name__)
@@ -154,31 +154,37 @@ def _build_adjustments(days: list[DayWeather]) -> list[WeatherAdjustment]:
 
 def weather_adjustment(
     *,
-    city: Literal["Jaipur"] = "Jaipur",
+    city: str = "Jaipur",
     start_date: str | None = None,
     num_days: int = 3,
     latitude: float | None = None,
     longitude: float | None = None,
 ) -> WeatherResult:
-    """MCP: fetch Jaipur forecast and propose indoor/outdoor adjustments."""
-    if city != "Jaipur":
+    """MCP: fetch India-city forecast and propose indoor/outdoor adjustments."""
+    info = resolve_city(city)
+    if info is None:
+        lat, lon = city_center(city)
         return WeatherResult(
-            city="Jaipur",
-            latitude=JAIPUR_CENTER[0],
-            longitude=JAIPUR_CENTER[1],
+            city=city,
+            latitude=lat,
+            longitude=lon,
             missing_data=True,
-            notes=f"Only Jaipur is supported; received city={city!r}.",
+            notes=(
+                f"City {city!r} is not in the India catalog "
+                "(data/india_cities.json). Weather unavailable."
+            ),
         )
 
-    lat = latitude if latitude is not None else JAIPUR_CENTER[0]
-    lon = longitude if longitude is not None else JAIPUR_CENTER[1]
+    canonical = info.name
+    lat = latitude if latitude is not None else info.lat
+    lon = longitude if longitude is not None else info.lon
     num_days = max(2, min(4, num_days))
 
     try:
         start = date.fromisoformat(start_date) if start_date else date.today()
     except ValueError:
         return WeatherResult(
-            city="Jaipur",
+            city=canonical,
             latitude=lat,
             longitude=lon,
             missing_data=True,
@@ -195,7 +201,7 @@ def weather_adjustment(
     except Exception as exc:  # noqa: BLE001
         logger.exception("Open-Meteo weather fetch failed")
         return WeatherResult(
-            city="Jaipur",
+            city=canonical,
             latitude=lat,
             longitude=lon,
             missing_data=True,
@@ -206,7 +212,7 @@ def weather_adjustment(
     times = daily.get("time") or []
     if not times:
         return WeatherResult(
-            city="Jaipur",
+            city=canonical,
             latitude=lat,
             longitude=lon,
             missing_data=True,
@@ -246,17 +252,21 @@ def weather_adjustment(
 
     adjustments = _build_adjustments(day_rows)
     logger.info(
-        "weather_mcp: %d days, risks=%s",
+        "weather_mcp city=%s: %d days, risks=%s",
+        canonical,
         len(day_rows),
         [d.rain_risk for d in day_rows],
     )
     return WeatherResult(
-        city="Jaipur",
+        city=canonical,
         latitude=lat,
         longitude=lon,
         days=day_rows,
         adjustments=adjustments,
         missing_data=False,
-        notes="Forecast from Open-Meteo (no API key). Use adjustments for 'what if it rains?' answers.",
+        notes=(
+            f"Forecast for {canonical}, India from Open-Meteo (no API key). "
+            "Use adjustments for 'what if it rains?' answers."
+        ),
         source="Open-Meteo",
     )

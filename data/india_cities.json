@@ -1,0 +1,1925 @@
+{
+  "country": "India",
+  "description": "Catalog of Indian cities/towns supported for trip planning. POIs are fetched live via Overpass within each city bbox; curated seeds under data/pois/ are fallbacks.",
+  "city_count": 132,
+  "cities": [
+    {
+      "name": "Agartala",
+      "state": "Tripura",
+      "country": "India",
+      "lat": 23.8315,
+      "lon": 91.2868,
+      "bbox": [
+        23.7115,
+        91.1668,
+        23.9515,
+        91.4068
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Agra",
+      "state": "Uttar Pradesh",
+      "country": "India",
+      "lat": 27.1767,
+      "lon": 78.0081,
+      "bbox": [
+        26.9767,
+        77.8081,
+        27.3767,
+        78.2081
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Ahmedabad",
+      "state": "Gujarat",
+      "country": "India",
+      "lat": 23.0225,
+      "lon": 72.5714,
+      "bbox": [
+        22.7725,
+        72.3214,
+        23.2725,
+        72.8214
+      ],
+      "aliases": [
+        "Amdavad"
+      ]
+    },
+    {
+      "name": "Aizawl",
+      "state": "Mizoram",
+      "country": "India",
+      "lat": 23.7271,
+      "lon": 92.7176,
+      "bbox": [
+        23.6071,
+        92.5976,
+        23.8471,
+        92.8376
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Ajmer",
+      "state": "Rajasthan",
+      "country": "India",
+      "lat": 26.4499,
+      "lon": 74.6399,
+      "bbox": [
+        26.2999,
+        74.4899,
+        26.5999,
+        74.7899
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Alappuzha",
+      "state": "Kerala",
+      "country": "India",
+      "lat": 9.4981,
+      "lon": 76.3388,
+      "bbox": [
+        9.3781,
+        76.2188,
+        9.6181,
+        76.4588
+      ],
+      "aliases": [
+        "Alleppey"
+      ]
+    },
+    {
+      "name": "Allahabad",
+      "state": "Uttar Pradesh",
+      "country": "India",
+      "lat": 25.4358,
+      "lon": 81.8463,
+      "bbox": [
+        25.2558,
+        81.6663,
+        25.6158,
+        82.0263
+      ],
+      "aliases": [
+        "Prayagraj"
+      ]
+    },
+    {
+      "name": "Alwar",
+      "state": "Rajasthan",
+      "country": "India",
+      "lat": 27.553,
+      "lon": 76.6346,
+      "bbox": [
+        27.433,
+        76.5146,
+        27.673,
+        76.7546
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Amravati",
+      "state": "Maharashtra",
+      "country": "India",
+      "lat": 20.9374,
+      "lon": 77.7796,
+      "bbox": [
+        20.8174,
+        77.6596,
+        21.0574,
+        77.8996
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Amritsar",
+      "state": "Punjab",
+      "country": "India",
+      "lat": 31.634,
+      "lon": 74.8723,
+      "bbox": [
+        31.454,
+        74.6923,
+        31.814,
+        75.0523
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Asansol",
+      "state": "West Bengal",
+      "country": "India",
+      "lat": 23.6739,
+      "lon": 86.9524,
+      "bbox": [
+        23.5539,
+        86.8324,
+        23.7939,
+        87.0724
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Aurangabad",
+      "state": "Maharashtra",
+      "country": "India",
+      "lat": 19.8762,
+      "lon": 75.3433,
+      "bbox": [
+        19.6962,
+        75.1633,
+        20.0562,
+        75.5233
+      ],
+      "aliases": [
+        "Chhatrapati Sambhajinagar"
+      ]
+    },
+    {
+      "name": "Ayodhya",
+      "state": "Uttar Pradesh",
+      "country": "India",
+      "lat": 26.7922,
+      "lon": 82.1998,
+      "bbox": [
+        26.6722,
+        82.0798,
+        26.9122,
+        82.3198
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Belagavi",
+      "state": "Karnataka",
+      "country": "India",
+      "lat": 15.8497,
+      "lon": 74.4977,
+      "bbox": [
+        15.7297,
+        74.3777,
+        15.9697,
+        74.6177
+      ],
+      "aliases": [
+        "Belgaum"
+      ]
+    },
+    {
+      "name": "Bengaluru",
+      "state": "Karnataka",
+      "country": "India",
+      "lat": 12.9716,
+      "lon": 77.5946,
+      "bbox": [
+        12.6716,
+        77.2946,
+        13.2716,
+        77.8946
+      ],
+      "aliases": [
+        "Bangalore"
+      ]
+    },
+    {
+      "name": "Bharatpur",
+      "state": "Rajasthan",
+      "country": "India",
+      "lat": 27.2152,
+      "lon": 77.503,
+      "bbox": [
+        27.0952,
+        77.383,
+        27.3352,
+        77.623
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Bhopal",
+      "state": "Madhya Pradesh",
+      "country": "India",
+      "lat": 23.2599,
+      "lon": 77.4126,
+      "bbox": [
+        23.0599,
+        77.2126,
+        23.4599,
+        77.6126
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Bhubaneswar",
+      "state": "Odisha",
+      "country": "India",
+      "lat": 20.2961,
+      "lon": 85.8245,
+      "bbox": [
+        20.1161,
+        85.6445,
+        20.4761,
+        86.0045
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Bikaner",
+      "state": "Rajasthan",
+      "country": "India",
+      "lat": 28.0229,
+      "lon": 73.3119,
+      "bbox": [
+        27.8729,
+        73.1619,
+        28.1729,
+        73.4619
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Bodh Gaya",
+      "state": "Bihar",
+      "country": "India",
+      "lat": 24.6959,
+      "lon": 84.992,
+      "bbox": [
+        24.5959,
+        84.892,
+        24.7959,
+        85.092
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Chandigarh",
+      "state": "Chandigarh",
+      "country": "India",
+      "lat": 30.7333,
+      "lon": 76.7794,
+      "bbox": [
+        30.5833,
+        76.6294,
+        30.8833,
+        76.9294
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Chennai",
+      "state": "Tamil Nadu",
+      "country": "India",
+      "lat": 13.0827,
+      "lon": 80.2707,
+      "bbox": [
+        12.8027,
+        79.9907,
+        13.3627,
+        80.5507
+      ],
+      "aliases": [
+        "Madras"
+      ]
+    },
+    {
+      "name": "Chittorgarh",
+      "state": "Rajasthan",
+      "country": "India",
+      "lat": 24.8887,
+      "lon": 74.6269,
+      "bbox": [
+        24.7687,
+        74.5069,
+        25.0087,
+        74.7469
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Coimbatore",
+      "state": "Tamil Nadu",
+      "country": "India",
+      "lat": 11.0168,
+      "lon": 76.9558,
+      "bbox": [
+        10.8368,
+        76.7758,
+        11.1968,
+        77.1358
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Cuttack",
+      "state": "Odisha",
+      "country": "India",
+      "lat": 20.4625,
+      "lon": 85.883,
+      "bbox": [
+        20.3125,
+        85.733,
+        20.6125,
+        86.033
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Darjeeling",
+      "state": "West Bengal",
+      "country": "India",
+      "lat": 27.036,
+      "lon": 88.2627,
+      "bbox": [
+        26.936,
+        88.1627,
+        27.136,
+        88.3627
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Dehradun",
+      "state": "Uttarakhand",
+      "country": "India",
+      "lat": 30.3165,
+      "lon": 78.0322,
+      "bbox": [
+        30.1665,
+        77.8822,
+        30.4665,
+        78.1822
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Delhi",
+      "state": "Delhi",
+      "country": "India",
+      "lat": 28.6139,
+      "lon": 77.209,
+      "bbox": [
+        28.2639,
+        76.859,
+        28.9639,
+        77.559
+      ],
+      "aliases": [
+        "New Delhi",
+        "NCT Delhi"
+      ]
+    },
+    {
+      "name": "Dharamshala",
+      "state": "Himachal Pradesh",
+      "country": "India",
+      "lat": 32.219,
+      "lon": 76.3234,
+      "bbox": [
+        32.099,
+        76.2034,
+        32.339,
+        76.4434
+      ],
+      "aliases": [
+        "McLeod Ganj"
+      ]
+    },
+    {
+      "name": "Dispur",
+      "state": "Assam",
+      "country": "India",
+      "lat": 26.1433,
+      "lon": 91.7898,
+      "bbox": [
+        26.0433,
+        91.6898,
+        26.2433,
+        91.8898
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Durgapur",
+      "state": "West Bengal",
+      "country": "India",
+      "lat": 23.5204,
+      "lon": 87.3119,
+      "bbox": [
+        23.4004,
+        87.1919,
+        23.6404,
+        87.4319
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Ernakulam",
+      "state": "Kerala",
+      "country": "India",
+      "lat": 9.9816,
+      "lon": 76.2999,
+      "bbox": [
+        9.8316,
+        76.1499,
+        10.1316,
+        76.4499
+      ],
+      "aliases": [
+        "Kochi",
+        "Cochin"
+      ]
+    },
+    {
+      "name": "Erode",
+      "state": "Tamil Nadu",
+      "country": "India",
+      "lat": 11.341,
+      "lon": 77.7172,
+      "bbox": [
+        11.221,
+        77.5972,
+        11.461,
+        77.8372
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Faridabad",
+      "state": "Haryana",
+      "country": "India",
+      "lat": 28.4089,
+      "lon": 77.3178,
+      "bbox": [
+        28.2589,
+        77.1678,
+        28.5589,
+        77.4678
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Gandhinagar",
+      "state": "Gujarat",
+      "country": "India",
+      "lat": 23.2156,
+      "lon": 72.6369,
+      "bbox": [
+        23.0956,
+        72.5169,
+        23.3356,
+        72.7569
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Gangtok",
+      "state": "Sikkim",
+      "country": "India",
+      "lat": 27.3389,
+      "lon": 88.6065,
+      "bbox": [
+        27.2389,
+        88.5065,
+        27.4389,
+        88.7065
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Gaya",
+      "state": "Bihar",
+      "country": "India",
+      "lat": 24.7914,
+      "lon": 85.0002,
+      "bbox": [
+        24.6714,
+        84.8802,
+        24.9114,
+        85.1202
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Ghaziabad",
+      "state": "Uttar Pradesh",
+      "country": "India",
+      "lat": 28.6692,
+      "lon": 77.4538,
+      "bbox": [
+        28.5192,
+        77.3038,
+        28.8192,
+        77.6038
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Goa",
+      "state": "Goa",
+      "country": "India",
+      "lat": 15.4909,
+      "lon": 73.8278,
+      "bbox": [
+        15.1409,
+        73.4778,
+        15.8409,
+        74.1778
+      ],
+      "aliases": [
+        "Panaji",
+        "Panjim",
+        "North Goa",
+        "South Goa"
+      ]
+    },
+    {
+      "name": "Gorakhpur",
+      "state": "Uttar Pradesh",
+      "country": "India",
+      "lat": 26.7606,
+      "lon": 83.3732,
+      "bbox": [
+        26.6106,
+        83.2232,
+        26.9106,
+        83.5232
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Guntur",
+      "state": "Andhra Pradesh",
+      "country": "India",
+      "lat": 16.3067,
+      "lon": 80.4365,
+      "bbox": [
+        16.1867,
+        80.3165,
+        16.4267,
+        80.5565
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Gurgaon",
+      "state": "Haryana",
+      "country": "India",
+      "lat": 28.4595,
+      "lon": 77.0266,
+      "bbox": [
+        28.2795,
+        76.8466,
+        28.6395,
+        77.2066
+      ],
+      "aliases": [
+        "Gurugram"
+      ]
+    },
+    {
+      "name": "Guwahati",
+      "state": "Assam",
+      "country": "India",
+      "lat": 26.1445,
+      "lon": 91.7362,
+      "bbox": [
+        25.9645,
+        91.5562,
+        26.3245,
+        91.9162
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Gwalior",
+      "state": "Madhya Pradesh",
+      "country": "India",
+      "lat": 26.2183,
+      "lon": 78.1828,
+      "bbox": [
+        26.0683,
+        78.0328,
+        26.3683,
+        78.3328
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Hampi",
+      "state": "Karnataka",
+      "country": "India",
+      "lat": 15.335,
+      "lon": 76.46,
+      "bbox": [
+        15.215,
+        76.34,
+        15.455,
+        76.58
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Haridwar",
+      "state": "Uttarakhand",
+      "country": "India",
+      "lat": 29.9457,
+      "lon": 78.1642,
+      "bbox": [
+        29.8257,
+        78.0442,
+        30.0657,
+        78.2842
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Hubballi",
+      "state": "Karnataka",
+      "country": "India",
+      "lat": 15.3647,
+      "lon": 75.124,
+      "bbox": [
+        15.2447,
+        75.004,
+        15.4847,
+        75.244
+      ],
+      "aliases": [
+        "Hubli"
+      ]
+    },
+    {
+      "name": "Hyderabad",
+      "state": "Telangana",
+      "country": "India",
+      "lat": 17.385,
+      "lon": 78.4867,
+      "bbox": [
+        17.105,
+        78.2067,
+        17.665,
+        78.7667
+      ],
+      "aliases": [
+        "Secunderabad"
+      ]
+    },
+    {
+      "name": "Imphal",
+      "state": "Manipur",
+      "country": "India",
+      "lat": 24.817,
+      "lon": 93.9368,
+      "bbox": [
+        24.697,
+        93.8168,
+        24.937,
+        94.0568
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Indore",
+      "state": "Madhya Pradesh",
+      "country": "India",
+      "lat": 22.7196,
+      "lon": 75.8577,
+      "bbox": [
+        22.5196,
+        75.6577,
+        22.9196,
+        76.0577
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Itanagar",
+      "state": "Arunachal Pradesh",
+      "country": "India",
+      "lat": 27.0844,
+      "lon": 93.6053,
+      "bbox": [
+        26.9644,
+        93.4853,
+        27.2044,
+        93.7253
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Jabalpur",
+      "state": "Madhya Pradesh",
+      "country": "India",
+      "lat": 23.1815,
+      "lon": 79.9864,
+      "bbox": [
+        23.0315,
+        79.8364,
+        23.3315,
+        80.1364
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Jaipur",
+      "state": "Rajasthan",
+      "country": "India",
+      "lat": 26.9124,
+      "lon": 75.7873,
+      "bbox": [
+        26.6924,
+        75.5673,
+        27.1324,
+        76.0073
+      ],
+      "aliases": [
+        "Pink City"
+      ]
+    },
+    {
+      "name": "Jaisalmer",
+      "state": "Rajasthan",
+      "country": "India",
+      "lat": 26.9157,
+      "lon": 70.9083,
+      "bbox": [
+        26.7657,
+        70.7583,
+        27.0657,
+        71.0583
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Jalandhar",
+      "state": "Punjab",
+      "country": "India",
+      "lat": 31.326,
+      "lon": 75.5762,
+      "bbox": [
+        31.176,
+        75.4262,
+        31.476,
+        75.7262
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Jammu",
+      "state": "Jammu and Kashmir",
+      "country": "India",
+      "lat": 32.7266,
+      "lon": 74.857,
+      "bbox": [
+        32.5766,
+        74.707,
+        32.8766,
+        75.007
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Jamshedpur",
+      "state": "Jharkhand",
+      "country": "India",
+      "lat": 22.8046,
+      "lon": 86.2029,
+      "bbox": [
+        22.6546,
+        86.0529,
+        22.9546,
+        86.3529
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Jodhpur",
+      "state": "Rajasthan",
+      "country": "India",
+      "lat": 26.2389,
+      "lon": 73.0243,
+      "bbox": [
+        26.0589,
+        72.8443,
+        26.4189,
+        73.2043
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Kakinada",
+      "state": "Andhra Pradesh",
+      "country": "India",
+      "lat": 16.9891,
+      "lon": 82.2475,
+      "bbox": [
+        16.8691,
+        82.1275,
+        17.1091,
+        82.3675
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Kanchipuram",
+      "state": "Tamil Nadu",
+      "country": "India",
+      "lat": 12.8342,
+      "lon": 79.7036,
+      "bbox": [
+        12.7342,
+        79.6036,
+        12.9342,
+        79.8036
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Kannur",
+      "state": "Kerala",
+      "country": "India",
+      "lat": 11.8745,
+      "lon": 75.3704,
+      "bbox": [
+        11.7545,
+        75.2504,
+        11.9945,
+        75.4904
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Kanpur",
+      "state": "Uttar Pradesh",
+      "country": "India",
+      "lat": 26.4499,
+      "lon": 80.3319,
+      "bbox": [
+        26.2499,
+        80.1319,
+        26.6499,
+        80.5319
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Kanyakumari",
+      "state": "Tamil Nadu",
+      "country": "India",
+      "lat": 8.0883,
+      "lon": 77.5385,
+      "bbox": [
+        7.9883,
+        77.4385,
+        8.1883,
+        77.6385
+      ],
+      "aliases": [
+        "Kanniyakumari"
+      ]
+    },
+    {
+      "name": "Kavaratti",
+      "state": "Lakshadweep",
+      "country": "India",
+      "lat": 10.5667,
+      "lon": 72.642,
+      "bbox": [
+        10.4867,
+        72.562,
+        10.6467,
+        72.722
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Khajuraho",
+      "state": "Madhya Pradesh",
+      "country": "India",
+      "lat": 24.8318,
+      "lon": 79.9199,
+      "bbox": [
+        24.7118,
+        79.7999,
+        24.9518,
+        80.0399
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Kochi",
+      "state": "Kerala",
+      "country": "India",
+      "lat": 9.9312,
+      "lon": 76.2673,
+      "bbox": [
+        9.7512,
+        76.0873,
+        10.1112,
+        76.4473
+      ],
+      "aliases": [
+        "Cochin"
+      ]
+    },
+    {
+      "name": "Kodaikanal",
+      "state": "Tamil Nadu",
+      "country": "India",
+      "lat": 10.2381,
+      "lon": 77.4892,
+      "bbox": [
+        10.1381,
+        77.3892,
+        10.3381,
+        77.5892
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Kohima",
+      "state": "Nagaland",
+      "country": "India",
+      "lat": 25.6751,
+      "lon": 94.1086,
+      "bbox": [
+        25.5751,
+        94.0086,
+        25.7751,
+        94.2086
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Kolhapur",
+      "state": "Maharashtra",
+      "country": "India",
+      "lat": 16.705,
+      "lon": 74.2433,
+      "bbox": [
+        16.585,
+        74.1233,
+        16.825,
+        74.3633
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Kolkata",
+      "state": "West Bengal",
+      "country": "India",
+      "lat": 22.5726,
+      "lon": 88.3639,
+      "bbox": [
+        22.2926,
+        88.0839,
+        22.8526,
+        88.6439
+      ],
+      "aliases": [
+        "Calcutta"
+      ]
+    },
+    {
+      "name": "Kollam",
+      "state": "Kerala",
+      "country": "India",
+      "lat": 8.8932,
+      "lon": 76.6141,
+      "bbox": [
+        8.7732,
+        76.4941,
+        9.0132,
+        76.7341
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Konark",
+      "state": "Odisha",
+      "country": "India",
+      "lat": 19.8876,
+      "lon": 86.0945,
+      "bbox": [
+        19.7876,
+        85.9945,
+        19.9876,
+        86.1945
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Kota",
+      "state": "Rajasthan",
+      "country": "India",
+      "lat": 25.2138,
+      "lon": 75.8648,
+      "bbox": [
+        25.0638,
+        75.7148,
+        25.3638,
+        76.0148
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Kozhikode",
+      "state": "Kerala",
+      "country": "India",
+      "lat": 11.2588,
+      "lon": 75.7804,
+      "bbox": [
+        11.1088,
+        75.6304,
+        11.4088,
+        75.9304
+      ],
+      "aliases": [
+        "Calicut"
+      ]
+    },
+    {
+      "name": "Leh",
+      "state": "Ladakh",
+      "country": "India",
+      "lat": 34.1526,
+      "lon": 77.5771,
+      "bbox": [
+        34.0026,
+        77.4271,
+        34.3026,
+        77.7271
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Lonavala",
+      "state": "Maharashtra",
+      "country": "India",
+      "lat": 18.7481,
+      "lon": 73.4072,
+      "bbox": [
+        18.6481,
+        73.3072,
+        18.8481,
+        73.5072
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Lucknow",
+      "state": "Uttar Pradesh",
+      "country": "India",
+      "lat": 26.8467,
+      "lon": 80.9462,
+      "bbox": [
+        26.6267,
+        80.7262,
+        27.0667,
+        81.1662
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Ludhiana",
+      "state": "Punjab",
+      "country": "India",
+      "lat": 30.901,
+      "lon": 75.8573,
+      "bbox": [
+        30.751,
+        75.7073,
+        31.051,
+        76.0073
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Madurai",
+      "state": "Tamil Nadu",
+      "country": "India",
+      "lat": 9.9252,
+      "lon": 78.1198,
+      "bbox": [
+        9.7752,
+        77.9698,
+        10.0752,
+        78.2698
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Mahabalipuram",
+      "state": "Tamil Nadu",
+      "country": "India",
+      "lat": 12.6208,
+      "lon": 80.191,
+      "bbox": [
+        12.5208,
+        80.091,
+        12.7208,
+        80.291
+      ],
+      "aliases": [
+        "Mamallapuram"
+      ]
+    },
+    {
+      "name": "Manali",
+      "state": "Himachal Pradesh",
+      "country": "India",
+      "lat": 32.2396,
+      "lon": 77.1887,
+      "bbox": [
+        32.1196,
+        77.0687,
+        32.3596,
+        77.3087
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Mangalore",
+      "state": "Karnataka",
+      "country": "India",
+      "lat": 12.9141,
+      "lon": 74.856,
+      "bbox": [
+        12.7641,
+        74.706,
+        13.0641,
+        75.006
+      ],
+      "aliases": [
+        "Mangaluru"
+      ]
+    },
+    {
+      "name": "Mathura",
+      "state": "Uttar Pradesh",
+      "country": "India",
+      "lat": 27.4924,
+      "lon": 77.6737,
+      "bbox": [
+        27.3724,
+        77.5537,
+        27.6124,
+        77.7937
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Meerut",
+      "state": "Uttar Pradesh",
+      "country": "India",
+      "lat": 28.9845,
+      "lon": 77.7064,
+      "bbox": [
+        28.8345,
+        77.5564,
+        29.1345,
+        77.8564
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Mount Abu",
+      "state": "Rajasthan",
+      "country": "India",
+      "lat": 24.5926,
+      "lon": 72.7156,
+      "bbox": [
+        24.4926,
+        72.6156,
+        24.6926,
+        72.8156
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Mumbai",
+      "state": "Maharashtra",
+      "country": "India",
+      "lat": 19.076,
+      "lon": 72.8777,
+      "bbox": [
+        18.776,
+        72.5777,
+        19.376,
+        73.1777
+      ],
+      "aliases": [
+        "Bombay"
+      ]
+    },
+    {
+      "name": "Munnar",
+      "state": "Kerala",
+      "country": "India",
+      "lat": 10.0889,
+      "lon": 77.0595,
+      "bbox": [
+        9.9689,
+        76.9395,
+        10.2089,
+        77.1795
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Muzaffarpur",
+      "state": "Bihar",
+      "country": "India",
+      "lat": 26.1197,
+      "lon": 85.391,
+      "bbox": [
+        25.9997,
+        85.271,
+        26.2397,
+        85.511
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Mysuru",
+      "state": "Karnataka",
+      "country": "India",
+      "lat": 12.2958,
+      "lon": 76.6394,
+      "bbox": [
+        12.1158,
+        76.4594,
+        12.4758,
+        76.8194
+      ],
+      "aliases": [
+        "Mysore"
+      ]
+    },
+    {
+      "name": "Nagpur",
+      "state": "Maharashtra",
+      "country": "India",
+      "lat": 21.1458,
+      "lon": 79.0882,
+      "bbox": [
+        20.9658,
+        78.9082,
+        21.3258,
+        79.2682
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Nainital",
+      "state": "Uttarakhand",
+      "country": "India",
+      "lat": 29.3803,
+      "lon": 79.4636,
+      "bbox": [
+        29.2803,
+        79.3636,
+        29.4803,
+        79.5636
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Nanded",
+      "state": "Maharashtra",
+      "country": "India",
+      "lat": 19.1383,
+      "lon": 77.321,
+      "bbox": [
+        19.0183,
+        77.201,
+        19.2583,
+        77.441
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Nashik",
+      "state": "Maharashtra",
+      "country": "India",
+      "lat": 19.9975,
+      "lon": 73.7898,
+      "bbox": [
+        19.8475,
+        73.6398,
+        20.1475,
+        73.9398
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Nellore",
+      "state": "Andhra Pradesh",
+      "country": "India",
+      "lat": 14.4426,
+      "lon": 79.9865,
+      "bbox": [
+        14.3226,
+        79.8665,
+        14.5626,
+        80.1065
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Noida",
+      "state": "Uttar Pradesh",
+      "country": "India",
+      "lat": 28.5355,
+      "lon": 77.391,
+      "bbox": [
+        28.3855,
+        77.241,
+        28.6855,
+        77.541
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Ooty",
+      "state": "Tamil Nadu",
+      "country": "India",
+      "lat": 11.4102,
+      "lon": 76.695,
+      "bbox": [
+        11.2902,
+        76.575,
+        11.5302,
+        76.815
+      ],
+      "aliases": [
+        "Udhagamandalam"
+      ]
+    },
+    {
+      "name": "Patna",
+      "state": "Bihar",
+      "country": "India",
+      "lat": 25.5941,
+      "lon": 85.1376,
+      "bbox": [
+        25.4141,
+        84.9576,
+        25.7741,
+        85.3176
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Pondicherry",
+      "state": "Puducherry",
+      "country": "India",
+      "lat": 11.9416,
+      "lon": 79.8083,
+      "bbox": [
+        11.8216,
+        79.6883,
+        12.0616,
+        79.9283
+      ],
+      "aliases": [
+        "Puducherry"
+      ]
+    },
+    {
+      "name": "Port Blair",
+      "state": "Andaman and Nicobar Islands",
+      "country": "India",
+      "lat": 11.6234,
+      "lon": 92.7265,
+      "bbox": [
+        11.4734,
+        92.5765,
+        11.7734,
+        92.8765
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Pune",
+      "state": "Maharashtra",
+      "country": "India",
+      "lat": 18.5204,
+      "lon": 73.8567,
+      "bbox": [
+        18.2704,
+        73.6067,
+        18.7704,
+        74.1067
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Puri",
+      "state": "Odisha",
+      "country": "India",
+      "lat": 19.8135,
+      "lon": 85.8312,
+      "bbox": [
+        19.6935,
+        85.7112,
+        19.9335,
+        85.9512
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Pushkar",
+      "state": "Rajasthan",
+      "country": "India",
+      "lat": 26.4899,
+      "lon": 74.5511,
+      "bbox": [
+        26.3899,
+        74.4511,
+        26.5899,
+        74.6511
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Raipur",
+      "state": "Chhattisgarh",
+      "country": "India",
+      "lat": 21.2514,
+      "lon": 81.6296,
+      "bbox": [
+        21.0714,
+        81.4496,
+        21.4314,
+        81.8096
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Rajamahendravaram",
+      "state": "Andhra Pradesh",
+      "country": "India",
+      "lat": 17.0005,
+      "lon": 81.804,
+      "bbox": [
+        16.8805,
+        81.684,
+        17.1205,
+        81.924
+      ],
+      "aliases": [
+        "Rajahmundry"
+      ]
+    },
+    {
+      "name": "Rajkot",
+      "state": "Gujarat",
+      "country": "India",
+      "lat": 22.3039,
+      "lon": 70.8022,
+      "bbox": [
+        22.1539,
+        70.6522,
+        22.4539,
+        70.9522
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Rameswaram",
+      "state": "Tamil Nadu",
+      "country": "India",
+      "lat": 9.2876,
+      "lon": 79.3129,
+      "bbox": [
+        9.1876,
+        79.2129,
+        9.3876,
+        79.4129
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Ranchi",
+      "state": "Jharkhand",
+      "country": "India",
+      "lat": 23.3441,
+      "lon": 85.3096,
+      "bbox": [
+        23.1941,
+        85.1596,
+        23.4941,
+        85.4596
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Rishikesh",
+      "state": "Uttarakhand",
+      "country": "India",
+      "lat": 30.0869,
+      "lon": 78.2676,
+      "bbox": [
+        29.9669,
+        78.1476,
+        30.2069,
+        78.3876
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Salem",
+      "state": "Tamil Nadu",
+      "country": "India",
+      "lat": 11.6643,
+      "lon": 78.146,
+      "bbox": [
+        11.5443,
+        78.026,
+        11.7843,
+        78.266
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Sawai Madhopur",
+      "state": "Rajasthan",
+      "country": "India",
+      "lat": 25.9928,
+      "lon": 76.3527,
+      "bbox": [
+        25.8428,
+        76.2027,
+        26.1428,
+        76.5027
+      ],
+      "aliases": [
+        "Ranthambore"
+      ]
+    },
+    {
+      "name": "Shillong",
+      "state": "Meghalaya",
+      "country": "India",
+      "lat": 25.5788,
+      "lon": 91.8933,
+      "bbox": [
+        25.4588,
+        91.7733,
+        25.6988,
+        92.0133
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Shimla",
+      "state": "Himachal Pradesh",
+      "country": "India",
+      "lat": 31.1048,
+      "lon": 77.1734,
+      "bbox": [
+        30.9848,
+        77.0534,
+        31.2248,
+        77.2934
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Shirdi",
+      "state": "Maharashtra",
+      "country": "India",
+      "lat": 19.7645,
+      "lon": 74.4773,
+      "bbox": [
+        19.6645,
+        74.3773,
+        19.8645,
+        74.5773
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Siliguri",
+      "state": "West Bengal",
+      "country": "India",
+      "lat": 26.7271,
+      "lon": 88.3953,
+      "bbox": [
+        26.6071,
+        88.2753,
+        26.8471,
+        88.5153
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Solapur",
+      "state": "Maharashtra",
+      "country": "India",
+      "lat": 17.6599,
+      "lon": 75.9064,
+      "bbox": [
+        17.5399,
+        75.7864,
+        17.7799,
+        76.0264
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Srinagar",
+      "state": "Jammu and Kashmir",
+      "country": "India",
+      "lat": 34.0837,
+      "lon": 74.7973,
+      "bbox": [
+        33.9037,
+        74.6173,
+        34.2637,
+        74.9773
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Surat",
+      "state": "Gujarat",
+      "country": "India",
+      "lat": 21.1702,
+      "lon": 72.8311,
+      "bbox": [
+        20.9902,
+        72.6511,
+        21.3502,
+        73.0111
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Thane",
+      "state": "Maharashtra",
+      "country": "India",
+      "lat": 19.2183,
+      "lon": 72.9781,
+      "bbox": [
+        19.0683,
+        72.8281,
+        19.3683,
+        73.1281
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Thekkady",
+      "state": "Kerala",
+      "country": "India",
+      "lat": 9.6031,
+      "lon": 77.1615,
+      "bbox": [
+        9.5031,
+        77.0615,
+        9.7031,
+        77.2615
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Thiruvananthapuram",
+      "state": "Kerala",
+      "country": "India",
+      "lat": 8.5241,
+      "lon": 76.9366,
+      "bbox": [
+        8.3441,
+        76.7566,
+        8.7041,
+        77.1166
+      ],
+      "aliases": [
+        "Trivandrum"
+      ]
+    },
+    {
+      "name": "Thrissur",
+      "state": "Kerala",
+      "country": "India",
+      "lat": 10.5276,
+      "lon": 76.2144,
+      "bbox": [
+        10.4076,
+        76.0944,
+        10.6476,
+        76.3344
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Tiruchirappalli",
+      "state": "Tamil Nadu",
+      "country": "India",
+      "lat": 10.7905,
+      "lon": 78.7047,
+      "bbox": [
+        10.6405,
+        78.5547,
+        10.9405,
+        78.8547
+      ],
+      "aliases": [
+        "Trichy"
+      ]
+    },
+    {
+      "name": "Tirunelveli",
+      "state": "Tamil Nadu",
+      "country": "India",
+      "lat": 8.7139,
+      "lon": 77.7567,
+      "bbox": [
+        8.5939,
+        77.6367,
+        8.8339,
+        77.8767
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Tirupati",
+      "state": "Andhra Pradesh",
+      "country": "India",
+      "lat": 13.6288,
+      "lon": 79.4192,
+      "bbox": [
+        13.4788,
+        79.2692,
+        13.7788,
+        79.5692
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Udaipur",
+      "state": "Rajasthan",
+      "country": "India",
+      "lat": 24.5854,
+      "lon": 73.7125,
+      "bbox": [
+        24.4054,
+        73.5325,
+        24.7654,
+        73.8925
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Vadodara",
+      "state": "Gujarat",
+      "country": "India",
+      "lat": 22.3072,
+      "lon": 73.1812,
+      "bbox": [
+        22.1272,
+        73.0012,
+        22.4872,
+        73.3612
+      ],
+      "aliases": [
+        "Baroda"
+      ]
+    },
+    {
+      "name": "Varanasi",
+      "state": "Uttar Pradesh",
+      "country": "India",
+      "lat": 25.3176,
+      "lon": 82.9739,
+      "bbox": [
+        25.1376,
+        82.7939,
+        25.4976,
+        83.1539
+      ],
+      "aliases": [
+        "Banaras",
+        "Kashi"
+      ]
+    },
+    {
+      "name": "Vellore",
+      "state": "Tamil Nadu",
+      "country": "India",
+      "lat": 12.9165,
+      "lon": 79.1325,
+      "bbox": [
+        12.7965,
+        79.0125,
+        13.0365,
+        79.2525
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Vijayawada",
+      "state": "Andhra Pradesh",
+      "country": "India",
+      "lat": 16.5062,
+      "lon": 80.648,
+      "bbox": [
+        16.3562,
+        80.498,
+        16.6562,
+        80.798
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Visakhapatnam",
+      "state": "Andhra Pradesh",
+      "country": "India",
+      "lat": 17.6868,
+      "lon": 83.2185,
+      "bbox": [
+        17.4868,
+        83.0185,
+        17.8868,
+        83.4185
+      ],
+      "aliases": [
+        "Vizag"
+      ]
+    },
+    {
+      "name": "Vrindavan",
+      "state": "Uttar Pradesh",
+      "country": "India",
+      "lat": 27.565,
+      "lon": 77.6593,
+      "bbox": [
+        27.465,
+        77.5593,
+        27.665,
+        77.7593
+      ],
+      "aliases": []
+    },
+    {
+      "name": "Warangal",
+      "state": "Telangana",
+      "country": "India",
+      "lat": 17.9689,
+      "lon": 79.5941,
+      "bbox": [
+        17.8189,
+        79.4441,
+        18.1189,
+        79.7441
+      ],
+      "aliases": []
+    }
+  ]
+}

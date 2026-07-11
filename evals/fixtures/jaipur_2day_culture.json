@@ -9,15 +9,19 @@
     "num_days": 2,
     "start_date": "2026-08-01",
     "end_date": "2026-08-02",
-    "interests": ["culture", "heritage"],
+    "interests": [
+      "culture",
+      "heritage"
+    ],
     "pace": "moderate",
     "constraints": [],
     "daily_time_window_min": 600,
-    "confirmed": true
+    "confirmed": true,
+    "country": "India"
   },
   "sources": [
     {
-      "title": "Jaipur — Wikivoyage",
+      "title": "Jaipur \u2014 Wikivoyage",
       "url": "https://en.wikivoyage.org/wiki/Jaipur",
       "dataset": "wikivoyage",
       "snippet": "City guide covering districts, sights, and practical tips."
@@ -43,7 +47,7 @@
             "reason": "Central heritage complex to anchor a culture-first day.",
             "citations": [
               {
-                "title": "Jaipur — See — Wikivoyage",
+                "title": "Jaipur \u2014 See \u2014 Wikivoyage",
                 "url": "https://en.wikivoyage.org/wiki/Jaipur#See",
                 "dataset": "wikivoyage",
                 "snippet": "City Palace is a primary cultural attraction in Jaipur."
@@ -63,7 +67,7 @@
             "reason": "Adjacent observatory; minimal travel from City Palace.",
             "citations": [
               {
-                "title": "Jaipur — See — Wikivoyage",
+                "title": "Jaipur \u2014 See \u2014 Wikivoyage",
                 "url": "https://en.wikivoyage.org/wiki/Jaipur#See",
                 "dataset": "wikivoyage",
                 "snippet": "Jantar Mantar is next to the City Palace complex."
@@ -88,7 +92,7 @@
             "reason": "Short landmark visit; keeps afternoon from becoming overpacked.",
             "citations": [
               {
-                "title": "Jaipur — See — Wikivoyage",
+                "title": "Jaipur \u2014 See \u2014 Wikivoyage",
                 "url": "https://en.wikivoyage.org/wiki/Jaipur#See",
                 "dataset": "wikivoyage",
                 "snippet": "Hawa Mahal is among Jaipur's best-known monuments."
@@ -126,7 +130,7 @@
             "reason": "Evening market time near day-1 sights; low extra travel.",
             "citations": [
               {
-                "title": "Jaipur — Buy — Wikivoyage",
+                "title": "Jaipur \u2014 Buy \u2014 Wikivoyage",
                 "url": "https://en.wikivoyage.org/wiki/Jaipur#Buy",
                 "dataset": "wikivoyage",
                 "snippet": "Traditional bazaars are concentrated in the Old City."
@@ -156,7 +160,7 @@
             "reason": "Single major morning outing north of the city for a culture highlight.",
             "citations": [
               {
-                "title": "Jaipur — See — Wikivoyage",
+                "title": "Jaipur \u2014 See \u2014 Wikivoyage",
                 "url": "https://en.wikivoyage.org/wiki/Jaipur#See",
                 "dataset": "wikivoyage",
                 "snippet": "Amber Fort is a principal fort complex near Jaipur."
@@ -181,7 +185,7 @@
             "reason": "Indoor museum after returning from Amber; balances outdoor morning.",
             "citations": [
               {
-                "title": "Jaipur — See — Wikivoyage",
+                "title": "Jaipur \u2014 See \u2014 Wikivoyage",
                 "url": "https://en.wikivoyage.org/wiki/Jaipur#See",
                 "dataset": "wikivoyage",
                 "snippet": "Albert Hall Museum houses decorative arts and historical exhibits."
@@ -206,7 +210,7 @@
             "reason": "Closing viewpoint for the trip; one evening stop only.",
             "citations": [
               {
-                "title": "Jaipur — See — Wikivoyage",
+                "title": "Jaipur \u2014 See \u2014 Wikivoyage",
                 "url": "https://en.wikivoyage.org/wiki/Jaipur#See",
                 "dataset": "wikivoyage",
                 "snippet": "Nahargarh offers panoramic views over Jaipur."

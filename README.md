@@ -1,6 +1,6 @@
 # AI Itinerary Planner
 
-Voice-first AI travel planning assistant for **Jaipur** (2–4 day itineraries). Capstone project: multi-agent GenAI system with MCP tools, RAG grounding, voice UX, evals, and n8n PDF/email.
+Voice-first AI travel planning assistant for **India** (one city per trip, 2–4 day itineraries). Capstone project: multi-agent GenAI system with MCP tools, RAG grounding, voice UX, evals, and n8n PDF/email.
 
 **Repo:** [pbandyop/AI_Itinerary_Planner](https://github.com/pbandyop/AI_Itinerary_Planner)
 
@@ -9,7 +9,7 @@ Voice-first AI travel planning assistant for **Jaipur** (2–4 day itineraries).
 ```
 Voice (STT) → LangGraph
                 Orchestrator (safety gate + intent)
-                  → POI / Itinerary / Knowledge agents (MCP + RAG)
+                  → POI / Itinerary / Travel-Time / Weather / Knowledge agents
                   → Merger → Reviewer
               → Companion UI → n8n (PDF + email)
 ```
@@ -20,9 +20,9 @@ Voice (STT) → LangGraph
 | Tools / RAG | **LangChain** |
 | LLM | OpenAI API |
 | UI | Next.js + Browser Web Speech API (STT) |
-| Scope | Jaipur only · 2–4 days · heuristic travel times |
+| Scope | **India** (`data/india_cities.json`) · one city per trip · 2–4 days · heuristic travel times |
 
-See [`docs/implementationPlan.md`](docs/implementationPlan.md) for the full phase plan.
+See [`docs/implementationPlan.md`](docs/implementationPlan.md) for the full phase plan and [`data/README.md`](data/README.md) for the India data model.
 
 ### LangGraph nodes (target)
 
@@ -122,9 +122,17 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Datasets
 
-- OpenStreetMap (Overpass API) — POIs (+ `data/jaipur_pois_seed.json` OSM-id fallback)
+- `data/india_cities.json` — Indian city catalog (coords + Overpass bbox)
+- OpenStreetMap (Overpass API) — POIs per city bbox
+- `data/pois/*.json` — curated OSM-id seeds (fallback)
 - Open-Meteo — weather forecasts / rain-risk adjustments
 - Wikivoyage / Wikipedia — city tips (RAG) — Phase 3
+
+```bash
+python -m agent.smoke_mcp --city Delhi --interests heritage culture --days 2
+python -m agent.smoke_mcp --city Mumbai --no-overpass
+# List cities: GET http://localhost:8000/mcp/cities
+```
 
 ## Evaluations (planned — Phase 7)
 
@@ -143,6 +151,7 @@ python -m evals
 
 ```
 Plan a 3-day trip to Jaipur next weekend. I like food and culture, relaxed pace.
+Plan a 2-day trip to Delhi focused on heritage.
 Make Day 2 more relaxed.
 Why did you pick this place?
 What if it rains?

@@ -29,7 +29,7 @@ export default function HomePage() {
         AI Itinerary Planner
       </h1>
       <p style={{ fontSize: "1.125rem", lineHeight: 1.6, maxWidth: "36ch" }}>
-        Voice-first Jaipur travel planning. Companion UI stub — mic, day-wise
+        Voice-first India travel planning. Companion UI stub — mic, day-wise
         itinerary, and sources land in later phases.
       </p>
       <ul
@@ -40,7 +40,7 @@ export default function HomePage() {
           color: "#334448",
         }}
       >
-        <li>Scope: Jaipur only · 2–4 day trips</li>
+        <li>Scope: India · one city per trip · 2–4 days</li>
         <li>Runtime: LangGraph (Python) + LangChain tools/RAG</li>
         <li>Agent stub: START → orchestrator → END</li>
       </ul>

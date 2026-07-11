@@ -1,4 +1,4 @@
-"""POI Search MCP — OpenStreetMap via Overpass API (Jaipur only)."""
+"""POI Search MCP — OpenStreetMap via Overpass API (India cities)."""
 
 from __future__ import annotations
 
@@ -6,11 +6,11 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 import httpx
 
-from agent.mcp.geo import JAIPUR_BBOX
+from agent.mcp.geo import city_bbox, resolve_city
 from agent.schemas.specialists import POICandidate, POISearchResult
 
 logger = logging.getLogger(__name__)
@@ -19,9 +19,6 @@ OVERPASS_URL = os.getenv(
     "OVERPASS_API_URL", "https://overpass-api.de/api/interpreter"
 )
 
-Interest = str
-
-# Map user interests → Overpass tag filters
 INTEREST_FILTERS: dict[str, list[str]] = {
     "food": [
         'node["amenity"~"restaurant|cafe|fast_food|food_court"]',
@@ -30,7 +27,7 @@ INTEREST_FILTERS: dict[str, list[str]] = {
     ],
     "culture": [
         'node["tourism"~"museum|gallery|attraction|artwork"]',
-        'way["tourism"~"museum|gallery|attraction"]',
+        'way["tourism"~"attraction|museum|gallery"]',
         'node["historic"]',
         'way["historic"]',
         'relation["historic"]',
@@ -41,13 +38,11 @@ INTEREST_FILTERS: dict[str, list[str]] = {
         'relation["historic"]',
         'node["tourism"="attraction"]',
         'way["tourism"="attraction"]',
-        'node["castle"]',
         'way["building"="castle"]',
     ],
     "shopping": [
         'node["shop"~"mall|clothes|gift|jewelry"]',
         'way["shop"~"mall|clothes|gift|jewelry"]',
-        'node["tourism"="yes"]["name"~"Bazaar|Market|Bazar",i]',
     ],
     "nature": [
         'node["leisure"~"park|garden"]',
@@ -73,15 +68,14 @@ def _category_from_tags(tags: dict[str, str]) -> str:
         return "food"
     if amenity == "place_of_worship":
         return "temple"
-    if tourism == "museum" or tourism == "gallery":
+    if tourism in {"museum", "gallery"}:
         return "museum"
     if tourism == "viewpoint":
         return "viewpoint"
     if leisure in {"park", "garden"}:
         return "park"
-    if shop or "bazaar" in (tags.get("name") or "").lower() or "market" in (
-        tags.get("name") or ""
-    ).lower():
+    name = (tags.get("name") or "").lower()
+    if shop or "bazaar" in name or "market" in name:
         return "market"
     if historic or tourism == "attraction":
         return "heritage"
@@ -90,30 +84,25 @@ def _category_from_tags(tags: dict[str, str]) -> str:
     return "other"
 
 
-def _bbox_clause() -> str:
-    s, w, n, e = JAIPUR_BBOX
-    return f"({s},{w},{n},{e})"
-
-
-def build_overpass_query(interests: list[str], *, limit: int = 80) -> str:
+def build_overpass_query(
+    interests: list[str],
+    *,
+    bbox: tuple[float, float, float, float],
+    limit: int = 80,
+) -> str:
     keys = [i.lower().strip() for i in interests if i.strip()] or DEFAULT_INTERESTS
+    s, w, n, e = bbox
+    bbox_clause = f"({s},{w},{n},{e})"
     clauses: list[str] = []
-    bbox = _bbox_clause()
     for key in keys:
-        filters = INTEREST_FILTERS.get(key)
-        if not filters:
-            # Unknown interest → broad attractions
-            filters = [
-                'node["tourism"~"attraction|museum"]',
-                'way["tourism"~"attraction|museum"]',
-                'node["historic"]',
-                'way["historic"]',
-            ]
+        filters = INTEREST_FILTERS.get(key) or [
+            'node["tourism"~"attraction|museum"]',
+            'way["tourism"~"attraction|museum"]',
+            'node["historic"]',
+            'way["historic"]',
+        ]
         for f in filters:
-            # Insert bbox before trailing ]
-            # filters look like: node["tourism"="museum"]
-            clauses.append(f"{f}{bbox};")
-
+            clauses.append(f"{f}{bbox_clause};")
     body = "\n  ".join(clauses)
     return f"""[out:json][timeout:45];
 (
@@ -132,13 +121,9 @@ def _element_coords(el: dict[str, Any]) -> tuple[float | None, float | None]:
     return None, None
 
 
-def _rank_score(
-    tags: dict[str, str],
-    interests: list[str],
-    category: str,
-) -> float:
+def _rank_score(tags: dict[str, str], interests: list[str], category: str) -> float:
     score = 1.0
-    name = tags.get("name")
+    name = tags.get("name:en") or tags.get("name")
     if not name:
         return 0.0
     score += 2.0
@@ -159,7 +144,6 @@ def _rank_score(
         "attraction",
     }:
         score += 2.0
-    # Prefer named English / common names slightly
     if name.isascii():
         score += 0.3
     return score
@@ -208,9 +192,19 @@ def _parse_elements(
                 lat=lat,
                 lon=lon,
                 category=category,
-                tags={k: v for k, v in tags.items() if k in {
-                    "tourism", "historic", "amenity", "cuisine", "wikipedia", "wikidata"
-                }},
+                tags={
+                    k: v
+                    for k, v in tags.items()
+                    if k
+                    in {
+                        "tourism",
+                        "historic",
+                        "amenity",
+                        "cuisine",
+                        "wikipedia",
+                        "wikidata",
+                    }
+                },
                 rank_score=round(score, 2),
                 matched_interests=matched or [i.lower() for i in interests[:1]],
             )
@@ -219,23 +213,30 @@ def _parse_elements(
     return pois
 
 
-def load_seed_pois(path: Path | None = None) -> list[POICandidate]:
-    """Curated OSM-backed seed used when Overpass is unavailable."""
-    # poi_search.py → mcp → agent → src → services/agent → repo
-    repo_root = Path(__file__).resolve().parents[5]
-    seed_path = path or (repo_root / "data" / "jaipur_pois_seed.json")
-    if not seed_path.exists():
-        alt = Path(__file__).resolve().parents[3] / "data" / "jaipur_pois_seed.json"
-        seed_path = alt if alt.exists() else seed_path
-    if not seed_path.exists():
-        logger.warning("Seed POI file missing: %s", seed_path)
+def _data_dir() -> Path:
+    return Path(__file__).resolve().parents[5] / "data"
+
+
+def load_seed_pois(city: str, path: Path | None = None) -> list[POICandidate]:
+    """Load curated OSM-backed seed for a city slug when available."""
+    info = resolve_city(city)
+    slug = info.slug if info else city.lower().replace(" ", "_")
+    data_dir = _data_dir()
+    candidates = [
+        path,
+        data_dir / "pois" / f"{slug}.json",
+        data_dir / "jaipur_pois_seed.json" if slug == "jaipur" else None,
+    ]
+    seed_path = next((p for p in candidates if p and p.exists()), None)
+    if seed_path is None:
+        logger.info("No POI seed file for city=%s slug=%s", city, slug)
         return []
     raw = json.loads(seed_path.read_text(encoding="utf-8"))
     return [POICandidate.model_validate(item) for item in raw]
 
 
 def fetch_overpass(query: str, *, timeout: float = 50.0) -> list[dict[str, Any]]:
-    logger.info("Overpass request (%d chars) → %s", len(query), OVERPASS_URL)
+    logger.info("Overpass request (%d chars) -> %s", len(query), OVERPASS_URL)
     headers = {
         "User-Agent": "AI-Itinerary-Planner/0.2 (capstone; contact: github.com/pbandyop/AI_Itinerary_Planner)",
         "Accept": "application/json",
@@ -251,45 +252,54 @@ def fetch_overpass(query: str, *, timeout: float = 50.0) -> list[dict[str, Any]]
 
 def poi_search(
     *,
-    city: Literal["Jaipur"] = "Jaipur",
+    city: str = "Jaipur",
     interests: list[str] | None = None,
     constraints: list[str] | None = None,
     limit: int = 40,
     use_overpass: bool = True,
 ) -> POISearchResult:
-    """MCP: search Jaipur POIs grounded in OpenStreetMap records."""
-    if city != "Jaipur":
+    """MCP: search Indian-city POIs grounded in OpenStreetMap records."""
+    info = resolve_city(city)
+    if info is None:
         return POISearchResult(
-            city="Jaipur",
+            city=city,
             query_interests=interests or [],
             pois=[],
             missing_data=True,
-            notes=f"Only Jaipur is supported; received city={city!r}.",
+            notes=(
+                f"City {city!r} is not in the India catalog "
+                "(data/india_cities.json). Cannot search outside India."
+            ),
         )
 
+    canonical = info.name
     interests = [i.strip().lower() for i in (interests or DEFAULT_INTERESTS) if i.strip()]
     constraints = constraints or []
     notes: list[str] = []
     pois: list[POICandidate] = []
     missing = False
+    bbox = city_bbox(canonical)
 
     if use_overpass:
         try:
-            query = build_overpass_query(interests, limit=max(limit * 2, 60))
+            query = build_overpass_query(
+                interests, bbox=bbox, limit=max(limit * 2, 60)
+            )
             elements = fetch_overpass(query)
             pois = _parse_elements(elements, interests)
             if not pois:
                 missing = True
-                notes.append("Overpass returned no named POIs for the interest filters.")
-        except Exception as exc:  # noqa: BLE001 — surface honestly to callers
+                notes.append(
+                    f"Overpass returned no named POIs for {canonical} interest filters."
+                )
+        except Exception as exc:  # noqa: BLE001
             missing = True
             notes.append(f"Overpass unavailable ({exc.__class__.__name__}: {exc}).")
-            logger.exception("Overpass POI search failed")
+            logger.exception("Overpass POI search failed for %s", canonical)
 
     if len(pois) < 5:
-        seed = load_seed_pois()
+        seed = load_seed_pois(canonical)
         if seed:
-            # Filter seed by interest when possible
             filtered = [
                 p
                 for p in seed
@@ -302,7 +312,6 @@ def poi_search(
                 )
                 or ("food" in interests and p.category == "food")
             ] or seed
-            # Merge by osm ref
             have = {f"{p.osm_type}/{p.osm_id}" for p in pois}
             for p in filtered:
                 ref = f"{p.osm_type}/{p.osm_id}"
@@ -310,13 +319,19 @@ def poi_search(
                     pois.append(p)
                     have.add(ref)
             notes.append(
-                "Augmented with curated OpenStreetMap seed records "
-                "(stable osm_type/osm_id)."
+                f"Augmented with curated OSM seed for {canonical} "
+                f"(data/pois/{info.slug}.json)."
             )
             if missing and pois:
-                notes.append("Live Overpass data was missing/partial; seed used as fallback.")
+                notes.append(
+                    "Live Overpass data was missing/partial; seed used as fallback."
+                )
+        elif missing:
+            notes.append(
+                f"No curated seed for {canonical}. Add data/pois/{info.slug}.json "
+                "or retry when Overpass is available."
+            )
 
-    # Constraint: indoor preference → boost museums
     if any("indoor" in c.lower() for c in constraints):
         for p in pois:
             if p.category in {"museum", "food"}:
@@ -326,10 +341,12 @@ def poi_search(
     pois = pois[:limit]
     if not pois:
         missing = True
-        notes.append("No POIs available. Data is missing — cannot invent places.")
+        notes.append(
+            f"No POIs available for {canonical}, India. Data is missing — cannot invent places."
+        )
 
     return POISearchResult(
-        city="Jaipur",
+        city=canonical,
         query_interests=interests,
         pois=pois,
         missing_data=missing,

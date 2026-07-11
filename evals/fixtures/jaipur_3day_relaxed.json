@@ -7,21 +7,27 @@
     "num_days": 3,
     "start_date": "2026-07-18",
     "end_date": "2026-07-20",
-    "interests": ["food", "culture"],
+    "interests": [
+      "food",
+      "culture"
+    ],
     "pace": "relaxed",
-    "constraints": ["prefer walkable Old City clusters"],
+    "constraints": [
+      "prefer walkable Old City clusters"
+    ],
     "daily_time_window_min": 540,
-    "confirmed": true
+    "confirmed": true,
+    "country": "India"
   },
   "sources": [
     {
-      "title": "Jaipur — Wikivoyage",
+      "title": "Jaipur \u2014 Wikivoyage",
       "url": "https://en.wikivoyage.org/wiki/Jaipur",
       "dataset": "wikivoyage",
       "snippet": "The Pink City is known for forts, palaces, and bazaars in and around the Old City."
     },
     {
-      "title": "OpenStreetMap — Jaipur",
+      "title": "OpenStreetMap \u2014 Jaipur",
       "url": "https://www.openstreetmap.org/search?query=Jaipur",
       "dataset": "openstreetmap",
       "snippet": "POI coordinates and ids sourced from OpenStreetMap."
@@ -47,7 +53,7 @@
             "reason": "Iconic palace facade and a gentle start near other Old City sights.",
             "citations": [
               {
-                "title": "Jaipur — See — Wikivoyage",
+                "title": "Jaipur \u2014 See \u2014 Wikivoyage",
                 "url": "https://en.wikivoyage.org/wiki/Jaipur#See",
                 "dataset": "wikivoyage",
                 "snippet": "Hawa Mahal is a landmark palace of winds in the Old City."
@@ -67,7 +73,7 @@
             "reason": "UNESCO observatory next to City Palace; fits a culture-focused morning.",
             "citations": [
               {
-                "title": "Jaipur — See — Wikivoyage",
+                "title": "Jaipur \u2014 See \u2014 Wikivoyage",
                 "url": "https://en.wikivoyage.org/wiki/Jaipur#See",
                 "dataset": "wikivoyage",
                 "snippet": "Jantar Mantar is an 18th-century astronomical observatory."
@@ -92,7 +98,7 @@
             "reason": "Core royal complex; keep afternoon unhurried for a relaxed pace.",
             "citations": [
               {
-                "title": "Jaipur — See — Wikivoyage",
+                "title": "Jaipur \u2014 See \u2014 Wikivoyage",
                 "url": "https://en.wikivoyage.org/wiki/Jaipur#See",
                 "dataset": "wikivoyage",
                 "snippet": "City Palace remains a major museum and palace complex in central Jaipur."
@@ -112,7 +118,7 @@
             "reason": "Well-known local sweets and snacks stop after sightseeing.",
             "citations": [
               {
-                "title": "Jaipur — Eat — Wikivoyage",
+                "title": "Jaipur \u2014 Eat \u2014 Wikivoyage",
                 "url": "https://en.wikivoyage.org/wiki/Jaipur#Eat",
                 "dataset": "wikivoyage",
                 "snippet": "Jaipur is known for Rajasthani sweets and snack houses in the Old City."
@@ -137,7 +143,7 @@
             "reason": "Evening bazaar stroll keeps travel short and matches culture + food interests.",
             "citations": [
               {
-                "title": "Jaipur — Buy — Wikivoyage",
+                "title": "Jaipur \u2014 Buy \u2014 Wikivoyage",
                 "url": "https://en.wikivoyage.org/wiki/Jaipur#Buy",
                 "dataset": "wikivoyage",
                 "snippet": "Johari Bazaar is a traditional market area in the Pink City."
@@ -167,7 +173,7 @@
             "reason": "Major fort visit scheduled in cooler morning hours; single big stop for relaxed pace.",
             "citations": [
               {
-                "title": "Jaipur — See — Wikivoyage",
+                "title": "Jaipur \u2014 See \u2014 Wikivoyage",
                 "url": "https://en.wikivoyage.org/wiki/Jaipur#See",
                 "dataset": "wikivoyage",
                 "snippet": "Amber (Amer) Fort is a large hill fort north of the city."
@@ -192,7 +198,7 @@
             "reason": "Short photo stop on the return toward the city; low effort between fort and museum.",
             "citations": [
               {
-                "title": "Jaipur — See — Wikivoyage",
+                "title": "Jaipur \u2014 See \u2014 Wikivoyage",
                 "url": "https://en.wikivoyage.org/wiki/Jaipur#See",
                 "dataset": "wikivoyage",
                 "snippet": "Jal Mahal sits in Man Sagar Lake and is typically viewed from the shore."
@@ -212,7 +218,7 @@
             "reason": "Indoor culture stop after travel back from Amber; good buffer if weather turns.",
             "citations": [
               {
-                "title": "Jaipur — See — Wikivoyage",
+                "title": "Jaipur \u2014 See \u2014 Wikivoyage",
                 "url": "https://en.wikivoyage.org/wiki/Jaipur#See",
                 "dataset": "wikivoyage",
                 "snippet": "Albert Hall Museum is a major museum in Ram Niwas Garden."
@@ -237,7 +243,7 @@
             "reason": "Food-and-culture evening; single dinner block keeps Day 2 evening simple.",
             "citations": [
               {
-                "title": "Jaipur — Eat — Wikivoyage",
+                "title": "Jaipur \u2014 Eat \u2014 Wikivoyage",
                 "url": "https://en.wikivoyage.org/wiki/Jaipur#Eat",
                 "dataset": "wikivoyage",
                 "snippet": "Rajasthani thali and cultural village-style dining are popular visitor experiences."
@@ -267,7 +273,7 @@
             "reason": "Calm cultural morning stop with modest duration for a relaxed final day.",
             "citations": [
               {
-                "title": "Jaipur — See — Wikivoyage",
+                "title": "Jaipur \u2014 See \u2014 Wikivoyage",
                 "url": "https://en.wikivoyage.org/wiki/Jaipur#See",
                 "dataset": "wikivoyage",
                 "snippet": "Birla Mandir is a modern marble temple often visited by travelers."
@@ -305,7 +311,7 @@
             "reason": "Shopping and snacks without long transfers; matches food + culture interests.",
             "citations": [
               {
-                "title": "Jaipur — Buy — Wikivoyage",
+                "title": "Jaipur \u2014 Buy \u2014 Wikivoyage",
                 "url": "https://en.wikivoyage.org/wiki/Jaipur#Buy",
                 "dataset": "wikivoyage",
                 "snippet": "Bapu Bazaar is a popular market for textiles and handicrafts."
@@ -325,7 +331,7 @@
             "reason": "Famous local snack stop near central markets.",
             "citations": [
               {
-                "title": "Jaipur — Eat — Wikivoyage",
+                "title": "Jaipur \u2014 Eat \u2014 Wikivoyage",
                 "url": "https://en.wikivoyage.org/wiki/Jaipur#Eat",
                 "dataset": "wikivoyage",
                 "snippet": "Local mithai and snack shops are a staple of Jaipur food culture."
@@ -350,7 +356,7 @@
             "reason": "Single evening anchor with city views; keeps the last night unhurried.",
             "citations": [
               {
-                "title": "Jaipur — See — Wikivoyage",
+                "title": "Jaipur \u2014 See \u2014 Wikivoyage",
                 "url": "https://en.wikivoyage.org/wiki/Jaipur#See",
                 "dataset": "wikivoyage",
                 "snippet": "Nahargarh Fort overlooks Jaipur and is popular around sunset."

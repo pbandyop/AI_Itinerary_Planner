@@ -1,0 +1,46 @@
+[
+  {
+    "name": "Taj Mahal",
+    "osm_type": "way",
+    "osm_id": 246830001,
+    "lat": 27.1751,
+    "lon": 78.0421,
+    "category": "heritage",
+    "tags": { "historic": "monument", "wikipedia": "en:Taj Mahal" },
+    "rank_score": 10.0,
+    "matched_interests": ["heritage", "culture"]
+  },
+  {
+    "name": "Agra Fort",
+    "osm_type": "way",
+    "osm_id": 246830002,
+    "lat": 27.1795,
+    "lon": 78.0211,
+    "category": "heritage",
+    "tags": { "historic": "castle", "wikipedia": "en:Agra Fort" },
+    "rank_score": 9.5,
+    "matched_interests": ["heritage"]
+  },
+  {
+    "name": "Mehtab Bagh",
+    "osm_type": "way",
+    "osm_id": 246830003,
+    "lat": 27.1800,
+    "lon": 78.0425,
+    "category": "park",
+    "tags": { "leisure": "park" },
+    "rank_score": 8.2,
+    "matched_interests": ["nature", "culture"]
+  },
+  {
+    "name": "Itmad-ud-Daulah",
+    "osm_type": "way",
+    "osm_id": 246830004,
+    "lat": 27.1929,
+    "lon": 78.0309,
+    "category": "heritage",
+    "tags": { "historic": "tomb" },
+    "rank_score": 8.4,
+    "matched_interests": ["heritage"]
+  }
+]

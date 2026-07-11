@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from agent.mcp.geo import JAIPUR_CENTER, estimate_travel_minutes, haversine_km
+from agent.mcp.geo import city_center, estimate_travel_minutes, haversine_km
 from agent.schemas.itinerary import (
     DayPlan,
     Pace,
@@ -48,9 +48,17 @@ def _duration_for(poi: POICandidate, pace: Pace) -> int:
 
 def _order_nearest(
     pois: list[POICandidate],
-    start: tuple[float, float] = JAIPUR_CENTER,
+    start: tuple[float, float] | None = None,
 ) -> list[POICandidate]:
     """Greedy nearest-neighbor ordering to reduce travel."""
+    if start is None:
+        # Use first POI with coords, else a neutral India centroid
+        for p in pois:
+            if p.lat is not None and p.lon is not None:
+                start = (p.lat, p.lon)
+                break
+        if start is None:
+            start = city_center("Delhi")
     remaining = [p for p in pois if p.lat is not None and p.lon is not None]
     no_coords = [p for p in pois if p.lat is None or p.lon is None]
     ordered: list[POICandidate] = []
@@ -176,6 +184,7 @@ def build_itinerary(
     pace: Pace = "relaxed",
     daily_time_window_min: int = 540,
     interests: list[str] | None = None,
+    city: str = "Jaipur",
 ) -> ItineraryDraftResult:
     """MCP: build a day-wise draft itinerary from candidate POIs."""
     num_days = max(2, min(4, num_days))
@@ -206,7 +215,7 @@ def build_itinerary(
         candidate_pois,
         key=lambda p: (-(p.rank_score or 0), p.name),
     )
-    ordered = _order_nearest(ranked)
+    ordered = _order_nearest(ranked, start=city_center(city))
     day_groups = _split_days(ordered, num_days=num_days, pace=pace)
 
     # Ensure we always emit num_days (pad empty if needed)
@@ -257,13 +266,15 @@ def build_itinerary(
 
 def draft_to_trip_constraints(
     *,
+    city: str,
     num_days: int,
     pace: Pace,
     interests: list[str],
     daily_time_window_min: int = 540,
 ) -> TripConstraints:
     return TripConstraints(
-        city="Jaipur",
+        city=city,
+        country="India",
         num_days=num_days,
         interests=interests,
         pace=pace,
