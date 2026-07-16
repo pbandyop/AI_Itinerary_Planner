@@ -49,7 +49,7 @@
             "lon": 75.8267,
             "category": "heritage",
             "duration_min": 60,
-            "travel_to_next_min": 10,
+            "travel_to_next_min": 12,
             "reason": "Iconic palace facade and a gentle start near other Old City sights.",
             "citations": [
               {
@@ -57,26 +57,6 @@
                 "url": "https://en.wikivoyage.org/wiki/Jaipur#See",
                 "dataset": "wikivoyage",
                 "snippet": "Hawa Mahal is a landmark palace of winds in the Old City."
-              }
-            ],
-            "uncertainty": null
-          },
-          {
-            "name": "Jantar Mantar",
-            "osm_type": "way",
-            "osm_id": 246901235,
-            "lat": 26.9248,
-            "lon": 75.8246,
-            "category": "heritage",
-            "duration_min": 75,
-            "travel_to_next_min": 8,
-            "reason": "UNESCO observatory next to City Palace; fits a culture-focused morning.",
-            "citations": [
-              {
-                "title": "Jaipur \u2014 See \u2014 Wikivoyage",
-                "url": "https://en.wikivoyage.org/wiki/Jaipur#See",
-                "dataset": "wikivoyage",
-                "snippet": "Jantar Mantar is an 18th-century astronomical observatory."
               }
             ],
             "uncertainty": null
@@ -269,7 +249,7 @@
             "lon": 75.8155,
             "category": "temple",
             "duration_min": 60,
-            "travel_to_next_min": 15,
+            "travel_to_next_min": null,
             "reason": "Calm cultural morning stop with modest duration for a relaxed final day.",
             "citations": [
               {
@@ -280,19 +260,6 @@
               }
             ],
             "uncertainty": null
-          },
-          {
-            "name": "Patrika Gate / Jawahar Circle gardens",
-            "osm_type": "node",
-            "osm_id": 4123456792,
-            "lat": 26.8401,
-            "lon": 75.8012,
-            "category": "park",
-            "duration_min": 45,
-            "travel_to_next_min": null,
-            "reason": "Light outdoor stroll; avoids packing too many monuments on day 3.",
-            "citations": [],
-            "uncertainty": "Detailed Wikivoyage coverage for this exact stop is limited; treat as a scenic park stop."
           }
         ]
       },

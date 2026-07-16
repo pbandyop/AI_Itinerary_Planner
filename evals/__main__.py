@@ -1,4 +1,12 @@
-"""Runnable eval entrypoint (Phase 1 stubs; full checks in Phase 7)."""
+"""Runnable Phase 7 eval entrypoint.
+
+Suites:
+  fixtures   — golden itinerary schema + grounding rules
+  feasibility — daily duration ≤ window, pace stop caps, travel sanity
+  edit       — scoped voice edits change only target day(s)
+  grounding  — OSM ids + citations/uncertainty; tip cite-or-refuse
+  all        — run every suite
+"""
 
 from __future__ import annotations
 
@@ -20,7 +28,7 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="AI Itinerary Planner evals")
+    parser = argparse.ArgumentParser(description="AI Itinerary Planner evals (Phase 7)")
     parser.add_argument(
         "--suite",
         choices=["all", "fixtures", "feasibility", "edit", "grounding"],

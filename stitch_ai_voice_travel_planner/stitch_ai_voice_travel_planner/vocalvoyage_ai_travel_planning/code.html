@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VocalVoyage AI - Plan by Voice</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "secondary-fixed-dim": "#3fdbd4",
+                      "on-error": "#ffffff",
+                      "tertiary-fixed-dim": "#c0c7cf",
+                      "on-tertiary-fixed": "#151c22",
+                      "on-surface-variant": "#414755",
+                      "error": "#ba1a1a",
+                      "outline-variant": "#c1c6d7",
+                      "on-secondary-container": "#006f6a",
+                      "on-error-container": "#93000a",
+                      "primary-fixed-dim": "#adc6ff",
+                      "surface-bright": "#f8f9ff",
+                      "tertiary": "#555d63",
+                      "primary-container": "#0070eb",
+                      "on-secondary": "#ffffff",
+                      "error-container": "#ffdad6",
+                      "surface-dim": "#cbdbf5",
+                      "tertiary-fixed": "#dce3eb",
+                      "primary": "#0058bc",
+                      "on-secondary-fixed-variant": "#00504d",
+                      "secondary-fixed": "#65f8f0",
+                      "on-primary-fixed-variant": "#004493",
+                      "on-tertiary-fixed-variant": "#40484e",
+                      "on-primary-fixed": "#001a41",
+                      "inverse-on-surface": "#eaf1ff",
+                      "on-secondary-fixed": "#00201e",
+                      "on-tertiary": "#ffffff",
+                      "surface-container-highest": "#d3e4fe",
+                      "on-surface": "#0b1c30",
+                      "on-tertiary-container": "#fcfcff",
+                      "inverse-surface": "#213145",
+                      "surface": "#f8f9ff",
+                      "on-background": "#0b1c30",
+                      "on-primary": "#ffffff",
+                      "surface-container-lowest": "#ffffff",
+                      "on-primary-container": "#fefcff",
+                      "surface-container-high": "#dce9ff",
+                      "surface-container-low": "#eff4ff",
+                      "surface-variant": "#d3e4fe",
+                      "secondary-container": "#61f5ed",
+                      "outline": "#717786",
+                      "background": "#f8f9ff",
+                      "secondary": "#006a66",
+                      "inverse-primary": "#adc6ff",
+                      "surface-container": "#e5eeff",
+                      "tertiary-container": "#6e757c",
+                      "surface-tint": "#005bc1",
+                      "primary-fixed": "#d8e2ff"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "container-padding-mobile": "1.25rem",
+                      "itinerary-step-gap": "1rem",
+                      "container-padding-desktop": "2.5rem",
+                      "unit": "8px",
+                      "gutter": "1.5rem",
+                      "section-gap": "4rem"
+              },
+              "fontFamily": {
+                      "headline-lg-mobile": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "headline-lg": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "title-md": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "display-lg": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "body-md": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "label-sm": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "body-lg": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "label-xs": [
+                              "Plus Jakarta Sans"
+                      ]
+              },
+              "fontSize": {
+                      "headline-lg-mobile": [
+                              "24px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "headline-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "title-md": [
+                              "20px",
+                              {
+                                      "lineHeight": "1.4",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "display-lg": [
+                              "48px",
+                              {
+                                      "lineHeight": "1.1",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "1.6",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "label-sm": [
+                              "14px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "letterSpacing": "0.01em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "1.6",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "label-xs": [
+                              "12px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "fontWeight": "500"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+    </script>
+<style>
+        body {
+            background-color: theme('colors.background');
+            color: theme('colors.on-background');
+        }
+        .hero-gradient {
+            background: linear-gradient(135deg, theme('colors.surface-container-low') 0%, theme('colors.surface') 100%);
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.04);
+        }
+    </style>
+</head>
+<body class="antialiased flex flex-col min-h-screen">
+<!-- TopNavBar -->
+<header class="fixed w-full z-50 docked full-width top-0 shadow-sm bg-surface dark:bg-surface-container-highest">
+<div class="flex justify-between items-center px-container-desktop w-full max-w-[1280px] mx-auto h-20">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-3xl">flight_takeoff</span>
+<span class="font-headline-lg text-headline-lg font-bold text-primary dark:text-primary-fixed-dim">VocalVoyage</span>
+</div>
+<nav class="hidden md:flex gap-8">
+<a class="text-primary font-semibold border-b-2 border-primary pb-1 active:scale-95 transition-transform font-title-md text-title-md" href="#">New Trip</a>
+<a class="text-on-surface-variant font-medium hover:text-primary transition-colors hover:bg-surface-container-low transition-all duration-200 px-2 py-1 rounded-md active:scale-95 font-title-md text-title-md" href="#">My Trips</a>
+<a class="text-on-surface-variant font-medium hover:text-primary transition-colors hover:bg-surface-container-low transition-all duration-200 px-2 py-1 rounded-md active:scale-95 font-title-md text-title-md flex items-center gap-1" href="#">
+<span class="material-symbols-outlined">mic</span> Voice Input
+                </a>
+</nav>
+<div class="flex items-center gap-4">
+<button class="text-on-surface-variant font-medium hover:text-primary transition-colors active:scale-95 font-title-md text-title-md hidden md:block">Log In</button>
+<button class="bg-primary text-on-primary px-6 py-2 rounded-full font-label-sm text-label-sm hover:bg-surface-tint transition-colors shadow-sm active:scale-95">Get Started</button>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-grow pt-20">
+<!-- Hero Section -->
+<section class="relative pt-24 pb-32 px-container-mobile md:px-container-desktop hero-gradient overflow-hidden">
+<div class="max-w-[1280px] mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center relative z-10">
+<div class="flex flex-col gap-8 max-w-2xl">
+<div class="inline-flex items-center gap-2 bg-surface-container-highest px-4 py-2 rounded-full w-fit">
+<span class="material-symbols-outlined text-primary text-sm">auto_awesome</span>
+<span class="font-label-sm text-label-sm text-primary">The Expert Friend for Planned Spontaneity</span>
+</div>
+<h1 class="font-display-lg text-display-lg text-on-surface">
+                        Just tell us where. <br/>
+<span class="text-primary relative">
+                            We'll handle the rest.
+                            <svg class="absolute -bottom-2 left-0 w-full h-3 text-secondary-fixed-dim opacity-50" preserveaspectratio="none" viewbox="0 0 100 10">
+<path d="M0,5 Q50,15 100,5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="4"></path>
+</svg>
+</span>
+</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-xl">
+                        Skip the hours of research. Speak your travel desires, and VocalVoyage crafts perfectly balanced, personalized itineraries in seconds.
+                    </p>
+<div class="flex flex-col sm:flex-row gap-4 mt-4">
+<button class="bg-primary text-on-primary px-8 py-4 rounded-full font-title-md text-title-md hover:bg-surface-tint transition-all shadow-md active:scale-95 flex items-center justify-center gap-3">
+<span class="material-symbols-outlined text-2xl">mic</span>
+                            Plan by Voice
+                        </button>
+<button class="bg-surface text-on-surface border border-outline-variant px-8 py-4 rounded-full font-title-md text-title-md hover:bg-surface-container-low transition-all active:scale-95 flex items-center justify-center">
+                            Explore Destinations
+                        </button>
+</div>
+</div>
+<!-- Hero Visual (Glassmorphism UI representation) -->
+<div class="relative h-[500px] w-full hidden lg:block">
+<!-- Abstract Background Elements -->
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-primary-fixed blur-[100px] rounded-full opacity-60"></div>
+<div class="absolute top-1/4 right-1/4 w-64 h-64 bg-secondary-fixed blur-[80px] rounded-full opacity-40"></div>
+<!-- Floating UI Cards -->
+<div class="absolute top-10 right-10 w-72 glass-card rounded-2xl p-6 transform rotate-3 hover:rotate-0 transition-transform duration-500 z-20">
+<div class="flex items-center gap-4 mb-4">
+<div class="w-10 h-10 bg-primary-container rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary-container">mic</span>
+</div>
+<div>
+<div class="font-label-sm text-label-sm text-on-surface">"A weekend in Kyoto, focusing on quiet temples..."</div>
+</div>
+</div>
+<div class="w-full h-1 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="w-2/3 h-full bg-primary rounded-full"></div>
+</div>
+<div class="mt-2 text-right font-label-xs text-label-xs text-primary">Generating Itinerary...</div>
+</div>
+<div class="absolute bottom-20 left-0 w-80 glass-card rounded-2xl p-4 z-10 transform -rotate-2 hover:rotate-0 transition-transform duration-500">
+<div class="h-32 rounded-xl bg-cover bg-center mb-4" data-alt="A serene, high-quality photograph of a tranquil bamboo forest in Kyoto, Japan, bathed in soft, diffused morning sunlight. The image is captured from a low angle looking up, creating a sense of towering majesty. The color palette is rich in natural greens with bright, airy white light filtering through the leaves, perfectly matching a clean, modern UI aesthetic. The mood is calm and peaceful." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBcST6lEEIkpERDl5yNBbm3STN8hA5DsZp-_4kgsCEEFb2d36oJ7N6d5eUXxUYvIKbQq8Hji4aUOZpMj9CkuO-4XBonlNskxgpLLf2vM7keG9LwIM2obUq3_27GfhEn6gTlDkK2eFzKMopVcxrbXrjXJXxap8mKZdoDsz4NZVHXddEe6yG1wPAIwXE8XyvP4gXw41qy8I6Vh6EaiRx--eSurGUcKm228i8SajDIsqqiBeqyvYkk6uyO')"></div>
+<div class="flex justify-between items-start">
+<div>
+<h3 class="font-title-md text-title-md text-on-surface">Arashiyama Bamboo Grove</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Day 2 • Morning</p>
+</div>
+<div class="bg-surface-container-high px-2 py-1 rounded-md flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-tertiary">schedule</span>
+<span class="font-label-xs text-label-xs text-tertiary">2 hrs</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Features Bento Grid -->
+<section class="py-section-gap px-container-mobile md:px-container-desktop bg-surface-container-lowest">
+<div class="max-w-[1280px] mx-auto">
+<div class="text-center mb-16">
+<h2 class="font-display-lg text-display-lg text-on-surface mb-4">Intelligent Itineraries, Zero Friction</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-2xl mx-auto">Our AI understands context, pacing, and logistics to build trips that flow perfectly from day to day.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-[300px]">
+<!-- Feature 1: Personalized Days (Spans 2 columns) -->
+<div class="md:col-span-2 bg-surface-container-low rounded-[24px] p-8 relative overflow-hidden group">
+<div class="relative z-10 w-2/3">
+<div class="w-12 h-12 bg-primary text-on-primary rounded-xl flex items-center justify-center mb-6 shadow-sm">
+<span class="material-symbols-outlined text-2xl">calendar_month</span>
+</div>
+<h3 class="font-headline-lg text-headline-lg text-on-surface mb-3">Curated Day 2-4 Agendas</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">We don't just give you a list of spots. We construct narrative days with logical pacing, ensuring you're not rushing across town.</p>
+</div>
+<!-- Decorative UI Element -->
+<div class="absolute -right-10 -bottom-10 w-96 h-80 glass-card rounded-tl-3xl p-6 shadow-lg transform rotate-[-5deg] group-hover:rotate-0 transition-transform duration-500 border border-outline-variant">
+<div class="flex flex-col gap-4">
+<div class="flex items-center gap-3 bg-surface p-3 rounded-lg shadow-sm border border-surface-container-highest">
+<div class="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-[16px] text-on-secondary-container">restaurant</span>
+</div>
+<div>
+<div class="font-label-sm text-label-sm text-on-surface">Lunch at Nishiki Market</div>
+<div class="font-label-xs text-label-xs text-on-surface-variant">12:30 PM • Casual</div>
+</div>
+</div>
+<div class="w-0.5 h-6 bg-outline-variant border-dashed border-l-2 ml-7"></div>
+<div class="flex items-center gap-3 bg-surface p-3 rounded-lg shadow-sm border border-surface-container-highest">
+<div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-[16px] text-on-primary-container">museum</span>
+</div>
+<div>
+<div class="font-label-sm text-label-sm text-on-surface">Kyoto National Museum</div>
+<div class="font-label-xs text-label-xs text-on-surface-variant">2:00 PM • Culture</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Feature 2: Time Estimates -->
+<div class="bg-surface-container-highest rounded-[24px] p-8 flex flex-col justify-between">
+<div>
+<div class="w-12 h-12 bg-secondary text-on-secondary rounded-xl flex items-center justify-center mb-6 shadow-sm">
+<span class="material-symbols-outlined text-2xl">timelapse</span>
+</div>
+<h3 class="font-title-md text-title-md text-on-surface mb-3">Smart Time Estimates</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Know exactly how long to spend at each location. Our AI factors in crowds, time of day, and your pace.</p>
+</div>
+<div class="mt-4 flex gap-2 flex-wrap">
+<span class="bg-surface px-3 py-1 rounded-full font-label-xs text-label-xs text-on-surface flex items-center gap-1 shadow-sm"><span class="material-symbols-outlined text-[14px]">hourglass_empty</span> Quick Visit (1 hr)</span>
+<span class="bg-surface px-3 py-1 rounded-full font-label-xs text-label-xs text-on-surface flex items-center gap-1 shadow-sm"><span class="material-symbols-outlined text-[14px]">hourglass_full</span> Deep Dive (3+ hrs)</span>
+</div>
+</div>
+<!-- Feature 3: Seamless Connections -->
+<div class="bg-surface-container-highest rounded-[24px] p-8 flex flex-col justify-between">
+<div>
+<div class="w-12 h-12 bg-tertiary text-on-tertiary rounded-xl flex items-center justify-center mb-6 shadow-sm">
+<span class="material-symbols-outlined text-2xl">transit_enterexit</span>
+</div>
+<h3 class="font-title-md text-title-md text-on-surface mb-3">Seamless Transit</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">We map the optimal routes between stops, suggesting the best modes of transport to save you time.</p>
+</div>
+</div>
+<!-- Feature 4: Visual (Spans 2 columns) -->
+<div class="md:col-span-2 bg-surface-container-low rounded-[24px] p-0 relative overflow-hidden min-h-[300px]">
+<div class="absolute inset-0 bg-cover bg-center" data-alt="A highly stylized, minimalist map visualization of a city route, showing a smooth, curved path connecting three distinct points of interest. The map is rendered in light, airy tones with soft blue and teal accents indicating the route. Small, elegant icons represent a museum, a cafe, and a park along the path. The overall aesthetic is clean, modern, and perfectly aligned with a light-mode AI travel app." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDqeurXWTjWOCLmS2-Q2W-hvwy3rdcHApXL8Mdihdyq4px3ZEggdHz54DjLpji8PrihC5OsApX3SiDawOL7zpbZIWjZ_CDxEZCiCjcitzEQq-HDovF1yKjB96PJa7R1PcUlrGQmYniAnxqYXIhEArPQEVDUeEczbU4glYHG-WFyTTbkuon7st1aG1W1tPmp0V9Z4KecKUKDa-ZxgJvIMUc1QbJXegO3eCZb9aeAkkSwh-dx161vt9pU')"></div>
+<div class="absolute inset-0 bg-gradient-to-r from-surface-container-low via-surface-container-low/80 to-transparent p-8 flex flex-col justify-center w-2/3">
+<h3 class="font-headline-lg text-headline-lg text-on-surface mb-3">Visual Routing</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">See your entire day mapped out beautifully, so you never feel lost.</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="w-full py-section-gap bg-surface-container-lowest dark:bg-inverse-surface border-t border-outline-variant/20 mt-auto">
+<div class="max-w-[1280px] mx-auto px-container-desktop flex flex-col md:flex-row justify-between items-center gap-gutter">
+<div class="flex flex-col items-center md:items-start gap-2">
+<div class="font-title-md text-title-md font-bold text-on-surface dark:text-inverse-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">flight_takeoff</span>
+                    VocalVoyage
+                </div>
+<p class="font-body-md text-body-md text-on-surface-variant">© 2024 VocalVoyage AI. Your expert friend for planned spontaneity.</p>
+</div>
+<nav class="flex flex-wrap justify-center gap-6">
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary hover:underline transition-all opacity-80 hover:opacity-100" href="#">Travel Resources</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary hover:underline transition-all opacity-80 hover:opacity-100" href="#">Privacy Policy</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary hover:underline transition-all opacity-80 hover:opacity-100" href="#">Terms of Service</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary hover:underline transition-all opacity-80 hover:opacity-100" href="#">Brand Kit</a>
+</nav>
+</div>
+</footer>
+</body></html>

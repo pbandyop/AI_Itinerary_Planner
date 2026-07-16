@@ -71,21 +71,56 @@ def list_india_city_names() -> list[str]:
 
 
 def resolve_city(name: str) -> CityInfo | None:
-    """Resolve an Indian city by name or alias (case-insensitive)."""
+    """Resolve an Indian city by name or alias (case-insensitive).
+
+    Soft matching only allows a query to *contain* a known city/alias
+    (e.g. \"New Delhi\" → Delhi). Short tokens like \"to\" / \"a\" must NOT
+    match mid-substrings of city names (e.g. \"to\" ⊂ Chittorgarh).
+    """
     if not name or not name.strip():
         return None
     key = name.strip().lower()
     cities = load_india_cities()
     if key in cities:
         return cities[key]
-    # Soft contains match (e.g. "New Delhi" vs "Delhi")
+
+    # Soft contains: the query string contains a full city name or alias.
+    # Require length ≥ 4 so tiny tokens never soft-match.
+    if len(key) < 4:
+        return None
+
+    best: CityInfo | None = None
+    best_len = 0
+    seen: set[str] = set()
     for info in cities.values():
-        if key in info.name.lower() or info.name.lower() in key:
-            return info
+        if info.name in seen:
+            continue
+        seen.add(info.name)
+        candidates = (info.name, *info.aliases)
+        for label in candidates:
+            label_l = label.lower().strip()
+            if len(label_l) < 4:
+                continue
+            # Query contains the city label (not the other way around).
+            if label_l in key and len(label_l) > best_len:
+                best = info
+                best_len = len(label_l)
+    return best
+
+
+def _city_labels() -> list[tuple[str, str]]:
+    """(label_lower, canonical_name) sorted longest-first for message scanning."""
+    labels: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for info in load_india_cities().values():
+        if info.name in seen:
+            continue
+        seen.add(info.name)
+        labels.append((info.name.lower(), info.name))
         for alias in info.aliases:
-            if key in alias.lower() or alias.lower() in key:
-                return info
-    return None
+            labels.append((alias.lower(), info.name))
+    labels.sort(key=lambda x: (-len(x[0]), x[0]))
+    return labels
 
 
 def is_supported_indian_city(name: str) -> bool:
@@ -130,10 +165,15 @@ def estimate_travel_minutes(
     *,
     mode: str = "city",
 ) -> int:
-    """Heuristic door-to-door minutes (not live transit)."""
+    """Heuristic door-to-door minutes (not live transit).
+
+    Same coordinates / sub-50m hops return 0 — never invent a fake 8-minute trip.
+    """
     if lat1 is None or lon1 is None or lat2 is None or lon2 is None:
         return 20
     km = haversine_km(lat1, lon1, lat2, lon2)
+    if km < 0.05:
+        return 0
     if mode == "walk":
         return max(5, int(round(km / 4.5 * 60 + 3)))
     return max(8, int(round(km / 18.0 * 60 + 5)))

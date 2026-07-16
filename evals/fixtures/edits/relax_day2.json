@@ -1,0 +1,249 @@
+{
+  "name": "relax_day2",
+  "utterance": "Make Day 2 more relaxed",
+  "expect_changed_days": [2],
+  "expect_target_stop_delta": -1,
+  "patches": [
+    {
+      "target": { "day": 2, "block": null },
+      "operation": "relax_block",
+      "payload": {},
+      "user_utterance": "Make Day 2 more relaxed"
+    }
+  ],
+  "before": {
+    "schema_version": "1.0",
+    "summary": "Packed 3-day seed for edit eval",
+    "uncertainty_notes": ["Eval fixture"],
+    "trip": {
+      "city": "Jaipur",
+      "country": "India",
+      "num_days": 3,
+      "pace": "packed",
+      "interests": ["heritage", "park"],
+      "constraints": [],
+      "daily_time_window_min": 600,
+      "confirmed": true
+    },
+    "sources": [],
+    "days": [
+      {
+        "day_index": 1,
+        "theme": "Old City",
+        "morning": {
+          "time_of_day": "morning",
+          "stops": [
+            {
+              "name": "Hawa Mahal",
+              "osm_type": "way",
+              "osm_id": 101,
+              "lat": 26.9239,
+              "lon": 75.8267,
+              "category": "heritage",
+              "duration_min": 60,
+              "travel_to_next_min": 12,
+              "reason": "seed",
+              "citations": [],
+              "uncertainty": "eval fixture"
+            },
+            {
+              "name": "Jantar Mantar",
+              "osm_type": "way",
+              "osm_id": 102,
+              "lat": 26.9248,
+              "lon": 75.8246,
+              "category": "heritage",
+              "duration_min": 60,
+              "reason": "seed",
+              "citations": [],
+              "uncertainty": "eval fixture"
+            }
+          ]
+        },
+        "afternoon": {
+          "time_of_day": "afternoon",
+          "stops": [
+            {
+              "name": "City Palace",
+              "osm_type": "relation",
+              "osm_id": 103,
+              "lat": 26.9258,
+              "lon": 75.8236,
+              "category": "heritage",
+              "duration_min": 90,
+              "reason": "seed",
+              "citations": [],
+              "uncertainty": "eval fixture"
+            }
+          ]
+        },
+        "evening": {
+          "time_of_day": "evening",
+          "stops": [
+            {
+              "name": "Central Park",
+              "osm_type": "way",
+              "osm_id": 104,
+              "lat": 26.905,
+              "lon": 75.81,
+              "category": "park",
+              "duration_min": 45,
+              "reason": "seed",
+              "citations": [],
+              "uncertainty": "eval fixture"
+            }
+          ]
+        }
+      },
+      {
+        "day_index": 2,
+        "theme": "Amber cluster",
+        "morning": {
+          "time_of_day": "morning",
+          "stops": [
+            {
+              "name": "Amber Fort",
+              "osm_type": "way",
+              "osm_id": 201,
+              "lat": 26.9855,
+              "lon": 75.8513,
+              "category": "heritage",
+              "duration_min": 90,
+              "travel_to_next_min": 18,
+              "reason": "seed",
+              "citations": [],
+              "uncertainty": "eval fixture"
+            },
+            {
+              "name": "Jaigarh Fort",
+              "osm_type": "way",
+              "osm_id": 202,
+              "lat": 26.985,
+              "lon": 75.85,
+              "category": "heritage",
+              "duration_min": 60,
+              "travel_to_next_min": 10,
+              "reason": "seed",
+              "citations": [],
+              "uncertainty": "eval fixture"
+            },
+            {
+              "name": "Amer Palace",
+              "osm_type": "way",
+              "osm_id": 203,
+              "lat": 26.984,
+              "lon": 75.849,
+              "category": "heritage",
+              "duration_min": 60,
+              "reason": "seed",
+              "citations": [],
+              "uncertainty": "eval fixture"
+            }
+          ]
+        },
+        "afternoon": {
+          "time_of_day": "afternoon",
+          "stops": [
+            {
+              "name": "Jal Mahal",
+              "osm_type": "node",
+              "osm_id": 204,
+              "lat": 26.9539,
+              "lon": 75.8463,
+              "category": "heritage",
+              "duration_min": 45,
+              "travel_to_next_min": 30,
+              "reason": "seed",
+              "citations": [],
+              "uncertainty": "eval fixture"
+            },
+            {
+              "name": "Nahargarh",
+              "osm_type": "way",
+              "osm_id": 205,
+              "lat": 26.9373,
+              "lon": 75.8155,
+              "category": "heritage",
+              "duration_min": 60,
+              "reason": "seed",
+              "citations": [],
+              "uncertainty": "eval fixture"
+            }
+          ]
+        },
+        "evening": {
+          "time_of_day": "evening",
+          "stops": [
+            {
+              "name": "Kanak Vrindavan",
+              "osm_type": "way",
+              "osm_id": 206,
+              "lat": 26.95,
+              "lon": 75.84,
+              "category": "park",
+              "duration_min": 45,
+              "reason": "seed",
+              "citations": [],
+              "uncertainty": "eval fixture"
+            }
+          ]
+        }
+      },
+      {
+        "day_index": 3,
+        "theme": "Temples",
+        "morning": {
+          "time_of_day": "morning",
+          "stops": [
+            {
+              "name": "Govind Dev Ji",
+              "osm_type": "way",
+              "osm_id": 301,
+              "lat": 26.925,
+              "lon": 75.824,
+              "category": "temple",
+              "duration_min": 60,
+              "reason": "seed",
+              "citations": [],
+              "uncertainty": "eval fixture"
+            }
+          ]
+        },
+        "afternoon": {
+          "time_of_day": "afternoon",
+          "stops": [
+            {
+              "name": "Bapu Bazaar",
+              "osm_type": "way",
+              "osm_id": 302,
+              "lat": 26.9168,
+              "lon": 75.8189,
+              "category": "market",
+              "duration_min": 75,
+              "reason": "seed",
+              "citations": [],
+              "uncertainty": "eval fixture"
+            }
+          ]
+        },
+        "evening": {
+          "time_of_day": "evening",
+          "stops": [
+            {
+              "name": "Albert Hall",
+              "osm_type": "way",
+              "osm_id": 303,
+              "lat": 26.9117,
+              "lon": 75.8197,
+              "category": "museum",
+              "duration_min": 60,
+              "reason": "seed",
+              "citations": [],
+              "uncertainty": "eval fixture"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

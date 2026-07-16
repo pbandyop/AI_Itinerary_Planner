@@ -1,0 +1,129 @@
+{
+  "name": "trim_food_day1",
+  "utterance": "Remove food from Day 1",
+  "expect_changed_days": [1],
+  "expect_target_stop_delta": -1,
+  "patches": [
+    {
+      "target": { "day": 1, "block": null },
+      "operation": "trim_category",
+      "payload": { "category": "food", "keep": 0 },
+      "user_utterance": "Remove food from Day 1"
+    }
+  ],
+  "before": {
+    "schema_version": "1.0",
+    "summary": "Two-day seed with food on Day 1 only",
+    "uncertainty_notes": ["Eval fixture"],
+    "trip": {
+      "city": "Jaipur",
+      "country": "India",
+      "num_days": 2,
+      "pace": "moderate",
+      "interests": ["food", "heritage"],
+      "constraints": [],
+      "daily_time_window_min": 540,
+      "confirmed": true
+    },
+    "sources": [],
+    "days": [
+      {
+        "day_index": 1,
+        "theme": "Heritage + food",
+        "morning": {
+          "time_of_day": "morning",
+          "stops": [
+            {
+              "name": "LMB",
+              "osm_type": "node",
+              "osm_id": 501,
+              "lat": 26.9215,
+              "lon": 75.8251,
+              "category": "food",
+              "duration_min": 45,
+              "travel_to_next_min": 10,
+              "reason": "seed",
+              "citations": [],
+              "uncertainty": "eval fixture"
+            },
+            {
+              "name": "Hawa Mahal",
+              "osm_type": "way",
+              "osm_id": 502,
+              "lat": 26.9239,
+              "lon": 75.8267,
+              "category": "heritage",
+              "duration_min": 60,
+              "reason": "seed",
+              "citations": [],
+              "uncertainty": "eval fixture"
+            }
+          ]
+        },
+        "afternoon": {
+          "time_of_day": "afternoon",
+          "stops": [
+            {
+              "name": "City Palace",
+              "osm_type": "relation",
+              "osm_id": 503,
+              "lat": 26.9258,
+              "lon": 75.8236,
+              "category": "heritage",
+              "duration_min": 90,
+              "reason": "seed",
+              "citations": [],
+              "uncertainty": "eval fixture"
+            }
+          ]
+        },
+        "evening": {
+          "time_of_day": "evening",
+          "stops": []
+        }
+      },
+      {
+        "day_index": 2,
+        "theme": "Fort",
+        "morning": {
+          "time_of_day": "morning",
+          "stops": [
+            {
+              "name": "Amber Fort",
+              "osm_type": "way",
+              "osm_id": 601,
+              "lat": 26.9855,
+              "lon": 75.8513,
+              "category": "heritage",
+              "duration_min": 120,
+              "reason": "seed",
+              "citations": [],
+              "uncertainty": "eval fixture"
+            }
+          ]
+        },
+        "afternoon": {
+          "time_of_day": "afternoon",
+          "stops": [
+            {
+              "name": "Albert Hall",
+              "osm_type": "way",
+              "osm_id": 602,
+              "lat": 26.9117,
+              "lon": 75.8197,
+              "category": "museum",
+              "duration_min": 75,
+              "reason": "seed",
+              "citations": [],
+              "uncertainty": "eval fixture"
+            }
+          ]
+        },
+        "evening": {
+          "time_of_day": "evening",
+          "stops": []
+        }
+      }
+    ]
+  }
+}

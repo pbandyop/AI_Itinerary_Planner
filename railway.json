@@ -1,0 +1,21 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "services/agent/Dockerfile",
+    "watchPatterns": [
+      "services/agent/**",
+      "data/india_cities.json",
+      "data/pois/**",
+      "data/rag/corpus/**",
+      "data/rag/*.json",
+      "data/rag/README.md"
+    ]
+  },
+  "deploy": {
+    "healthcheckPath": "/health",
+    "healthcheckTimeout": 120,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 5
+  }
+}

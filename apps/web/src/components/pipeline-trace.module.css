@@ -1,0 +1,141 @@
+.panel {
+  background: var(--surface-lowest);
+  border: 1px solid color-mix(in srgb, var(--outline-variant) 40%, transparent);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-ambient);
+  padding: 1.25rem 1.15rem 1.35rem;
+}
+
+.head {
+  margin-bottom: 0.85rem;
+}
+
+.head h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--on-surface);
+}
+
+.sub {
+  margin: 0.35rem 0 0;
+  font-size: 0.88rem;
+  color: var(--on-surface-variant);
+  max-width: 48ch;
+  line-height: 1.4;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.item {
+  border: 1px solid color-mix(in srgb, var(--outline-variant) 40%, transparent);
+  border-radius: var(--radius-md);
+  background: var(--surface-low);
+  overflow: hidden;
+}
+
+.row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(7.5rem, 11rem) 1fr auto;
+  gap: 0.65rem;
+  align-items: start;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 0.7rem 0.85rem;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.row:hover {
+  background: color-mix(in srgb, var(--primary) 6%, transparent);
+}
+
+.row:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.stage {
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--primary);
+  padding-top: 0.15rem;
+}
+
+.summary {
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--on-surface);
+  word-break: break-word;
+}
+
+.chev {
+  color: var(--on-surface-variant);
+  font-size: 0.85rem;
+  padding-top: 0.1rem;
+}
+
+.detail {
+  margin: 0;
+  padding: 0 0.85rem 0.85rem;
+  max-height: 22rem;
+  overflow: auto;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--on-surface-variant);
+  white-space: pre-wrap;
+  word-break: break-word;
+  border-top: 1px dashed color-mix(in srgb, var(--outline-variant) 50%, transparent);
+  background: color-mix(in srgb, var(--surface-container) 55%, white);
+}
+
+.toneUser .stage {
+  color: var(--on-surface-variant);
+}
+
+.toneOrch .stage {
+  color: var(--primary);
+}
+
+.toneSpecialist .stage {
+  color: var(--secondary);
+}
+
+.toneItin .stage {
+  color: #6b4a1f;
+}
+
+.toneSynth .stage {
+  color: var(--secondary);
+}
+
+.toneReview .stage {
+  color: #5a3d8a;
+}
+
+.toneDefault .stage {
+  color: var(--on-surface-variant);
+}
+
+@media (max-width: 640px) {
+  .row {
+    grid-template-columns: 1fr auto;
+  }
+
+  .stage {
+    grid-column: 1 / -1;
+  }
+}

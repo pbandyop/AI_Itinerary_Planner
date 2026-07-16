@@ -8,7 +8,7 @@
     "category": "park",
     "tags": { "leisure": "garden" },
     "rank_score": 8.5,
-    "matched_interests": ["nature"]
+    "matched_interests": ["nature", "culture"]
   },
   {
     "name": "Cubbon Park",
@@ -19,7 +19,7 @@
     "category": "park",
     "tags": { "leisure": "park" },
     "rank_score": 8.2,
-    "matched_interests": ["nature"]
+    "matched_interests": ["nature", "culture"]
   },
   {
     "name": "Bangalore Palace",
@@ -52,7 +52,7 @@
     "category": "market",
     "tags": {},
     "rank_score": 7.5,
-    "matched_interests": ["shopping"]
+    "matched_interests": ["shopping", "culture"]
   },
   {
     "name": "ISKCON Temple Bengaluru",
@@ -64,5 +64,115 @@
     "tags": { "amenity": "place_of_worship" },
     "rank_score": 8.1,
     "matched_interests": ["culture"]
+  },
+  {
+    "name": "Tipu Sultan's Summer Palace",
+    "osm_type": "way",
+    "osm_id": 246820007,
+    "lat": 12.9594,
+    "lon": 77.5736,
+    "category": "heritage",
+    "tags": { "historic": "palace", "tourism": "attraction" },
+    "rank_score": 8.3,
+    "matched_interests": ["heritage", "culture"]
+  },
+  {
+    "name": "Bull Temple (Dodda Basavana Gudi)",
+    "osm_type": "way",
+    "osm_id": 246820008,
+    "lat": 12.9432,
+    "lon": 77.5682,
+    "category": "temple",
+    "tags": { "amenity": "place_of_worship" },
+    "rank_score": 7.8,
+    "matched_interests": ["culture"]
+  },
+  {
+    "name": "National Gallery of Modern Art Bengaluru",
+    "osm_type": "way",
+    "osm_id": 246820009,
+    "lat": 12.9895,
+    "lon": 77.5886,
+    "category": "museum",
+    "tags": { "tourism": "museum" },
+    "rank_score": 7.9,
+    "matched_interests": ["culture"]
+  },
+  {
+    "name": "UB City Mall",
+    "osm_type": "way",
+    "osm_id": 246820010,
+    "lat": 12.9718,
+    "lon": 77.5963,
+    "category": "market",
+    "tags": { "shop": "mall" },
+    "rank_score": 7.2,
+    "matched_interests": ["shopping"]
+  },
+  {
+    "name": "MTR (Lalbagh Road)",
+    "osm_type": "node",
+    "osm_id": 246820011,
+    "lat": 12.9558,
+    "lon": 77.5855,
+    "category": "food",
+    "tags": { "amenity": "restaurant", "cuisine": "south_indian" },
+    "rank_score": 8.4,
+    "matched_interests": ["food"]
+  },
+  {
+    "name": "Vidyarthi Bhavan",
+    "osm_type": "node",
+    "osm_id": 246820012,
+    "lat": 12.9456,
+    "lon": 77.5712,
+    "category": "food",
+    "tags": { "amenity": "restaurant", "cuisine": "south_indian" },
+    "rank_score": 8.0,
+    "matched_interests": ["food"]
+  },
+  {
+    "name": "CTR (Central Tiffin Room)",
+    "osm_type": "node",
+    "osm_id": 246820013,
+    "lat": 12.9981,
+    "lon": 77.5718,
+    "category": "food",
+    "tags": { "amenity": "restaurant", "cuisine": "south_indian" },
+    "rank_score": 7.9,
+    "matched_interests": ["food"]
+  },
+  {
+    "name": "Toit Brewpub Indiranagar",
+    "osm_type": "node",
+    "osm_id": 246820014,
+    "lat": 12.9784,
+    "lon": 77.6408,
+    "category": "nightlife",
+    "tags": { "amenity": "pub" },
+    "rank_score": 7.6,
+    "matched_interests": ["nightlife", "food"]
+  },
+  {
+    "name": "Church Street",
+    "osm_type": "way",
+    "osm_id": 246820015,
+    "lat": 12.9756,
+    "lon": 77.6063,
+    "category": "market",
+    "tags": {},
+    "rank_score": 7.7,
+    "matched_interests": ["shopping", "culture", "nightlife"]
+  },
+  {
+    "name": "Bannerghatta Biological Park",
+    "osm_type": "relation",
+    "osm_id": 246820016,
+    "lat": 12.8004,
+    "lon": 77.5770,
+    "category": "park",
+    "tags": { "leisure": "nature_reserve" },
+    "rank_score": 8.1,
+    "matched_interests": ["nature"]
   }
 ]

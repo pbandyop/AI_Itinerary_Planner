@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import os
-from pathlib import Path
 from typing import Any
 
 import httpx
@@ -16,8 +14,28 @@ from agent.schemas.specialists import POICandidate, POISearchResult
 logger = logging.getLogger(__name__)
 
 OVERPASS_URL = os.getenv(
-    "OVERPASS_API_URL", "https://overpass-api.de/api/interpreter"
+    "OVERPASS_API_URL", "https://overpass.kumi.systems/api/interpreter"
 )
+# Secondary public Overpass mirrors tried only when the primary URL fails (still live OSM).
+_OVERPASS_FALLBACK_URLS = [
+    u.strip()
+    for u in os.getenv(
+        "OVERPASS_FALLBACK_URLS",
+        "https://overpass-api.de/api/interpreter,"
+        "https://overpass.private.coffee/api/interpreter",
+    ).split(",")
+    if u.strip() and u.strip() != OVERPASS_URL
+]
+
+_SHOPPING_FILTERS = [
+    'node["shop"~"mall|clothes|gift|jewelry|marketplace|department_store|fashion|souvenir"]',
+    'way["shop"~"mall|clothes|gift|jewelry|marketplace|department_store|fashion|souvenir"]',
+    'node["amenity"="marketplace"]',
+    'way["amenity"="marketplace"]',
+    # Targeted famous bazaar names (cheap) — avoids scanning all pedestrian ways.
+    'node["name"~"Johari Bazaar|Bapu Bazaar|Tripolia Bazaar|Nehru Bazaar|Kishanpol Bazaar",i]',
+    'way["name"~"Johari Bazaar|Bapu Bazaar|Tripolia Bazaar|Nehru Bazaar|Kishanpol Bazaar",i]',
+]
 
 INTEREST_FILTERS: dict[str, list[str]] = {
     "food": [
@@ -40,22 +58,211 @@ INTEREST_FILTERS: dict[str, list[str]] = {
         'way["tourism"="attraction"]',
         'way["building"="castle"]',
     ],
-    "shopping": [
-        'node["shop"~"mall|clothes|gift|jewelry"]',
-        'way["shop"~"mall|clothes|gift|jewelry"]',
+    "history": [
+        'node["historic"]',
+        'way["historic"]',
+        'node["tourism"="museum"]',
+        'way["tourism"="museum"]',
     ],
+    "shopping": list(_SHOPPING_FILTERS),
+    "market": list(_SHOPPING_FILTERS),
     "nature": [
         'node["leisure"~"park|garden"]',
         'way["leisure"~"park|garden"]',
         'node["tourism"="viewpoint"]',
     ],
+    "park": [
+        'node["leisure"~"park|garden|playground"]',
+        'way["leisure"~"park|garden|playground"]',
+        'node["tourism"="zoo"]',
+        'way["tourism"="zoo"]',
+    ],
+    "museum": [
+        'node["tourism"~"museum|gallery"]',
+        'way["tourism"~"museum|gallery"]',
+    ],
     "temple": [
         'node["amenity"="place_of_worship"]',
         'way["amenity"="place_of_worship"]',
     ],
+    "art": [
+        'node["tourism"~"gallery|artwork|museum"]',
+        'way["tourism"~"gallery|museum"]',
+    ],
+    "architecture": [
+        'node["historic"]',
+        'way["historic"]',
+        'node["tourism"="attraction"]',
+        'way["building"~"cathedral|chapel|temple"]',
+    ],
+    "adventure": [
+        'node["tourism"~"attraction|theme_park"]',
+        'way["tourism"~"attraction|theme_park"]',
+        'node["leisure"~"sports_centre|water_park"]',
+    ],
+    "nightlife": [
+        'node["amenity"~"bar|pub|nightclub|biergarten"]',
+        'way["amenity"~"bar|pub|nightclub|biergarten"]',
+        'node["tourism"="hostel"]',
+        'node["leisure"="dance"]',
+    ],
 }
 
 DEFAULT_INTERESTS = ["culture", "heritage", "food"]
+
+
+def fetch_overpass(query: str, *, timeout: float = 50.0) -> list[dict[str, Any]]:
+    headers = {
+        "User-Agent": (
+            "AI-Itinerary-Planner/0.2 "
+            "(capstone; contact: github.com/pbandyop/AI_Itinerary_Planner)"
+        ),
+        "Accept": "application/json",
+    }
+    urls = [OVERPASS_URL, *_OVERPASS_FALLBACK_URLS]
+    last_exc: Exception | None = None
+    for url in urls:
+        try:
+            logger.info("Overpass request (%d chars) -> %s", len(query), url)
+            with httpx.Client(timeout=timeout, headers=headers) as client:
+                resp = client.post(url, data={"data": query})
+                resp.raise_for_status()
+                payload = resp.json()
+            elements = payload.get("elements") or []
+            logger.info("Overpass returned %d elements from %s", len(elements), url)
+            return elements
+        except Exception as exc:  # noqa: BLE001
+            last_exc = exc
+            logger.warning("Overpass endpoint failed (%s): %s", url, exc)
+    assert last_exc is not None
+    raise last_exc
+
+
+_NOMINATIM_URL = os.getenv(
+    "NOMINATIM_API_URL", "https://nominatim.openstreetmap.org/search"
+)
+
+# Live Nominatim amenity queries when Overpass is empty/flaky for an interest.
+_NOMINATIM_QUERIES: dict[str, list[str]] = {
+    "food": ["restaurant", "cafe", "fast_food"],
+    "temple": ["place_of_worship"],
+    "museum": ["museum"],
+    "shopping": ["marketplace", "clothes"],
+    "market": ["marketplace"],
+    "park": ["park"],
+    "heritage": ["attraction"],
+    "nightlife": ["bar", "pub"],
+}
+
+
+def nominatim_category_search(
+    *,
+    city: str,
+    interest: str,
+    limit: int = 20,
+    timeout: float = 20.0,
+) -> list[POICandidate]:
+    """Live OpenStreetMap Nominatim search (secondary live source for edits)."""
+    info = resolve_city(city)
+    if info is None:
+        return []
+    amenity_keys = _NOMINATIM_QUERIES.get(interest.lower().strip()) or []
+    if not amenity_keys:
+        amenity_keys = [interest.lower().strip()]
+    headers = {
+        "User-Agent": (
+            "AI-Itinerary-Planner/0.2 "
+            "(capstone; contact: github.com/pbandyop/AI_Itinerary_Planner)"
+        ),
+        "Accept": "application/json",
+    }
+    pois: list[POICandidate] = []
+    seen: set[str] = set()
+    with httpx.Client(timeout=timeout, headers=headers) as client:
+        for amenity in amenity_keys:
+            if len(pois) >= limit:
+                break
+            params = {
+                "q": f"{amenity} in {info.name}, India",
+                "format": "jsonv2",
+                "addressdetails": 0,
+                "limit": min(15, limit),
+                "countrycodes": "in",
+            }
+            try:
+                logger.info("Nominatim q=%s", params["q"])
+                resp = client.get(_NOMINATIM_URL, params=params)
+                resp.raise_for_status()
+                rows = resp.json()
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Nominatim failed amenity=%s: %s", amenity, exc)
+                continue
+            if not isinstance(rows, list):
+                continue
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                name = str(
+                    row.get("name") or row.get("display_name") or ""
+                ).split(",")[0].strip()
+                if not name:
+                    continue
+                # Keep results near Jaipur center when possible.
+                try:
+                    lat = float(row["lat"])
+                    lon = float(row["lon"])
+                except (KeyError, TypeError, ValueError):
+                    continue
+                center = (info.lat, info.lon)
+                # Crude 0.45° ~ 50km box filter around city center
+                if abs(lat - center[0]) > 0.45 or abs(lon - center[1]) > 0.45:
+                    continue
+                osm_type = str(row.get("osm_type") or "").lower()
+                if osm_type == "node":
+                    ot = "node"
+                elif osm_type == "way":
+                    ot = "way"
+                elif osm_type == "relation":
+                    ot = "relation"
+                else:
+                    continue
+                try:
+                    osm_id = int(row.get("osm_id"))
+                except (TypeError, ValueError):
+                    continue
+                ref = f"{ot}/{osm_id}"
+                if ref in seen:
+                    continue
+                seen.add(ref)
+                category = {
+                    "restaurant": "food",
+                    "cafe": "food",
+                    "fast_food": "food",
+                    "place_of_worship": "temple",
+                    "museum": "museum",
+                    "marketplace": "market",
+                    "clothes": "market",
+                    "park": "park",
+                    "attraction": "heritage",
+                    "bar": "nightlife",
+                    "pub": "nightlife",
+                }.get(amenity, interest.lower())
+                pois.append(
+                    POICandidate(
+                        name=name,
+                        osm_type=ot,  # type: ignore[arg-type]
+                        osm_id=osm_id,
+                        lat=lat,
+                        lon=lon,
+                        category=category,
+                        tags={"source": "nominatim", "amenity": amenity},
+                        rank_score=7.0,
+                        matched_interests=[interest.lower()],
+                    )
+                )
+                if len(pois) >= limit:
+                    break
+    return pois
 
 
 def _category_from_tags(tags: dict[str, str]) -> str:
@@ -66,6 +273,8 @@ def _category_from_tags(tags: dict[str, str]) -> str:
     shop = tags.get("shop")
     if amenity in {"restaurant", "cafe", "fast_food", "food_court"} or shop == "bakery":
         return "food"
+    if amenity in {"bar", "pub", "nightclub", "biergarten"} or leisure == "dance":
+        return "nightlife"
     if amenity == "place_of_worship":
         return "temple"
     if tourism in {"museum", "gallery"}:
@@ -135,18 +344,187 @@ def _rank_score(tags: dict[str, str], interests: list[str], category: str) -> fl
         score += 1.5
     interest_set = {i.lower() for i in interests}
     if category in interest_set:
-        score += 2.0
+        score += 6.0
     if "food" in interest_set and category == "food":
-        score += 2.0
-    if {"culture", "heritage"} & interest_set and category in {
+        score += 4.0
+    if {"culture", "heritage", "history", "architecture"} & interest_set and category in {
         "heritage",
         "museum",
         "attraction",
+        "temple",
     }:
-        score += 2.0
+        score += 4.0
+    if {"temple"} & interest_set and category == "temple":
+        score += 4.0
+    if {"museum"} & interest_set and category == "museum":
+        score += 4.0
+    if {"park", "nature"} & interest_set and category in {"park", "viewpoint"}:
+        score += 3.5
+    if {"shopping", "market"} & interest_set and category in {"shopping", "market"}:
+        score += 4.0
+    if {"nightlife"} & interest_set and category == "nightlife":
+        score += 4.0
+    if {"adventure"} & interest_set and category in {
+        "adventure",
+        "attraction",
+        "viewpoint",
+    }:
+        score += 3.5
     if name.isascii():
         score += 0.3
     return score
+
+
+def _boost_by_stated_interests(
+    pois: list[POICandidate], interests: list[str]
+) -> list[POICandidate]:
+    """Re-rank so places matching user interests stay at the top."""
+    interest_set = {i.lower() for i in interests if i}
+    if not interest_set or not pois:
+        return pois
+    related = {
+        "history": {"heritage", "museum", "temple", "attraction"},
+        "heritage": {"heritage", "museum", "temple", "attraction"},
+        "culture": {"heritage", "museum", "temple", "art", "attraction"},
+        "food": {"food", "market"},
+        "shopping": {"shopping", "market"},
+        "market": {"market", "shopping"},
+        "nightlife": {"nightlife", "food"},
+        "adventure": {"adventure", "attraction", "viewpoint"},
+        "nature": {"park", "viewpoint", "nature"},
+        "park": {"park", "viewpoint"},
+        "temple": {"temple"},
+        "museum": {"museum"},
+    }
+    preferred: set[str] = set()
+    for i in interest_set:
+        preferred.add(i)
+        preferred |= related.get(i, set())
+
+    for p in pois:
+        cat = (p.category or "other").lower()
+        score = float(p.rank_score or 0)
+        if cat in interest_set:
+            score += 8.0
+        elif cat in preferred:
+            score += 4.0
+        p.rank_score = score
+    return sorted(pois, key=lambda x: (-(x.rank_score or 0), x.name))
+
+
+def _balance_by_interests(
+    pois: list[POICandidate],
+    interests: list[str],
+    limit: int,
+) -> list[POICandidate]:
+    """Keep a fair live-MCP quota per stated interest before applying limit."""
+    if limit <= 0 or not pois:
+        return []
+    if not interests or len(pois) <= limit:
+        return pois[:limit]
+
+    from agent.preferences import categories_for_interest, normalize_interest
+
+    keys = list(
+        dict.fromkeys(normalize_interest(i) or i for i in interests if i.strip())
+    )
+    buckets: dict[str, list[POICandidate]] = {k: [] for k in keys}
+    other: list[POICandidate] = []
+    claimed: set[str] = set()
+
+    for p in pois:
+        ref = f"{p.osm_type}/{p.osm_id}"
+        if ref in claimed:
+            continue
+        cat = (p.category or "").lower()
+        matched_key: str | None = None
+        for key in keys:
+            if cat in categories_for_interest(key):
+                matched_key = key
+                break
+        claimed.add(ref)
+        if matched_key is not None:
+            buckets[matched_key].append(p)
+        else:
+            other.append(p)
+
+    out: list[POICandidate] = []
+    used: set[str] = set()
+    # Round-robin across interests so food cannot crowd out shopping/temples.
+    while len(out) < limit:
+        took = False
+        for key in keys:
+            if len(out) >= limit:
+                break
+            bucket = buckets.get(key) or []
+            while bucket:
+                p = bucket.pop(0)
+                ref = f"{p.osm_type}/{p.osm_id}"
+                if ref in used:
+                    continue
+                out.append(p)
+                used.add(ref)
+                took = True
+                break
+        if not took:
+            break
+
+    for p in other:
+        if len(out) >= limit:
+            break
+        ref = f"{p.osm_type}/{p.osm_id}"
+        if ref in used:
+            continue
+        out.append(p)
+        used.add(ref)
+    return out
+
+
+def _apply_audience_bias(
+    pois: list[POICandidate],
+    constraints: list[str],
+) -> list[POICandidate]:
+    """Boost / demote / filter POIs based on traveler-profile constraints."""
+    from agent.preferences import PROFILE_PRESETS, constraint_mentions
+
+    profile_key = None
+    for key in (
+        "kid_friendly",
+        "senior_friendly",
+        "couple_friendly",
+        "friends_friendly",
+        "solo",
+    ):
+        if constraint_mentions(constraints, key):
+            profile_key = key
+            break
+    if not profile_key:
+        return pois
+
+    preset = PROFILE_PRESETS.get(profile_key) or {}
+    boost = set(preset.get("boost_categories") or set())
+    avoid = set(preset.get("avoid_categories") or set())
+
+    kept: list[POICandidate] = []
+    for p in pois:
+        cat = (p.category or "other").lower()
+        if cat in avoid:
+            continue
+        score = float(p.rank_score or 0)
+        if cat in boost:
+            score += 2.5
+        if profile_key == "kid_friendly" and cat in {"park", "museum"}:
+            score += 1.5
+        if profile_key == "senior_friendly" and cat in {"temple", "museum", "heritage"}:
+            score += 1.5
+        if profile_key == "couple_friendly" and cat in {"viewpoint", "heritage", "food"}:
+            score += 1.0
+        if profile_key == "friends_friendly" and cat in {"nightlife", "food", "market"}:
+            score += 1.5
+        p.rank_score = score
+        kept.append(p)
+    kept.sort(key=lambda x: (-(x.rank_score or 0), x.name))
+    return kept
 
 
 def _parse_elements(
@@ -183,6 +561,11 @@ def _parse_elements(
             )
             or (i.lower() == "heritage" and category in {"heritage", "museum"})
             or (i.lower() == "food" and category == "food")
+            or (i.lower() == "temple" and category == "temple")
+            or (
+                i.lower() in {"shopping", "market"}
+                and category in {"shopping", "market"}
+            )
         ]
         pois.append(
             POICandidate(
@@ -213,43 +596,6 @@ def _parse_elements(
     return pois
 
 
-def _data_dir() -> Path:
-    return Path(__file__).resolve().parents[5] / "data"
-
-
-def load_seed_pois(city: str, path: Path | None = None) -> list[POICandidate]:
-    """Load curated OSM-backed seed for a city slug when available."""
-    info = resolve_city(city)
-    slug = info.slug if info else city.lower().replace(" ", "_")
-    data_dir = _data_dir()
-    candidates = [
-        path,
-        data_dir / "pois" / f"{slug}.json",
-        data_dir / "jaipur_pois_seed.json" if slug == "jaipur" else None,
-    ]
-    seed_path = next((p for p in candidates if p and p.exists()), None)
-    if seed_path is None:
-        logger.info("No POI seed file for city=%s slug=%s", city, slug)
-        return []
-    raw = json.loads(seed_path.read_text(encoding="utf-8"))
-    return [POICandidate.model_validate(item) for item in raw]
-
-
-def fetch_overpass(query: str, *, timeout: float = 50.0) -> list[dict[str, Any]]:
-    logger.info("Overpass request (%d chars) -> %s", len(query), OVERPASS_URL)
-    headers = {
-        "User-Agent": "AI-Itinerary-Planner/0.2 (capstone; contact: github.com/pbandyop/AI_Itinerary_Planner)",
-        "Accept": "application/json",
-    }
-    with httpx.Client(timeout=timeout, headers=headers) as client:
-        resp = client.post(OVERPASS_URL, data={"data": query})
-        resp.raise_for_status()
-        payload = resp.json()
-    elements = payload.get("elements") or []
-    logger.info("Overpass returned %d elements", len(elements))
-    return elements
-
-
 def poi_search(
     *,
     city: str = "Jaipur",
@@ -258,12 +604,17 @@ def poi_search(
     limit: int = 40,
     use_overpass: bool = True,
 ) -> POISearchResult:
-    """MCP: search Indian-city POIs grounded in OpenStreetMap records."""
+    """MCP: search Indian-city POIs from live OpenStreetMap Overpass only.
+
+    Capstone policy: no local seed / offline POI fallback. If Overpass fails or
+    returns nothing, report ``missing_data`` rather than inventing or seeding stops.
+    """
     info = resolve_city(city)
     if info is None:
         return POISearchResult(
             city=city,
             query_interests=interests or [],
+            query_constraints=[],
             pois=[],
             missing_data=True,
             notes=(
@@ -273,64 +624,116 @@ def poi_search(
         )
 
     canonical = info.name
-    interests = [i.strip().lower() for i in (interests or DEFAULT_INTERESTS) if i.strip()]
+    # Prefer empty interests over catalog defaults during planning — callers must
+    # pass stated interests. Keep DEFAULT_INTERESTS only for standalone MCP demos.
+    interests = [i.strip().lower() for i in (interests or []) if i.strip()]
+    used_defaults = False
+    if not interests:
+        interests = list(DEFAULT_INTERESTS)
+        used_defaults = True
     constraints = constraints or []
     notes: list[str] = []
+    if used_defaults:
+        notes.append(
+            "No traveler interests provided — using broad catalog defaults for this search."
+        )
+    notes.append("POI source: live OpenStreetMap (Overpass; Nominatim backup).")
     pois: list[POICandidate] = []
     missing = False
     bbox = city_bbox(canonical)
 
-    if use_overpass:
-        try:
-            query = build_overpass_query(
-                interests, bbox=bbox, limit=max(limit * 2, 60)
-            )
-            elements = fetch_overpass(query)
-            pois = _parse_elements(elements, interests)
-            if not pois:
-                missing = True
-                notes.append(
-                    f"Overpass returned no named POIs for {canonical} interest filters."
-                )
-        except Exception as exc:  # noqa: BLE001
-            missing = True
-            notes.append(f"Overpass unavailable ({exc.__class__.__name__}: {exc}).")
-            logger.exception("Overpass POI search failed for %s", canonical)
+    if not use_overpass:
+        return POISearchResult(
+            city=canonical,
+            query_interests=interests,
+            query_constraints=list(constraints),
+            pois=[],
+            missing_data=True,
+            notes=(
+                "; ".join(notes)
+                + "; Live Overpass is required for this capstone — "
+                "local seed fallback is disabled."
+            ),
+        )
 
-    if len(pois) < 5:
-        seed = load_seed_pois(canonical)
-        if seed:
-            filtered = [
-                p
-                for p in seed
-                if not interests
-                or p.category in interests
-                or any(
-                    i in {"culture", "heritage"}
-                    and p.category in {"heritage", "museum", "attraction", "temple"}
-                    for i in interests
-                )
-                or ("food" in interests and p.category == "food")
-            ] or seed
-            have = {f"{p.osm_type}/{p.osm_id}" for p in pois}
-            for p in filtered:
-                ref = f"{p.osm_type}/{p.osm_id}"
-                if ref not in have:
-                    pois.append(p)
-                    have.add(ref)
-            notes.append(
-                f"Augmented with curated OSM seed for {canonical} "
-                f"(data/pois/{info.slug}.json)."
+    try:
+        # Query each interest separately so one heavy filter cannot time out the rest.
+        seen_ids: set[str] = set()
+        elements: list[dict[str, Any]] = []
+        per_limit = max(40, limit)
+        for interest in interests:
+            sub_query = build_overpass_query(
+                [interest], bbox=bbox, limit=per_limit
             )
-            if missing and pois:
+            try:
+                chunk = fetch_overpass(sub_query, timeout=25.0)
+            except Exception as exc:  # noqa: BLE001
                 notes.append(
-                    "Live Overpass data was missing/partial; seed used as fallback."
+                    f"Overpass partial failure for interest={interest!r} "
+                    f"({exc.__class__.__name__})."
                 )
-        elif missing:
+                logger.warning(
+                    "Overpass failed for %s interest=%s: %s",
+                    canonical,
+                    interest,
+                    exc,
+                )
+                continue
+            for el in chunk:
+                osm_type = el.get("type")
+                osm_id = el.get("id")
+                if osm_type and osm_id is not None:
+                    key = f"{osm_type}/{osm_id}"
+                    if key in seen_ids:
+                        continue
+                    seen_ids.add(key)
+                elements.append(el)
+        pois = _parse_elements(elements, interests)
+        if not pois:
+            missing = True
             notes.append(
-                f"No curated seed for {canonical}. Add data/pois/{info.slug}.json "
-                "or retry when Overpass is available."
+                f"Overpass returned no named POIs for {canonical} interest filters."
             )
+    except Exception as exc:  # noqa: BLE001
+        missing = True
+        notes.append(f"Overpass unavailable ({exc.__class__.__name__}: {exc}).")
+        logger.exception("Overpass POI search failed for %s", canonical)
+
+    # Live Nominatim backup per interest that Overpass missed (still OSM ids).
+    from agent.preferences import categories_for_interest
+
+    have_cats = {(p.category or "").lower() for p in pois}
+    for interest in interests:
+        wanted = categories_for_interest(interest)
+        if wanted & have_cats:
+            continue
+        try:
+            extra = nominatim_category_search(
+                city=canonical, interest=interest, limit=max(8, limit // 2)
+            )
+        except Exception as exc:  # noqa: BLE001
+            notes.append(
+                f"Nominatim backup failed for {interest!r} ({exc.__class__.__name__})."
+            )
+            continue
+        if not extra:
+            continue
+        notes.append(
+            f"Live Nominatim backup supplied {len(extra)} POIs for interest={interest!r}."
+        )
+        existing = {f"{p.osm_type}/{p.osm_id}" for p in pois}
+        for p in extra:
+            ref = f"{p.osm_type}/{p.osm_id}"
+            if ref in existing:
+                continue
+            pois.append(p)
+            existing.add(ref)
+            have_cats.add((p.category or "").lower())
+        missing = False
+
+    pois.sort(key=lambda p: (-(p.rank_score or 0), p.name))
+    pois = _apply_audience_bias(pois, constraints)
+    pois = _boost_by_stated_interests(pois, interests)
 
     if any("indoor" in c.lower() for c in constraints):
         for p in pois:
@@ -338,16 +741,38 @@ def poi_search(
                 p.rank_score = (p.rank_score or 0) + 1.5
         pois.sort(key=lambda p: (-(p.rank_score or 0), p.name))
 
-    pois = pois[:limit]
+    before = len(pois)
+    pois = _balance_by_interests(pois, interests, limit)
+    if before > limit:
+        notes.append(
+            f"Balanced live MCP candidates across interests "
+            f"{', '.join(interests)} (kept {len(pois)}/{before})."
+        )
     if not pois:
         missing = True
         notes.append(
-            f"No POIs available for {canonical}, India. Data is missing — cannot invent places."
+            f"No live Overpass POIs available for {canonical}, India. "
+            "Cannot invent places or use local seed fallback."
+        )
+
+    if any(
+        x in " ".join(c.lower() for c in constraints)
+        for x in (
+            "kid_friendly",
+            "senior_friendly",
+            "couple_friendly",
+            "friends_friendly",
+        )
+    ):
+        notes.append(
+            "POI ranking biased by traveler profile constraints "
+            f"({', '.join(c for c in constraints if '_' in c or 'Prefer' in c)[:120]})."
         )
 
     return POISearchResult(
         city=canonical,
         query_interests=interests,
+        query_constraints=list(constraints),
         pois=pois,
         missing_data=missing,
         notes="; ".join(notes) if notes else None,

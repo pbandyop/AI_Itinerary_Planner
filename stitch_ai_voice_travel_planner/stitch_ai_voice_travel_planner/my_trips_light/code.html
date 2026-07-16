@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VocalVoyage - My Trips</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "surface": "#f8f9ff",
+                "surface-dim": "#cbdbf5",
+                "surface-bright": "#f8f9ff",
+                "surface-container-lowest": "#ffffff",
+                "surface-container-low": "#eff4ff",
+                "surface-container": "#e6edfe",
+                "surface-container-high": "#e0e7fb",
+                "surface-container-highest": "#d9e2f9",
+                "primary": "#0058cd",
+                "on-primary": "#ffffff",
+                "primary-container": "#dce1ff",
+                "on-primary-container": "#00164c",
+                "secondary": "#575e71",
+                "on-secondary": "#ffffff",
+                "secondary-container": "#dbe2f9",
+                "on-secondary-container": "#141b2c",
+                "tertiary": "#725572",
+                "on-tertiary": "#ffffff",
+                "tertiary-container": "#fdd7fa",
+                "on-tertiary-container": "#2a122c",
+                "error": "#ba1a1a",
+                "on-error": "#ffffff",
+                "error-container": "#ffdad6",
+                "on-error-container": "#410002",
+                "background": "#f8f9ff",
+                "on-background": "#191c20",
+                "on-surface": "#191c20",
+                "on-surface-variant": "#44474f",
+                "outline": "#74777f",
+                "outline-variant": "#c4c6d0"
+        },
+        "borderRadius": {
+                "DEFAULT": "0.5rem",
+                "lg": "0.75rem",
+                "xl": "1rem",
+                "full": "9999px"
+        },
+        "spacing": {
+                "base": "4px",
+                "xl": "32px",
+                "sm": "12px",
+                "lg": "24px",
+                "xs": "8px",
+                "md": "16px",
+                "margin": "24px",
+                "gutter": "20px",
+                "container-padding-mobile": "1.25rem",
+                "itinerary-step-gap": "1rem",
+                "container-padding-desktop": "2.5rem",
+                "section-gap": "4rem"
+        },
+        "fontFamily": {
+                "headline-sm": ["Plus Jakarta Sans"],
+                "headline-lg": ["Plus Jakarta Sans"],
+                "body-sm": ["Plus Jakarta Sans"],
+                "body-lg": ["Plus Jakarta Sans"],
+                "headline-md": ["Plus Jakarta Sans"],
+                "body-md": ["Plus Jakarta Sans"],
+                "label-sm": ["Plus Jakarta Sans"],
+                "label-md": ["Plus Jakarta Sans"],
+                "headline-lg-mobile": ["Plus Jakarta Sans"],
+                "title-md": ["Plus Jakarta Sans"],
+                "display-lg": ["Plus Jakarta Sans"],
+                "label-xs": ["Plus Jakarta Sans"]
+        },
+        "fontSize": {
+                "headline-sm": [
+                        "20px",
+                        {
+                                "lineHeight": "28px",
+                                "fontWeight": "600"
+                        }
+                ],
+                "headline-lg": [
+                        "32px",
+                        {
+                                "lineHeight": "40px",
+                                "letterSpacing": "-0.02em",
+                                "fontWeight": "700"
+                        }
+                ],
+                "body-sm": [
+                        "14px",
+                        {
+                                "lineHeight": "20px",
+                                "fontWeight": "400"
+                        }
+                ],
+                "body-lg": [
+                        "18px",
+                        {
+                                "lineHeight": "28px",
+                                "fontWeight": "400"
+                        }
+                ],
+                "headline-md": [
+                        "24px",
+                        {
+                                "lineHeight": "32px",
+                                "letterSpacing": "-0.01em",
+                                "fontWeight": "600"
+                        }
+                ],
+                "body-md": [
+                        "16px",
+                        {
+                                "lineHeight": "24px",
+                                "fontWeight": "400"
+                        }
+                ],
+                "label-sm": [
+                        "11px",
+                        {
+                                "lineHeight": "14px",
+                                "fontWeight": "500"
+                        }
+                ],
+                "label-md": [
+                        "12px",
+                        {
+                                "lineHeight": "16px",
+                                "letterSpacing": "0.05em",
+                                "fontWeight": "600"
+                        }
+                ],
+                "headline-lg-mobile": ["24px", {"lineHeight": "1.2", "fontWeight": "700"}],
+                "title-md": ["20px", {"lineHeight": "1.4", "fontWeight": "600"}],
+                "display-lg": ["48px", {"lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                "label-xs": ["12px", {"lineHeight": "1.2", "fontWeight": "500"}]
+        }
+},
+    },
+  }
+</script>
+<style>
+        body {
+            background-color: theme('colors.background');
+            color: theme('colors.on-background');
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.fill-icon {
+            font-variation-settings: 'FILL' 1;
+        }
+    </style>
+</head>
+<body class="antialiased min-h-screen flex text-on-background bg-background">
+<!-- SideNavBar (Desktop) -->
+<nav class="hidden md:flex h-screen w-64 fixed left-0 top-0 bg-surface-container-low flex-col p-4 gap-2 z-40 border-r border-outline-variant/30">
+<div class="mb-8 px-4 mt-4">
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile text-primary">Travel AI</h1>
+<p class="font-label-sm text-label-sm text-on-surface-variant mt-1">Your expert friend</p>
+</div>
+<button class="w-full bg-primary text-on-primary py-3 rounded-full font-label-sm text-label-sm mb-6 flex items-center justify-center gap-2 hover:bg-primary-container hover:text-on-primary-container transition-colors shadow-sm">
+<span class="material-symbols-outlined" style="font-size: 20px;">add</span>
+            New Search
+        </button>
+<div class="flex flex-col gap-2 flex-grow">
+<!-- Inactive -->
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl font-label-sm text-label-sm text-on-surface-variant hover:bg-surface-variant transition-colors hover:bg-surface-container-high active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined" style="font-size: 20px;">route</span>
+                Current Plan
+            </a>
+<!-- Active (My Trips Semantic Match) -->
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl font-label-sm text-label-sm bg-secondary-container text-on-secondary-container font-bold active:scale-[0.98] transition-all" href="#">
+<span class="material-symbols-outlined fill-icon" style="font-size: 20px;">mic</span>
+                Voice History
+            </a>
+<!-- Inactive -->
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl font-label-sm text-label-sm text-on-surface-variant hover:bg-surface-variant transition-colors hover:bg-surface-container-high active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined" style="font-size: 20px;">bookmark</span>
+                Saved Spots
+            </a>
+<!-- Inactive -->
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl font-label-sm text-label-sm text-on-surface-variant hover:bg-surface-variant transition-colors hover:bg-surface-container-high active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined" style="font-size: 20px;">settings</span>
+                Settings
+            </a>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="w-full md:ml-64 flex flex-col min-h-screen">
+<!-- TopNavBar -->
+<header class="shadow-sm bg-surface-container-highest docked full-width top-0 sticky z-30">
+<div class="flex justify-between items-center px-container-desktop w-full max-w-[1280px] mx-auto h-20">
+<div class="flex items-center gap-6">
+<div class="md:hidden font-headline-lg-mobile text-headline-lg-mobile font-bold text-primary">VocalVoyage</div>
+<div class="hidden md:block font-headline-lg text-headline-lg font-bold text-primary">VocalVoyage</div>
+<nav class="hidden md:flex gap-6 ml-8">
+<a class="font-title-md text-title-md text-on-surface-variant font-medium hover:text-primary transition-colors hover:bg-surface-container-low duration-200 py-2 px-3 rounded-lg active:scale-95" href="#">New Trip</a>
+<!-- Active -->
+<a class="font-title-md text-title-md text-primary font-semibold border-b-2 border-primary pb-1 active:scale-95 transition-transform" href="#">My Trips</a>
+<a class="font-title-md text-title-md text-on-surface-variant font-medium hover:text-primary transition-colors hover:bg-surface-container-low duration-200 py-2 px-3 rounded-lg active:scale-95" href="#">Voice Input</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="hidden md:block font-label-sm text-label-sm text-primary hover:bg-surface-container-low px-4 py-2 rounded-full transition-colors font-medium">Log In</button>
+<button class="bg-primary text-on-primary font-label-sm text-label-sm px-6 py-2.5 rounded-full hover:bg-primary-container hover:text-on-primary-container transition-colors shadow-sm">Get Started</button>
+</div>
+</div>
+</header>
+<!-- Page Content -->
+<div class="flex-grow w-full max-w-[1280px] mx-auto px-container-mobile md:px-container-desktop py-8 md:py-12">
+<div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
+<div>
+<h2 class="font-display-lg text-display-lg text-on-surface mb-2">My Trips</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant">Pick up where you left off or dream up something new.</p>
+</div>
+</div>
+<!-- Trips Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<!-- Current Plan Card (Highlighted) -->
+<article class="bg-surface-container rounded-3xl overflow-hidden shadow-[0px_10px_30px_rgba(0,0,0,0.1)] border border-primary/20 relative flex flex-col group cursor-pointer transition-transform hover:-translate-y-1 duration-300 md:col-span-2 lg:col-span-2">
+<div class="absolute top-4 left-4 z-10 bg-secondary-container text-on-secondary-container px-3 py-1 rounded-full font-label-xs text-label-xs flex items-center gap-1.5 shadow-sm">
+<span class="material-symbols-outlined" style="font-size: 14px;">star</span>
+                        Current Plan
+                    </div>
+<div class="h-64 w-full relative overflow-hidden bg-primary-container/40 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary opacity-50" style="font-size: 80px;">flight_takeoff</span>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container via-surface-container/50 to-transparent"></div>
+<div class="absolute bottom-4 left-6 right-6">
+<h3 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-1">Amalfi Coast Getaway</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Oct 12 - Oct 18 • Day 2-4 Focus</p>
+</div>
+</div>
+<div class="p-6 flex flex-col justify-between flex-grow">
+<div class="mb-6">
+<div class="flex items-center gap-3 mb-4">
+<div class="bg-surface-container-high p-2 rounded-lg text-primary">
+<span class="material-symbols-outlined" style="font-size: 20px;">restaurant</span>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-on-surface">Up Next: Dinner in Positano</p>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm">Reservation at La Sponda • 7:30 PM</p>
+</div>
+</div>
+</div>
+<div class="flex gap-3 mt-auto">
+<button class="flex-1 bg-surface-container-high text-primary font-label-sm text-label-sm py-3 rounded-full hover:bg-surface-container-highest transition-colors flex items-center justify-center gap-2 border border-outline-variant/30">
+<span class="material-symbols-outlined" style="font-size: 18px;">map</span>
+                                View Itinerary
+                            </button>
+<button class="flex-1 bg-primary text-on-primary font-label-sm text-label-sm py-3 rounded-full hover:bg-primary-container hover:text-on-primary-container transition-colors flex items-center justify-center gap-2 shadow-sm">
+<span class="material-symbols-outlined fill-icon" style="font-size: 18px;">mic</span>
+                                Voice Resume
+                            </button>
+</div>
+</div>
+</article>
+<!-- Past Trip Card -->
+<article class="bg-surface-container rounded-3xl overflow-hidden shadow-[0px_4px_20px_rgba(0,0,0,0.05)] border border-outline-variant/30 flex flex-col group cursor-pointer hover:shadow-[0px_10px_30px_rgba(0,0,0,0.1)] transition-all duration-300">
+<div class="h-48 w-full relative overflow-hidden bg-tertiary-container/40 flex items-center justify-center">
+<span class="material-symbols-outlined text-tertiary opacity-70" style="font-size: 64px;">temple_buddhist</span>
+</div>
+<div class="p-5 flex flex-col flex-grow">
+<h3 class="font-title-md text-title-md text-on-surface mb-1">Kyoto Cultural Tour</h3>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm mb-4">May 4 - May 10 • 7 Days</p>
+<div class="mt-auto pt-4 border-t border-outline-variant/20 flex gap-2">
+<button class="w-full bg-surface-container-high text-primary font-label-sm text-label-sm py-2.5 rounded-full hover:bg-surface-container-highest transition-colors flex items-center justify-center gap-2 border border-outline-variant/30">
+                                View Details
+                            </button>
+</div>
+</div>
+</article>
+<!-- Past Trip Card -->
+<article class="bg-surface-container rounded-3xl overflow-hidden shadow-[0px_4px_20px_rgba(0,0,0,0.05)] border border-outline-variant/30 flex flex-col group cursor-pointer hover:shadow-[0px_10px_30px_rgba(0,0,0,0.1)] transition-all duration-300">
+<div class="h-48 w-full relative overflow-hidden bg-primary-container/40 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary opacity-70" style="font-size: 64px;">location_city</span>
+</div>
+<div class="p-5 flex flex-col flex-grow">
+<h3 class="font-title-md text-title-md text-on-surface mb-1">NYC Weekend</h3>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm mb-4">Dec 1 - Dec 3 • 3 Days</p>
+<div class="mt-auto pt-4 border-t border-outline-variant/20 flex gap-2">
+<button class="w-full bg-surface-container-high text-primary font-label-sm text-label-sm py-2.5 rounded-full hover:bg-surface-container-highest transition-colors flex items-center justify-center gap-2 border border-outline-variant/30">
+                                View Details
+                            </button>
+</div>
+</div>
+</article>
+</div>
+</div>
+<!-- Bottom Nav Bar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 w-full bg-surface-container-highest shadow-[0_-4px_20px_rgba(0,0,0,0.1)] z-40 px-6 py-3 flex justify-between items-center pb-safe">
+<a class="flex flex-col items-center gap-1 text-on-surface-variant hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined" style="font-size: 24px;">add_circle</span>
+<span class="font-label-xs text-label-xs">New</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-primary" href="#">
+<span class="material-symbols-outlined fill-icon" style="font-size: 24px;">luggage</span>
+<span class="font-label-xs text-label-xs font-bold">Trips</span>
+</a>
+<div class="relative -top-5">
+<button class="bg-primary text-on-primary p-4 rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform">
+<span class="material-symbols-outlined fill-icon" style="font-size: 28px;">mic</span>
+</button>
+</div>
+<a class="flex flex-col items-center gap-1 text-on-surface-variant hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined" style="font-size: 24px;">bookmark</span>
+<span class="font-label-xs text-label-xs">Saved</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-on-surface-variant hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined" style="font-size: 24px;">settings</span>
+<span class="font-label-xs text-label-xs">Settings</span>
+</a>
+</nav>
+<!-- Footer -->
+<footer class="w-full py-section-gap bg-surface-container mt-auto hidden md:block border-t border-outline-variant/30">
+<div class="max-w-[1280px] mx-auto px-container-desktop flex flex-col md:flex-row justify-between items-center gap-gutter">
+<div class="font-title-md text-title-md font-bold text-on-surface">
+                    VocalVoyage
+                </div>
+<div class="flex flex-wrap gap-6 justify-center">
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary hover:underline transition-all opacity-80 hover:opacity-100" href="#">Travel Resources</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary hover:underline transition-all opacity-80 hover:opacity-100" href="#">Privacy Policy</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary hover:underline transition-all opacity-80 hover:opacity-100" href="#">Terms of Service</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary hover:underline transition-all opacity-80 hover:opacity-100" href="#">Brand Kit</a>
+</div>
+<div class="font-body-md text-body-md text-on-surface-variant text-sm">
+                    © 2024 VocalVoyage AI. Your expert friend for planned spontaneity.
+                </div>
+</div>
+</footer>
+</main>
+</body></html>

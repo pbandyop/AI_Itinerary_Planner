@@ -13,6 +13,7 @@ from agent.mcp.itinerary_builder import build_itinerary
 from agent.mcp.poi_search import poi_search
 from agent.mcp.travel_time import estimate_travel_times
 from agent.mcp.weather import weather_adjustment
+from agent.rag.retrieve import knowledge_search
 from agent.schemas.itinerary import Pace
 from agent.schemas.specialists import POICandidate
 
@@ -35,7 +36,9 @@ class POISearchInput(BaseModel):
     limit: int = Field(default=30, ge=5, le=80)
     use_overpass: bool = Field(
         default=True,
-        description="If false, use curated OSM seed only (offline/demo)",
+        description=(
+            "Ignored for this capstone — poi_search_mcp always uses live Overpass."
+        ),
     )
 
 
@@ -67,6 +70,22 @@ class WeatherInput(BaseModel):
     num_days: int = Field(default=3, ge=2, le=4)
 
 
+class KnowledgeSearchInput(BaseModel):
+    city: str = Field(
+        ...,
+        description="Indian city to ground tips for (must have RAG corpus coverage)",
+    )
+    query: str = Field(
+        default="",
+        description="Free-text question e.g. what if it rains / food tips / why visit",
+    )
+    topics: list[str] = Field(
+        default_factory=list,
+        description="Optional topic tags: rain, food, safety, doable, why, transport",
+    )
+    k: int = Field(default=4, ge=1, le=10, description="Max cited chunks to return")
+
+
 def _poi_search_tool(
     city: str = "Jaipur",
     interests: list[str] | None = None,
@@ -74,13 +93,13 @@ def _poi_search_tool(
     limit: int = 30,
     use_overpass: bool = True,
 ) -> str:
+    del use_overpass  # Capstone always uses live Overpass.
     logger.info(
-        "TOOL poi_search_mcp city=%s interests=%s constraints=%s limit=%s overpass=%s",
+        "TOOL poi_search_mcp city=%s interests=%s constraints=%s limit=%s overpass=True",
         city,
         interests,
         constraints,
         limit,
-        use_overpass,
     )
     city_arg = city.strip()
     result = poi_search(
@@ -88,7 +107,7 @@ def _poi_search_tool(
         interests=interests,
         constraints=constraints,
         limit=limit,
-        use_overpass=use_overpass,
+        use_overpass=True,
     )
     payload = result.model_dump(mode="json")
     logger.info(
@@ -171,6 +190,33 @@ def _weather_tool(
     return json.dumps(result.model_dump(mode="json"), indent=2)
 
 
+def _knowledge_search_tool(
+    city: str,
+    query: str = "",
+    topics: list[str] | None = None,
+    k: int = 4,
+) -> str:
+    logger.info(
+        "TOOL knowledge_rag city=%s query=%r topics=%s k=%s",
+        city,
+        query,
+        topics,
+        k,
+    )
+    result = knowledge_search(
+        city=city.strip(),
+        query=query,
+        topics=topics,
+        k=k,
+    )
+    logger.info(
+        "TOOL knowledge_rag → snippets=%d missing_data=%s",
+        len(result.snippets),
+        result.missing_data,
+    )
+    return json.dumps(result.model_dump(mode="json"), indent=2)
+
+
 poi_search_tool = StructuredTool.from_function(
     name="poi_search_mcp",
     description=(
@@ -186,7 +232,7 @@ itinerary_builder_tool = StructuredTool.from_function(
     name="itinerary_builder_mcp",
     description=(
         "Itinerary Builder MCP: pack candidate POIs into a day-wise "
-        "morning/afternoon/evening draft itinerary for one Indian city (2–4 days)."
+        "morning/afternoon/evening draft itinerary for Jaipur (2–4 days)."
     ),
     func=_itinerary_builder_tool,
     args_schema=ItineraryBuilderInput,
@@ -212,6 +258,17 @@ weather_tool = StructuredTool.from_function(
     args_schema=WeatherInput,
 )
 
+knowledge_rag_tool = StructuredTool.from_function(
+    name="knowledge_rag",
+    description=(
+        "Knowledge RAG (LangChain): retrieve cited Wikivoyage/Wikipedia tips for an "
+        "Indian city. Returns KnowledgeResult with citations; empty retrieval sets "
+        "missing_data=true (never invent tips)."
+    ),
+    func=_knowledge_search_tool,
+    args_schema=KnowledgeSearchInput,
+)
+
 
 def get_mcp_tools() -> list[StructuredTool]:
     return [
@@ -219,4 +276,5 @@ def get_mcp_tools() -> list[StructuredTool]:
         itinerary_builder_tool,
         travel_time_tool,
         weather_tool,
+        knowledge_rag_tool,
     ]

@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VocalVoyage - Itinerary Summary</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-fixed-dim": "#3fdbd4",
+                        "on-error": "#ffffff",
+                        "tertiary-fixed-dim": "#c0c7cf",
+                        "on-tertiary-fixed": "#151c22",
+                        "on-surface-variant": "#414755",
+                        "error": "#ba1a1a",
+                        "outline-variant": "#c1c6d7",
+                        "on-secondary-container": "#006f6a",
+                        "on-error-container": "#93000a",
+                        "primary-fixed-dim": "#adc6ff",
+                        "surface-bright": "#f8f9ff",
+                        "tertiary": "#555d63",
+                        "primary-container": "#0070eb",
+                        "on-secondary": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "surface-dim": "#cbdbf5",
+                        "tertiary-fixed": "#dce3eb",
+                        "primary": "#0058bc",
+                        "on-secondary-fixed-variant": "#00504d",
+                        "secondary-fixed": "#65f8f0",
+                        "on-primary-fixed-variant": "#004493",
+                        "on-tertiary-fixed-variant": "#40484e",
+                        "on-primary-fixed": "#001a41",
+                        "inverse-on-surface": "#eaf1ff",
+                        "on-secondary-fixed": "#00201e",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-highest": "#d3e4fe",
+                        "on-surface": "#0b1c30",
+                        "on-tertiary-container": "#fcfcff",
+                        "inverse-surface": "#213145",
+                        "surface": "#f8f9ff",
+                        "on-background": "#0b1c30",
+                        "on-primary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary-container": "#fefcff",
+                        "surface-container-high": "#dce9ff",
+                        "surface-container-low": "#eff4ff",
+                        "surface-variant": "#d3e4fe",
+                        "secondary-container": "#61f5ed",
+                        "outline": "#717786",
+                        "background": "#f8f9ff",
+                        "secondary": "#006a66",
+                        "inverse-primary": "#adc6ff",
+                        "surface-container": "#e5eeff",
+                        "tertiary-container": "#6e757c",
+                        "surface-tint": "#005bc1",
+                        "primary-fixed": "#d8e2ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "container-padding-mobile": "1.25rem",
+                        "itinerary-step-gap": "1rem",
+                        "container-padding-desktop": "2.5rem",
+                        "unit": "8px",
+                        "gutter": "1.5rem",
+                        "section-gap": "4rem"
+                    },
+                    "fontFamily": {
+                        "headline-lg-mobile": ["Plus Jakarta Sans"],
+                        "headline-lg": ["Plus Jakarta Sans"],
+                        "title-md": ["Plus Jakarta Sans"],
+                        "display-lg": ["Plus Jakarta Sans"],
+                        "body-md": ["Plus Jakarta Sans"],
+                        "label-sm": ["Plus Jakarta Sans"],
+                        "body-lg": ["Plus Jakarta Sans"],
+                        "label-xs": ["Plus Jakarta Sans"]
+                    },
+                    "fontSize": {
+                        "headline-lg-mobile": ["24px", { "lineHeight": "1.2", "fontWeight": "700" }],
+                        "headline-lg": ["32px", { "lineHeight": "1.2", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "title-md": ["20px", { "lineHeight": "1.4", "fontWeight": "600" }],
+                        "display-lg": ["48px", { "lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "label-sm": ["14px", { "lineHeight": "1.2", "letterSpacing": "0.01em", "fontWeight": "600" }],
+                        "body-lg": ["18px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "label-xs": ["12px", { "lineHeight": "1.2", "fontWeight": "500" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .ambient-shadow-level-1 {
+            box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.04);
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface min-h-screen flex flex-col antialiased">
+<!-- TopNavBar -->
+<nav class="bg-surface dark:bg-surface-container-highest shadow-sm docked full-width top-0 z-50">
+<div class="flex justify-between items-center px-container-desktop w-full max-w-[1280px] mx-auto h-20">
+<div class="flex items-center gap-8">
+<a class="font-headline-lg text-headline-lg font-bold text-primary dark:text-primary-fixed-dim hidden md:block" href="#">
+                    VocalVoyage
+                </a>
+<a class="font-headline-lg-mobile text-headline-lg-mobile font-bold text-primary dark:text-primary-fixed-dim md:hidden" href="#">
+                    VocalVoyage
+                </a>
+<div class="hidden md:flex items-center gap-6">
+<a class="font-title-md text-title-md text-on-surface-variant font-medium hover:text-primary transition-colors" href="#">New Trip</a>
+<a class="font-title-md text-title-md text-primary font-semibold border-b-2 border-primary pb-1" href="#">My Trips</a>
+<a class="font-title-md text-title-md text-on-surface-variant font-medium hover:text-primary transition-colors" href="#">Voice Input</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="hidden md:block font-label-sm text-label-sm text-primary hover:text-primary-container transition-colors">Log In</button>
+<button class="bg-primary text-on-primary font-label-sm text-label-sm px-6 py-3 rounded-full hover:bg-primary-container transition-all active:scale-95 shadow-sm">Get Started</button>
+</div>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="flex-grow w-full max-w-[1280px] mx-auto px-container-mobile md:px-container-desktop py-section-gap flex flex-col gap-12">
+<!-- Header Section -->
+<header class="flex flex-col gap-4">
+<h1 class="font-display-lg text-display-lg text-on-surface hidden md:block">Kyoto Spring Awakening</h1>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface md:hidden">Kyoto Spring Awakening</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-2xl">
+                Here is the rest of your meticulously planned journey. We've balanced iconic sights with tranquil moments to keep you energized.
+            </p>
+</header>
+<!-- Itinerary Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-gutter items-start">
+<!-- Day 3 Card -->
+<article class="bg-surface-container-lowest rounded-[24px] ambient-shadow-level-1 border border-outline-variant/30 overflow-hidden flex flex-col transition-transform hover:scale-[1.01] duration-300">
+<div class="relative h-64 w-full">
+<img class="w-full h-full object-cover" data-alt="A serene view of the Arashiyama Bamboo Grove in Kyoto during early morning light. Tall, vibrant green bamboo stalks stretch upwards, creating a natural cathedral effect. A quiet, empty stone path winds through the grove. Soft, diffused sunlight filters through the canopy, creating a peaceful, tranquil mood in this high-quality travel photography style image. The scene is bright, clean, and airy, fitting a premium modern UI aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBYad3TZ7I4NlguELAuzt_sAJQzOgdddcVxb4fIBQHKZW_nTvURenOhOV7a3AFfTOkwLsCn7y0g2TMYxMUm5YFfnCNp9saaNlfFONV6CzOQylDFVYqHcvezPZiDv_Wm0GOH05GC05qc6CURxS7fT0XNvi2ZNJTtVuYk2F6icBv0oGRroOyJQG0bTG551q80v4AN1QZKsvNrbW5XL8sTReXN3sHesv61otmf1hIO_wn-7O6TescUCwtk"/>
+<div class="absolute inset-0 bg-gradient-to-t from-on-surface/80 to-transparent flex flex-col justify-end p-6">
+<span class="font-label-sm text-label-sm text-secondary-fixed bg-on-surface/50 backdrop-blur-md px-3 py-1 rounded-full w-fit mb-2">Day 3</span>
+<h2 class="font-headline-lg text-headline-lg text-on-primary">Nature &amp; Zen</h2>
+</div>
+</div>
+<div class="p-6 flex flex-col gap-6">
+<div class="flex flex-col gap-4">
+<!-- Activity 1 -->
+<div class="flex items-start gap-4">
+<div class="w-12 h-12 rounded-full bg-surface-container-low flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary" data-icon="nature">nature</span>
+</div>
+<div class="flex-grow flex flex-col gap-1">
+<div class="flex justify-between items-start">
+<h3 class="font-title-md text-title-md text-on-surface">Arashiyama Bamboo Grove</h3>
+<span class="font-label-xs text-label-xs bg-surface-variant text-on-surface px-2 py-1 rounded-full shrink-0">2 hours</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant">Arrive early to avoid crowds. A peaceful stroll through towering bamboo stalks.</p>
+</div>
+</div>
+<!-- Connector -->
+<div class="pl-6 py-2">
+<div class="w-[2px] h-8 border-l-2 border-dashed border-outline-variant ml-[-1px]"></div>
+</div>
+<!-- Activity 2 -->
+<div class="flex items-start gap-4">
+<div class="w-12 h-12 rounded-full bg-surface-container-low flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary" data-icon="restaurant">restaurant</span>
+</div>
+<div class="flex-grow flex flex-col gap-1">
+<div class="flex justify-between items-start">
+<h3 class="font-title-md text-title-md text-on-surface">Yudofu Lunch</h3>
+<span class="font-label-xs text-label-xs bg-surface-variant text-on-surface px-2 py-1 rounded-full shrink-0">1.5 hours</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant">Traditional Buddhist vegetarian cuisine featuring silken tofu, overlooking a zen garden.</p>
+</div>
+</div>
+</div>
+</div>
+</article>
+<!-- Day 4 Card -->
+<article class="bg-surface-container-lowest rounded-[24px] ambient-shadow-level-1 border border-outline-variant/30 overflow-hidden flex flex-col transition-transform hover:scale-[1.01] duration-300">
+<div class="relative h-64 w-full">
+<img class="w-full h-full object-cover" data-alt="A vibrant street scene in Kyoto's Gion district at twilight. Traditional wooden machiya houses line the narrow cobblestone street. Warm, golden light spills from paper lanterns hung outside restaurants. A subtle blur of people walking adds a sense of life without feeling crowded. The mood is sophisticated, cultural, and slightly mysterious, captured in a clean, modern photography style suitable for a premium travel app UI." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBxUrIuc9Pw53ujfsmYLgpmmldxZjXcpW7b3NeGFAE3FBaNPoTnU7pmi7hwvjpWRHEfimQfPJGaEkVmz9hr93o-I6U41U3eJkIGVXRCPvTD5QHjoX4R7GXi0fqsBo7cCi-O7nqXyjlxd06iT0r7D2hzYUvVILpMHv5jVIHVGjwRqTE5yNaHGBdxhIxx6T7QIfNPwT3UebOD816mM0qVUVkLLGFghfjuz8IVNJvKwyV5BTRUjpjP-xCC"/>
+<div class="absolute inset-0 bg-gradient-to-t from-on-surface/80 to-transparent flex flex-col justify-end p-6">
+<span class="font-label-sm text-label-sm text-secondary-fixed bg-on-surface/50 backdrop-blur-md px-3 py-1 rounded-full w-fit mb-2">Day 4</span>
+<h2 class="font-headline-lg text-headline-lg text-on-primary">Culture &amp; Cuisine</h2>
+</div>
+</div>
+<div class="p-6 flex flex-col gap-6">
+<div class="flex flex-col gap-4">
+<!-- Activity 1 -->
+<div class="flex items-start gap-4">
+<div class="w-12 h-12 rounded-full bg-surface-container-low flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary" data-icon="museum">museum</span>
+</div>
+<div class="flex-grow flex flex-col gap-1">
+<div class="flex justify-between items-start">
+<h3 class="font-title-md text-title-md text-on-surface">Kyoto National Museum</h3>
+<span class="font-label-xs text-label-xs bg-surface-variant text-on-surface px-2 py-1 rounded-full shrink-0">3 hours</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant">Explore extensive collections of pre-modern Japanese art and cultural artifacts.</p>
+</div>
+</div>
+<!-- Connector -->
+<div class="pl-6 py-2">
+<div class="w-[2px] h-8 border-l-2 border-dashed border-outline-variant ml-[-1px]"></div>
+</div>
+<!-- Activity 2 -->
+<div class="flex items-start gap-4">
+<div class="w-12 h-12 rounded-full bg-surface-container-low flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary" data-icon="stadium">stadium</span>
+</div>
+<div class="flex-grow flex flex-col gap-1">
+<div class="flex justify-between items-start">
+<h3 class="font-title-md text-title-md text-on-surface">Gion Evening Walk</h3>
+<span class="font-label-xs text-label-xs bg-surface-variant text-on-surface px-2 py-1 rounded-full shrink-0">2 hours</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant">Stroll through the historic entertainment district. Spotting a geiko is rare but magical.</p>
+</div>
+</div>
+</div>
+</div>
+</article>
+</div>
+</main>
+</body></html>

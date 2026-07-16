@@ -1,0 +1,349 @@
+{
+  "mcp_tool": "poi_search_mcp",
+  "source": "live OpenStreetMap Overpass",
+  "interest_filters_supported": [
+    "adventure",
+    "architecture",
+    "art",
+    "culture",
+    "food",
+    "heritage",
+    "history",
+    "market",
+    "museum",
+    "nature",
+    "nightlife",
+    "park",
+    "shopping",
+    "temple"
+  ],
+  "per_interest": {
+    "adventure": {
+      "count": 32,
+      "missing_data": false,
+      "categories": {
+        "attraction": 1,
+        "heritage": 27,
+        "park": 1,
+        "other": 3
+      },
+      "sample_names": [
+        "Fun Kingdom",
+        "City Palace",
+        "Hawa Mahal",
+        "Jaighar Fort",
+        "Jantar Mantar",
+        "Lake Palace",
+        "Neota Dam",
+        "Moon Gate"
+      ],
+      "notes": "POI source: live OpenStreetMap Overpass only (no seed fallback)."
+    },
+    "architecture": {
+      "count": 25,
+      "missing_data": false,
+      "categories": {
+        "heritage": 25
+      },
+      "sample_names": [
+        "Hawa Mahal",
+        "Jaighar Fort",
+        "Jantar Mantar",
+        "Amber Fort",
+        "Jaivan Canon",
+        "Neota Dam",
+        "Moon Gate",
+        "Sun Gate"
+      ],
+      "notes": "POI source: live OpenStreetMap Overpass only (no seed fallback)."
+    },
+    "art": {
+      "count": 0,
+      "missing_data": true,
+      "categories": {},
+      "sample_names": [],
+      "notes": "POI source: live OpenStreetMap Overpass only (no seed fallback).; Overpass partial failure for interest='art' (ReadTimeout).; Overpass returned no named POIs for Jaipur interest filters.; No live Over"
+    },
+    "culture": {
+      "count": 31,
+      "missing_data": false,
+      "categories": {
+        "heritage": 21,
+        "museum": 7,
+        "attraction": 3
+      },
+      "sample_names": [
+        "Hawa Mahal",
+        "Jaighar Fort",
+        "Jantar Mantar",
+        "Amber Fort",
+        "Albert Hall",
+        "Moon Gate",
+        "Sun Gate",
+        "Clay Botik - Pottery Studio"
+      ],
+      "notes": "POI source: live OpenStreetMap Overpass only (no seed fallback)."
+    },
+    "food": {
+      "count": 39,
+      "missing_data": false,
+      "categories": {
+        "food": 39
+      },
+      "sample_names": [
+        "Anokhi Cafe",
+        "Bar palladio",
+        "Bella Italia",
+        "Cafe Coffee Day",
+        "Cheel Gadi, Sanganer",
+        "Corner 10",
+        "Domino's",
+        "Ganesh Restaurant"
+      ],
+      "notes": "POI source: live OpenStreetMap Overpass only (no seed fallback)."
+    },
+    "heritage": {
+      "count": 25,
+      "missing_data": false,
+      "categories": {
+        "heritage": 25
+      },
+      "sample_names": [
+        "Hawa Mahal",
+        "Jaighar Fort",
+        "Jantar Mantar",
+        "Amber Fort",
+        "Jaivan Canon",
+        "Neota Dam",
+        "Moon Gate",
+        "Sun Gate"
+      ],
+      "notes": "POI source: live OpenStreetMap Overpass only (no seed fallback)."
+    },
+    "history": {
+      "count": 22,
+      "missing_data": false,
+      "categories": {
+        "heritage": 11,
+        "museum": 11
+      },
+      "sample_names": [
+        "Hawa Mahal",
+        "Jaighar Fort",
+        "Jantar Mantar",
+        "Amber Fort",
+        "Jaivan Canon",
+        "Albert Hall",
+        "Moon Gate",
+        "Sun Gate"
+      ],
+      "notes": "POI source: live OpenStreetMap Overpass only (no seed fallback)."
+    },
+    "market": {
+      "count": 34,
+      "missing_data": false,
+      "categories": {
+        "market": 33,
+        "other": 1
+      },
+      "sample_names": [
+        "Amrapali Jewels",
+        "Balaji enterprises",
+        "Bapu Bazaar",
+        "Big Bazaar",
+        "Big Bazar",
+        "CYU Cloth Yourself Urban",
+        "Chandni Crafts",
+        "Cotton Curio"
+      ],
+      "notes": "POI source: live OpenStreetMap Overpass only (no seed fallback)."
+    },
+    "museum": {
+      "count": 0,
+      "missing_data": true,
+      "categories": {},
+      "sample_names": [],
+      "notes": "POI source: live OpenStreetMap Overpass only (no seed fallback).; Overpass partial failure for interest='museum' (ReadTimeout).; Overpass returned no named POIs for Jaipur interest filters.; No live O"
+    },
+    "nature": {
+      "count": 34,
+      "missing_data": false,
+      "categories": {
+        "viewpoint": 7,
+        "park": 26,
+        "temple": 1
+      },
+      "sample_names": [
+        "Amber Fort",
+        "Arya College Park",
+        "Ashok Vihar, Jagatpura",
+        "Ganpati Nagar Ground",
+        "Ground",
+        "Indira Gandhi Nagar, Sector-1, park",
+        "Indira Gandhi Nagar, Sector-3, Park",
+        "Indira gandhi nagar sector - 7 , park -2"
+      ],
+      "notes": "POI source: live OpenStreetMap Overpass only (no seed fallback)."
+    },
+    "nightlife": {
+      "count": 38,
+      "missing_data": false,
+      "categories": {
+        "nightlife": 16,
+        "attraction": 22
+      },
+      "sample_names": [
+        "100% Rock",
+        "360 Jaipur rooftop",
+        "Amigos bar",
+        "Copper chimny",
+        "Elixirjaipur",
+        "Flapjack",
+        "Frooce - the Juice Bar",
+        "Frooce juice bar"
+      ],
+      "notes": "POI source: live OpenStreetMap Overpass only (no seed fallback)."
+    },
+    "park": {
+      "count": 37,
+      "missing_data": false,
+      "categories": {
+        "park": 33,
+        "other": 2,
+        "attraction": 2
+      },
+      "sample_names": [
+        "Arya College Park",
+        "Farm land",
+        "Ganpati Nagar Ground",
+        "Ground",
+        "Indira Gandhi Nagar, Sector-1, park",
+        "Indira Gandhi Nagar, Sector-3, Park",
+        "Indira gandhi nagar sector - 7 , park -2",
+        "Jaipur Zoo"
+      ],
+      "notes": "POI source: live OpenStreetMap Overpass only (no seed fallback)."
+    },
+    "shopping": {
+      "count": 34,
+      "missing_data": false,
+      "categories": {
+        "market": 33,
+        "other": 1
+      },
+      "sample_names": [
+        "Amrapali Jewels",
+        "Balaji enterprises",
+        "Bapu Bazaar",
+        "Big Bazaar",
+        "Big Bazar",
+        "CYU Cloth Yourself Urban",
+        "Chandni Crafts",
+        "Cotton Curio"
+      ],
+      "notes": "POI source: live OpenStreetMap Overpass only (no seed fallback)."
+    },
+    "temple": {
+      "count": 0,
+      "missing_data": true,
+      "categories": {},
+      "sample_names": [],
+      "notes": "POI source: live OpenStreetMap Overpass only (no seed fallback).; Overpass partial failure for interest='temple' (ReadTimeout).; Overpass returned no named POIs for Jaipur interest filters.; No live O"
+    }
+  },
+  "global_categories_seen": {
+    "attraction": 28,
+    "heritage": 109,
+    "park": 60,
+    "other": 7,
+    "museum": 18,
+    "food": 39,
+    "market": 66,
+    "viewpoint": 7,
+    "temple": 1,
+    "nightlife": 16
+  },
+  "samples_by_category": {
+    "attraction": [
+      "Fun Kingdom",
+      "Juneja Art Gallery",
+      "Rmc switch gear",
+      "Sawai Jai Singh II",
+      "99 Inn",
+      "Anandmai - Sustainable Living Spaces"
+    ],
+    "heritage": [
+      "City Palace",
+      "Hawa Mahal",
+      "Jaighar Fort",
+      "Jantar Mantar",
+      "Lake Palace",
+      "Neota Dam"
+    ],
+    "park": [
+      "Vidyadhar Garden",
+      "Arya College Park",
+      "Ganpati Nagar Ground",
+      "Ground",
+      "Indira Gandhi Nagar, Sector-1, park",
+      "Indira Gandhi Nagar, Sector-3, Park"
+    ],
+    "other": [
+      "DMR Multisports Arena",
+      "Drona Shooting Sports Academy",
+      "YONIX Badminton Academy",
+      "Sikar House , Jaipur",
+      "Commerce College Cricket Ground",
+      "Poddar Playground"
+    ],
+    "museum": [
+      "Albert Hall",
+      "Alice Garg Seashell Museum",
+      "Anokhi Museum",
+      "Jaipur Wax Museum",
+      "Jawahar Kala Kendra",
+      "Maharaja Sawai Mansingh II"
+    ],
+    "food": [
+      "Anokhi Cafe",
+      "Bar palladio",
+      "Bella Italia",
+      "Cafe Coffee Day",
+      "Cheel Gadi, Sanganer",
+      "Corner 10"
+    ],
+    "market": [
+      "Amrapali Jewels",
+      "Balaji enterprises",
+      "Bapu Bazaar",
+      "Big Bazaar",
+      "Big Bazar",
+      "CYU Cloth Yourself Urban"
+    ],
+    "viewpoint": [
+      "Amber Fort",
+      "Ashok Vihar, Jagatpura",
+      "Lake Palace Viewpoint , JAIPUR",
+      "Ninder Hill Point View",
+      "Sunset Point",
+      "Wind Palace"
+    ],
+    "temple": [
+      "Iswari Minar Swarga Sali (Isarlat)"
+    ],
+    "nightlife": [
+      "100% Rock",
+      "360 Jaipur rooftop",
+      "Amigos bar",
+      "Copper chimny",
+      "Elixirjaipur",
+      "Flapjack"
+    ]
+  },
+  "combo_categories": {
+    "museum": 13,
+    "heritage": 8,
+    "temple": 59
+  },
+  "combo_count": 80
+}

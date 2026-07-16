@@ -11,12 +11,16 @@ from agent.schemas.itinerary import TimeOfDay
 
 EditOperation = Literal[
     "relax_block",
+    "pack_block",
+    "balance_block",
+    "balance_categories",
     "swap_stop",
     "add_stop",
     "remove_stop",
     "reduce_travel",
     "make_indoor",
     "replace_block",
+    "trim_category",
 ]
 
 

@@ -11,6 +11,7 @@ import httpx
 
 from agent.mcp.geo import city_center, resolve_city
 from agent.schemas.specialists import DayWeather, WeatherAdjustment, WeatherResult
+from agent.trip_limits import clamp_forecast_days, clamp_trip_days
 
 logger = logging.getLogger(__name__)
 
@@ -159,8 +160,13 @@ def weather_adjustment(
     num_days: int = 3,
     latitude: float | None = None,
     longitude: float | None = None,
+    for_trip: bool = True,
 ) -> WeatherResult:
-    """MCP: fetch India-city forecast and propose indoor/outdoor adjustments."""
+    """MCP: fetch India-city forecast and propose indoor/outdoor adjustments.
+
+    When ``for_trip`` is True, day count is clamped to the product trip window.
+    Standalone weather Q&A should pass ``for_trip=False`` (1–7 day forecasts).
+    """
     info = resolve_city(city)
     if info is None:
         lat, lon = city_center(city)
@@ -178,7 +184,7 @@ def weather_adjustment(
     canonical = info.name
     lat = latitude if latitude is not None else info.lat
     lon = longitude if longitude is not None else info.lon
-    num_days = max(2, min(4, num_days))
+    num_days = clamp_trip_days(num_days) if for_trip else clamp_forecast_days(num_days)
 
     try:
         start = date.fromisoformat(start_date) if start_date else date.today()

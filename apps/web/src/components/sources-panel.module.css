@@ -1,0 +1,106 @@
+.wrap {
+  background: var(--surface-lowest);
+  border: 1px solid color-mix(in srgb, var(--outline-variant) 40%, transparent);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-ambient);
+  padding: 1.35rem 1.25rem 1.5rem;
+}
+
+.header h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--on-surface);
+  letter-spacing: -0.01em;
+}
+
+.sub {
+  margin: 0.4rem 0 0;
+  color: var(--on-surface-variant);
+  font-size: 0.92rem;
+  max-width: 48ch;
+  line-height: 1.45;
+}
+
+.list {
+  margin: 1.1rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.item {
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--outline-variant) 35%, transparent);
+}
+
+.item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.35rem 0.85rem;
+}
+
+.title,
+.link {
+  font-weight: 650;
+  color: var(--on-surface);
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+.link {
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--primary) 35%, transparent);
+  text-underline-offset: 0.15em;
+}
+
+.link:hover {
+  color: var(--primary);
+}
+
+.badge {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-full);
+  background: var(--primary-fixed);
+  color: var(--on-primary-fixed);
+}
+
+.badge[data-dataset="wikivoyage"],
+.badge[data-dataset="wikipedia"] {
+  background: color-mix(in srgb, var(--secondary) 14%, white);
+  color: var(--secondary);
+}
+
+.badge[data-dataset="open-meteo"] {
+  background: var(--surface-high);
+  color: var(--primary);
+}
+
+.snippet {
+  margin: 0.35rem 0 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--on-surface-variant);
+  max-width: 56ch;
+}
+
+.more {
+  margin: 0.85rem 0 0;
+  font-size: 0.85rem;
+  color: var(--on-surface-variant);
+}

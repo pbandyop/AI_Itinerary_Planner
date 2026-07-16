@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VocalVoyage - Voice Input</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@500&amp;family=Manrope:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Configuration -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary-fixed": "#081b3a",
+                    "error": "#ba1a1a",
+                    "primary-fixed-dim": "#b6c6ef",
+                    "surface": "#f8f9ff",
+                    "secondary-container": "#c6d7ff",
+                    "secondary-fixed": "#d7e2ff",
+                    "surface-container-highest": "#d3e4fe",
+                    "primary": "#031635",
+                    "on-error": "#ffffff",
+                    "on-tertiary-container": "#8d939b",
+                    "primary-fixed": "#d8e2ff",
+                    "secondary": "#4d5e81",
+                    "primary-container": "#1a2b4b",
+                    "inverse-primary": "#b6c6ef",
+                    "background": "#f8f9ff",
+                    "on-error-container": "#93000a",
+                    "outline-variant": "#c5c6cf",
+                    "surface-container-low": "#eff4ff",
+                    "inverse-surface": "#213145",
+                    "surface-container-lowest": "#ffffff",
+                    "on-secondary": "#ffffff",
+                    "on-primary-fixed-variant": "#364768",
+                    "on-primary-container": "#8293b8",
+                    "outline": "#75777f",
+                    "surface-container": "#e5eeff",
+                    "on-background": "#0b1c30",
+                    "surface-dim": "#cbdbf5",
+                    "on-tertiary-fixed": "#161c22",
+                    "inverse-on-surface": "#eaf1ff",
+                    "surface-tint": "#4e5e81",
+                    "tertiary-fixed-dim": "#c1c7cf",
+                    "on-tertiary-fixed-variant": "#41474e",
+                    "secondary-fixed-dim": "#b5c7ee",
+                    "on-surface": "#0b1c30",
+                    "on-primary": "#ffffff",
+                    "tertiary-fixed": "#dde3eb",
+                    "on-secondary-fixed": "#071b3a",
+                    "surface-variant": "#d3e4fe",
+                    "on-surface-variant": "#44474e",
+                    "error-container": "#ffdad6",
+                    "on-tertiary": "#ffffff",
+                    "on-secondary-fixed-variant": "#364768",
+                    "surface-bright": "#f8f9ff",
+                    "tertiary-container": "#262c32",
+                    "surface-container-high": "#dce9ff",
+                    "tertiary": "#11181d",
+                    "on-secondary-container": "#4c5d7f"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "margin-mobile": "16px",
+                    "base": "4px",
+                    "xs": "4px",
+                    "max-width": "1280px",
+                    "lg": "24px",
+                    "gutter": "24px",
+                    "sm": "8px",
+                    "margin-desktop": "64px",
+                    "md": "16px",
+                    "xl": "48px",
+                    "section-gap": "96px",
+                    "container-desktop": "64px"
+            },
+            "fontFamily": {
+                    "label-caps": ["jetbrainsMono", "monospace"],
+                    "display-lg": ["manrope", "sans-serif"],
+                    "body-md": ["inter", "sans-serif"],
+                    "headline-lg-mobile": ["manrope", "sans-serif"],
+                    "headline-lg": ["manrope", "sans-serif"],
+                    "body-sm": ["inter", "sans-serif"]
+            },
+            "fontSize": {
+                    "label-caps": ["12px", { "lineHeight": "16px", "fontWeight": "500" }],
+                    "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                    "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                    "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                    "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                    "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        
+        /* Custom Scrollbar for Transcript */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background-color: theme('colors.outline-variant');
+            border-radius: 10px;
+        }
+
+        /* Voice Wave Animation */
+        .wave-bar {
+            animation: bounce 1.2s ease-in-out infinite;
+            transform-origin: bottom;
+        }
+        .wave-bar:nth-child(1) { animation-delay: 0.0s; }
+        .wave-bar:nth-child(2) { animation-delay: 0.2s; }
+        .wave-bar:nth-child(3) { animation-delay: 0.4s; }
+        .wave-bar:nth-child(4) { animation-delay: 0.2s; }
+        .wave-bar:nth-child(5) { animation-delay: 0.5s; }
+        .wave-bar:nth-child(6) { animation-delay: 0.3s; }
+        .wave-bar:nth-child(7) { animation-delay: 0.1s; }
+
+        @keyframes bounce {
+            0%, 100% { transform: scaleY(0.3); }
+            50% { transform: scaleY(1); }
+        }
+
+        /* Mic Pulse */
+        @keyframes pulse-ring {
+            0% { transform: scale(0.8); opacity: 0.5; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+        .mic-pulse::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 0; right: 0; bottom: 0;
+            border-radius: 50%;
+            background-color: theme('colors.primary-fixed');
+            z-index: -1;
+            animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface h-screen flex flex-col overflow-hidden font-body-md antialiased">
+<!-- TopNavBar (Shared Component) -->
+<header class="flex justify-between items-center px-container-desktop w-full max-w-[1280px] mx-auto h-20 shadow-sm bg-surface dark:bg-surface-container-highest z-20 shrink-0">
+<!-- Brand -->
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="explore" data-weight="fill" style="font-variation-settings: 'FILL' 1;">explore</span>
+<span class="font-headline-lg text-headline-lg font-bold text-primary dark:text-primary-fixed-dim tracking-tight">VocalVoyage</span>
+</div>
+<!-- Navigation Links (Desktop) -->
+<nav class="hidden md:flex gap-8 items-center h-full">
+<a class="text-on-surface-variant font-medium hover:text-primary hover:bg-surface-container-low transition-all duration-200 px-3 py-2 rounded-lg h-full flex items-center" href="#">New Trip</a>
+<a class="text-on-surface-variant font-medium hover:text-primary hover:bg-surface-container-low transition-all duration-200 px-3 py-2 rounded-lg h-full flex items-center" href="#">My Trips</a>
+<!-- Active Tab -->
+<a class="text-primary font-semibold border-b-2 border-primary h-full flex items-center px-3" href="#">Voice Input</a>
+</nav>
+<!-- Trailing Actions -->
+<div class="flex items-center gap-4">
+<button class="hidden md:block font-body-md text-on-surface-variant hover:text-primary transition-colors font-medium">Log In</button>
+<button class="bg-primary text-on-primary px-6 py-2.5 rounded-full font-body-md font-medium hover:bg-primary/90 transition-colors shadow-sm active:scale-95">Get Started</button>
+</div>
+</header>
+<!-- Main Transcript Canvas -->
+<main class="flex-grow overflow-y-auto w-full relative z-10" id="transcript-container">
+<div class="max-w-[800px] mx-auto px-margin-mobile md:px-0 py-xl flex flex-col gap-8 pb-48">
+<!-- AI Message -->
+<div class="flex gap-4 items-start w-full max-w-[85%]">
+<div class="w-10 h-10 rounded-full bg-surface-container-highest border border-outline-variant flex items-center justify-center shrink-0 mt-1">
+<span class="material-symbols-outlined text-primary text-xl" data-icon="robot_2">robot_2</span>
+</div>
+<div class="bg-surface-container-low border border-outline-variant/50 rounded-2xl rounded-tl-sm p-5 shadow-[0_4px_10px_-2px_rgba(26,43,75,0.02)]">
+<p class="font-body-md text-on-surface">Hi there! I'm VocalVoyage. I can help you plan your next adventure perfectly tailored to your preferences. Where would you like to go, and who is traveling?</p>
+</div>
+</div>
+<!-- User Message -->
+<div class="flex gap-4 items-start w-full max-w-[85%] self-end justify-end">
+<div class="bg-secondary-container border border-secondary-fixed/50 rounded-2xl rounded-tr-sm p-5 shadow-[0_4px_10px_-2px_rgba(26,43,75,0.02)] text-right">
+<p class="font-body-md text-on-secondary-container">I'm thinking about taking a 5-day trip to Tokyo next month. It will just be me and my partner.</p>
+</div>
+<div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center shrink-0 mt-1">
+<span class="material-symbols-outlined text-on-primary text-xl" data-icon="person">person</span>
+</div>
+</div>
+<!-- AI Message -->
+<div class="flex gap-4 items-start w-full max-w-[85%]">
+<div class="w-10 h-10 rounded-full bg-surface-container-highest border border-outline-variant flex items-center justify-center shrink-0 mt-1">
+<span class="material-symbols-outlined text-primary text-xl" data-icon="robot_2">robot_2</span>
+</div>
+<div class="bg-surface-container-low border border-outline-variant/50 rounded-2xl rounded-tl-sm p-5 shadow-[0_4px_10px_-2px_rgba(26,43,75,0.02)]">
+<p class="font-body-md text-on-surface">Tokyo is an incredible choice for a couples trip! To make it special, what kind of vibe are you looking for? Are you more interested in exploring historic temples, hitting up the culinary scene, or experiencing the modern nightlife?</p>
+</div>
+</div>
+<!-- Active User Input (Live Transcription) -->
+<div class="flex gap-4 items-start w-full max-w-[95%] self-end justify-end mt-4">
+<div class="p-5 text-right">
+<p class="font-headline-lg-mobile md:font-headline-lg text-primary leading-tight">
+                        "Definitely the culinary scene. We want to try authentic sushi, street food, and maybe one high-end Omakase experience. Also..."
+                        <span class="inline-block w-2 h-6 bg-primary animate-pulse align-middle ml-1"></span>
+</p>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Voice Control Anchor -->
+<div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-surface via-surface/95 to-transparent pt-12 pb-8 z-30">
+<div class="max-w-[800px] mx-auto px-margin-mobile md:px-0 flex flex-col items-center gap-6">
+<!-- Dynamic Status -->
+<div class="flex items-center gap-2">
+<span class="font-label-caps text-label-caps text-on-surface-variant tracking-widest uppercase">Listening...</span>
+</div>
+<!-- Visualizer & Controls -->
+<div class="flex items-center justify-center gap-8 w-full relative">
+<!-- Cancel / Restart -->
+<button class="w-12 h-12 rounded-full border border-outline-variant flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low transition-colors active:scale-95">
+<span class="material-symbols-outlined" data-icon="close">close</span>
+</button>
+<!-- Central Mic Button with Waveform wrapping it -->
+<div class="relative flex items-center justify-center">
+<!-- Waveform Bars (Left) -->
+<div class="absolute -left-16 flex gap-1 items-end h-8">
+<div class="w-1.5 bg-primary rounded-t-full wave-bar h-full"></div>
+<div class="w-1.5 bg-primary/80 rounded-t-full wave-bar h-[60%]"></div>
+<div class="w-1.5 bg-primary/60 rounded-t-full wave-bar h-[80%]"></div>
+<div class="w-1.5 bg-primary/40 rounded-t-full wave-bar h-[40%]"></div>
+</div>
+<!-- Main Mic Button -->
+<button class="w-20 h-20 rounded-full bg-primary shadow-lg flex items-center justify-center text-on-primary hover:bg-primary/90 transition-all active:scale-95 mic-pulse relative z-10 cursor-pointer">
+<span class="material-symbols-outlined text-4xl" data-icon="mic" data-weight="fill" style="font-variation-settings: 'FILL' 1;">mic</span>
+</button>
+<!-- Waveform Bars (Right) -->
+<div class="absolute -right-16 flex gap-1 items-end h-8">
+<div class="w-1.5 bg-primary/40 rounded-t-full wave-bar h-[50%]"></div>
+<div class="w-1.5 bg-primary/60 rounded-t-full wave-bar h-[90%]"></div>
+<div class="w-1.5 bg-primary/80 rounded-t-full wave-bar h-[70%]"></div>
+<div class="w-1.5 bg-primary rounded-t-full wave-bar h-full"></div>
+</div>
+</div>
+<!-- Generate / Done -->
+<button class="h-12 px-6 rounded-full bg-surface-container-highest border border-primary/10 flex items-center justify-center text-primary font-body-sm font-medium hover:bg-secondary-container transition-colors active:scale-95 gap-2">
+<span class="material-symbols-outlined text-[18px]" data-icon="magic_button">magic_button</span>
+                    Generate
+                </button>
+</div>
+</div>
+</div>
+<!-- Script to ensure transcript starts scrolled to bottom (simulating live input) -->
+<script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const transcriptContainer = document.getElementById('transcript-container');
+            if(transcriptContainer) {
+                transcriptContainer.scrollTop = transcriptContainer.scrollHeight;
+            }
+        });
+    </script>
+</body></html>

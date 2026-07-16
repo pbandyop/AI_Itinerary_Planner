@@ -1,0 +1,11 @@
+{
+  "retriever": "hybrid_rrf",
+  "reranker": "dataset_aware",
+  "chunk_strategy": "place_atomic",
+  "scores": {
+    "hit_at_3": 1.0,
+    "mrr": 1.0,
+    "hours_acc": 1.0,
+    "google_hours_pref": 1.0
+  }
+}

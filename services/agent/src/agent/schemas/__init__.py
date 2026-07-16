@@ -11,7 +11,7 @@ from agent.schemas.itinerary import (
     TimeOfDay,
     TripConstraints,
 )
-from agent.schemas.review import ReviewIssue, ReviewStatus, ReviewerVerdict
+from agent.schemas.review import ReviewIssue, ReviewStatus, ReviewerVerdict, TargetAgent, normalize_target_agent
 from agent.schemas.specialists import (
     DayWeather,
     DispatchPlan,
@@ -53,6 +53,8 @@ __all__ = [
     "ReviewIssue",
     "ReviewStatus",
     "ReviewerVerdict",
+    "TargetAgent",
+    "normalize_target_agent",
     "SafetyStatus",
     "Source",
     "Stop",

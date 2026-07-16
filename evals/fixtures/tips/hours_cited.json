@@ -1,0 +1,13 @@
+{
+  "name": "hours_cited",
+  "user_reply": "The Jaipur Wax Museum is open Monday to Saturday from 10:00 AM to 6:30 PM, and on Sunday from 9:00 AM to 6:30 PM. (Source: Jaipur Wax Museum Nahargarh Fort - https://jaipurwaxmuseum.com/)",
+  "missing_data": false,
+  "sources": [
+    {
+      "title": "Jaipur Wax Museum Nahargarh Fort",
+      "url": "https://jaipurwaxmuseum.com/",
+      "dataset": "other",
+      "snippet": "Opening hours from Google Places card."
+    }
+  ]
+}

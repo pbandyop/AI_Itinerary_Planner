@@ -3,6 +3,7 @@
 from agent.tools.mcp_tools import (
     get_mcp_tools,
     itinerary_builder_tool,
+    knowledge_rag_tool,
     poi_search_tool,
     travel_time_tool,
     weather_tool,
@@ -14,4 +15,5 @@ __all__ = [
     "itinerary_builder_tool",
     "travel_time_tool",
     "weather_tool",
+    "knowledge_rag_tool",
 ]

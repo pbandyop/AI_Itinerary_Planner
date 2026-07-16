@@ -1,0 +1,1384 @@
+{
+  "results": [
+    {
+      "chunk_strategy": "place_atomic",
+      "retriever": "bm25",
+      "reranker": "none",
+      "num_chunks": 542,
+      "hit_at_3": 1.0,
+      "mrr": 1.0,
+      "hours_acc": 1.0,
+      "google_hours_pref": 0.3333333333333333,
+      "per_query": [
+        {
+          "id": "nevta",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Nevta Dam"
+        },
+        {
+          "id": "niota_alias",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Nevta Dam"
+        },
+        {
+          "id": "akshardham",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Akshardham Temple Jaipur"
+        },
+        {
+          "id": "jantar_hours",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": true,
+          "top_dataset": "curated_places",
+          "top_title": "Jantar Mantar Jaipur hours"
+        },
+        {
+          "id": "city_palace_hours",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": true,
+          "top_dataset": "curated_places",
+          "top_title": "Jantar Mantar Jaipur hours"
+        },
+        {
+          "id": "hawa_hours",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": true,
+          "top_dataset": "google_places",
+          "top_title": "Hawa Mahal"
+        },
+        {
+          "id": "moon_gate",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Moon Gate"
+        },
+        {
+          "id": "hawa",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "google_places",
+          "top_title": "Hawa Mahal"
+        },
+        {
+          "id": "birla",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "google_places",
+          "top_title": "Birla Mandir, Jaipur"
+        },
+        {
+          "id": "city_palace",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Jantar Mantar Jaipur hours"
+        },
+        {
+          "id": "amarnath",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Amarnath Cafe"
+        },
+        {
+          "id": "amber",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "google_places",
+          "top_title": "Sheesh Mahal, Amber Fort"
+        },
+        {
+          "id": "jal_mahal",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "google_places",
+          "top_title": "Jaipur Wax Museum Nahargarh Fort"
+        },
+        {
+          "id": "badrinath_miss",
+          "hit": false,
+          "rank": null,
+          "expect_hit": false,
+          "hours_pass": null,
+          "top_dataset": "tourism",
+          "top_title": "Jantar Mantar Jaipur \u2014 Rajasthan Tourism"
+        }
+      ]
+    },
+    {
+      "chunk_strategy": "place_atomic",
+      "retriever": "bm25",
+      "reranker": "place_boost",
+      "num_chunks": 542,
+      "hit_at_3": 1.0,
+      "mrr": 1.0,
+      "hours_acc": 1.0,
+      "google_hours_pref": 1.0,
+      "per_query": [
+        {
+          "id": "nevta",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Nevta Dam"
+        },
+        {
+          "id": "niota_alias",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Nevta Dam"
+        },
+        {
+          "id": "akshardham",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Akshardham Temple Jaipur"
+        },
+        {
+          "id": "jantar_hours",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": true,
+          "top_dataset": "google_places",
+          "top_title": "Jantar Mantar"
+        },
+        {
+          "id": "city_palace_hours",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": true,
+          "top_dataset": "google_places",
+          "top_title": "City Palace Museum"
+        },
+        {
+          "id": "hawa_hours",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": true,
+          "top_dataset": "google_places",
+          "top_title": "Hawa Mahal"
+        },
+        {
+          "id": "moon_gate",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Moon Gate"
+        },
+        {
+          "id": "hawa",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "google_places",
+          "top_title": "Hawa Mahal"
+        },
+        {
+          "id": "birla",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "wikipedia",
+          "top_title": "Birla Mandir, Jaipur"
+        },
+        {
+          "id": "city_palace",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "google_places",
+          "top_title": "City Palace Museum"
+        },
+        {
+          "id": "amarnath",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "google_places",
+          "top_title": "Amarnath Sweets"
+        },
+        {
+          "id": "amber",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "google_places",
+          "top_title": "Amber Fort Light and Sound Show"
+        },
+        {
+          "id": "jal_mahal",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "wikipedia",
+          "top_title": "Jal Mahal"
+        },
+        {
+          "id": "badrinath_miss",
+          "hit": false,
+          "rank": null,
+          "expect_hit": false,
+          "hours_pass": null,
+          "top_dataset": "tourism",
+          "top_title": "Jantar Mantar Jaipur \u2014 Rajasthan Tourism"
+        }
+      ]
+    },
+    {
+      "chunk_strategy": "place_atomic",
+      "retriever": "bm25",
+      "reranker": "dataset_aware",
+      "num_chunks": 542,
+      "hit_at_3": 1.0,
+      "mrr": 1.0,
+      "hours_acc": 1.0,
+      "google_hours_pref": 1.0,
+      "per_query": [
+        {
+          "id": "nevta",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Nevta Dam"
+        },
+        {
+          "id": "niota_alias",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Nevta Dam"
+        },
+        {
+          "id": "akshardham",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Akshardham Temple Jaipur"
+        },
+        {
+          "id": "jantar_hours",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": true,
+          "top_dataset": "google_places",
+          "top_title": "Jantar Mantar"
+        },
+        {
+          "id": "city_palace_hours",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": true,
+          "top_dataset": "google_places",
+          "top_title": "The City Palace"
+        },
+        {
+          "id": "hawa_hours",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": true,
+          "top_dataset": "google_places",
+          "top_title": "Hawa Mahal"
+        },
+        {
+          "id": "moon_gate",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Moon Gate"
+        },
+        {
+          "id": "hawa",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "google_places",
+          "top_title": "Hawa Mahal"
+        },
+        {
+          "id": "birla",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "wikipedia",
+          "top_title": "Birla Mandir, Jaipur"
+        },
+        {
+          "id": "city_palace",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "google_places",
+          "top_title": "The City Palace"
+        },
+        {
+          "id": "amarnath",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Amarnath Cafe"
+        },
+        {
+          "id": "amber",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "google_places",
+          "top_title": "Sheesh Mahal, Amber Fort"
+        },
+        {
+          "id": "jal_mahal",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "wikipedia",
+          "top_title": "Jal Mahal"
+        },
+        {
+          "id": "badrinath_miss",
+          "hit": false,
+          "rank": null,
+          "expect_hit": false,
+          "hours_pass": null,
+          "top_dataset": "tourism",
+          "top_title": "Jantar Mantar Jaipur \u2014 Rajasthan Tourism"
+        }
+      ]
+    },
+    {
+      "chunk_strategy": "place_atomic",
+      "retriever": "chroma",
+      "reranker": "none",
+      "num_chunks": 542,
+      "hit_at_3": 1.0,
+      "mrr": 1.0,
+      "hours_acc": 1.0,
+      "google_hours_pref": 0.3333333333333333,
+      "per_query": [
+        {
+          "id": "nevta",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Nevta Dam"
+        },
+        {
+          "id": "niota_alias",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Nevta Dam"
+        },
+        {
+          "id": "akshardham",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Akshardham Temple Jaipur"
+        },
+        {
+          "id": "jantar_hours",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": true,
+          "top_dataset": "curated_places",
+          "top_title": "Jantar Mantar Jaipur hours"
+        },
+        {
+          "id": "city_palace_hours",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": true,
+          "top_dataset": "curated_places",
+          "top_title": "Jantar Mantar Jaipur hours"
+        },
+        {
+          "id": "hawa_hours",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": true,
+          "top_dataset": "google_places",
+          "top_title": "Hawa Mahal"
+        },
+        {
+          "id": "moon_gate",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Moon Gate"
+        },
+        {
+          "id": "hawa",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "google_places",
+          "top_title": "Hawa Mahal"
+        },
+        {
+          "id": "birla",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "google_places",
+          "top_title": "Birla Mandir, Jaipur"
+        },
+        {
+          "id": "city_palace",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Jantar Mantar Jaipur hours"
+        },
+        {
+          "id": "amarnath",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Amarnath Cafe"
+        },
+        {
+          "id": "amber",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "google_places",
+          "top_title": "Sheesh Mahal, Amber Fort"
+        },
+        {
+          "id": "jal_mahal",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "google_places",
+          "top_title": "Jaipur Wax Museum Nahargarh Fort"
+        },
+        {
+          "id": "badrinath_miss",
+          "hit": false,
+          "rank": null,
+          "expect_hit": false,
+          "hours_pass": null,
+          "top_dataset": "tourism",
+          "top_title": "Jantar Mantar Jaipur \u2014 Rajasthan Tourism"
+        }
+      ]
+    },
+    {
+      "chunk_strategy": "place_atomic",
+      "retriever": "chroma",
+      "reranker": "place_boost",
+      "num_chunks": 542,
+      "hit_at_3": 1.0,
+      "mrr": 1.0,
+      "hours_acc": 1.0,
+      "google_hours_pref": 1.0,
+      "per_query": [
+        {
+          "id": "nevta",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Nevta Dam"
+        },
+        {
+          "id": "niota_alias",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Nevta Dam"
+        },
+        {
+          "id": "akshardham",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Akshardham Temple Jaipur"
+        },
+        {
+          "id": "jantar_hours",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": true,
+          "top_dataset": "google_places",
+          "top_title": "Jantar Mantar"
+        },
+        {
+          "id": "city_palace_hours",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": true,
+          "top_dataset": "google_places",
+          "top_title": "City Palace Museum"
+        },
+        {
+          "id": "hawa_hours",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": true,
+          "top_dataset": "google_places",
+          "top_title": "Hawa Mahal"
+        },
+        {
+          "id": "moon_gate",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Moon Gate"
+        },
+        {
+          "id": "hawa",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "google_places",
+          "top_title": "Hawa Mahal"
+        },
+        {
+          "id": "birla",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "wikipedia",
+          "top_title": "Birla Mandir, Jaipur"
+        },
+        {
+          "id": "city_palace",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "google_places",
+          "top_title": "City Palace Museum"
+        },
+        {
+          "id": "amarnath",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "google_places",
+          "top_title": "Amarnath Sweets"
+        },
+        {
+          "id": "amber",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "google_places",
+          "top_title": "Amber Fort Light and Sound Show"
+        },
+        {
+          "id": "jal_mahal",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "wikipedia",
+          "top_title": "Jal Mahal"
+        },
+        {
+          "id": "badrinath_miss",
+          "hit": false,
+          "rank": null,
+          "expect_hit": false,
+          "hours_pass": null,
+          "top_dataset": "tourism",
+          "top_title": "Jantar Mantar Jaipur \u2014 Rajasthan Tourism"
+        }
+      ]
+    },
+    {
+      "chunk_strategy": "place_atomic",
+      "retriever": "chroma",
+      "reranker": "dataset_aware",
+      "num_chunks": 542,
+      "hit_at_3": 1.0,
+      "mrr": 1.0,
+      "hours_acc": 1.0,
+      "google_hours_pref": 1.0,
+      "per_query": [
+        {
+          "id": "nevta",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Nevta Dam"
+        },
+        {
+          "id": "niota_alias",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Nevta Dam"
+        },
+        {
+          "id": "akshardham",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Akshardham Temple Jaipur"
+        },
+        {
+          "id": "jantar_hours",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": true,
+          "top_dataset": "google_places",
+          "top_title": "Jantar Mantar"
+        },
+        {
+          "id": "city_palace_hours",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": true,
+          "top_dataset": "google_places",
+          "top_title": "The City Palace"
+        },
+        {
+          "id": "hawa_hours",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": true,
+          "top_dataset": "google_places",
+          "top_title": "Hawa Mahal"
+        },
+        {
+          "id": "moon_gate",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Moon Gate"
+        },
+        {
+          "id": "hawa",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "google_places",
+          "top_title": "Hawa Mahal"
+        },
+        {
+          "id": "birla",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "wikipedia",
+          "top_title": "Birla Mandir, Jaipur"
+        },
+        {
+          "id": "city_palace",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "google_places",
+          "top_title": "The City Palace"
+        },
+        {
+          "id": "amarnath",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Amarnath Cafe"
+        },
+        {
+          "id": "amber",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "google_places",
+          "top_title": "Sheesh Mahal, Amber Fort"
+        },
+        {
+          "id": "jal_mahal",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "wikipedia",
+          "top_title": "Jal Mahal"
+        },
+        {
+          "id": "badrinath_miss",
+          "hit": false,
+          "rank": null,
+          "expect_hit": false,
+          "hours_pass": null,
+          "top_dataset": "tourism",
+          "top_title": "Jantar Mantar Jaipur \u2014 Rajasthan Tourism"
+        }
+      ]
+    },
+    {
+      "chunk_strategy": "place_atomic",
+      "retriever": "hybrid_rrf",
+      "reranker": "none",
+      "num_chunks": 542,
+      "hit_at_3": 1.0,
+      "mrr": 1.0,
+      "hours_acc": 1.0,
+      "google_hours_pref": 0.3333333333333333,
+      "per_query": [
+        {
+          "id": "nevta",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Nevta Dam"
+        },
+        {
+          "id": "niota_alias",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Nevta Dam"
+        },
+        {
+          "id": "akshardham",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Akshardham Temple Jaipur"
+        },
+        {
+          "id": "jantar_hours",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": true,
+          "top_dataset": "curated_places",
+          "top_title": "Jantar Mantar Jaipur hours"
+        },
+        {
+          "id": "city_palace_hours",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": true,
+          "top_dataset": "curated_places",
+          "top_title": "Jantar Mantar Jaipur hours"
+        },
+        {
+          "id": "hawa_hours",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": true,
+          "top_dataset": "google_places",
+          "top_title": "Hawa Mahal"
+        },
+        {
+          "id": "moon_gate",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Moon Gate"
+        },
+        {
+          "id": "hawa",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "google_places",
+          "top_title": "Hawa Mahal"
+        },
+        {
+          "id": "birla",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "google_places",
+          "top_title": "Birla Mandir, Jaipur"
+        },
+        {
+          "id": "city_palace",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Jantar Mantar Jaipur hours"
+        },
+        {
+          "id": "amarnath",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Amarnath Cafe"
+        },
+        {
+          "id": "amber",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "google_places",
+          "top_title": "Sheesh Mahal, Amber Fort"
+        },
+        {
+          "id": "jal_mahal",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "google_places",
+          "top_title": "Jaipur Wax Museum Nahargarh Fort"
+        },
+        {
+          "id": "badrinath_miss",
+          "hit": false,
+          "rank": null,
+          "expect_hit": false,
+          "hours_pass": null,
+          "top_dataset": "tourism",
+          "top_title": "Amber Fort \u2014 Rajasthan Tourism"
+        }
+      ]
+    },
+    {
+      "chunk_strategy": "place_atomic",
+      "retriever": "hybrid_rrf",
+      "reranker": "place_boost",
+      "num_chunks": 542,
+      "hit_at_3": 1.0,
+      "mrr": 1.0,
+      "hours_acc": 1.0,
+      "google_hours_pref": 1.0,
+      "per_query": [
+        {
+          "id": "nevta",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Nevta Dam"
+        },
+        {
+          "id": "niota_alias",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Nevta Dam"
+        },
+        {
+          "id": "akshardham",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Akshardham Temple Jaipur"
+        },
+        {
+          "id": "jantar_hours",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": true,
+          "top_dataset": "google_places",
+          "top_title": "Jantar Mantar"
+        },
+        {
+          "id": "city_palace_hours",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": true,
+          "top_dataset": "google_places",
+          "top_title": "City Palace Museum"
+        },
+        {
+          "id": "hawa_hours",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": true,
+          "top_dataset": "google_places",
+          "top_title": "Hawa Mahal"
+        },
+        {
+          "id": "moon_gate",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Moon Gate"
+        },
+        {
+          "id": "hawa",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "google_places",
+          "top_title": "Hawa Mahal"
+        },
+        {
+          "id": "birla",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "wikipedia",
+          "top_title": "Birla Mandir, Jaipur"
+        },
+        {
+          "id": "city_palace",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "google_places",
+          "top_title": "City Palace Museum"
+        },
+        {
+          "id": "amarnath",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "google_places",
+          "top_title": "Amarnath Sweets"
+        },
+        {
+          "id": "amber",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "google_places",
+          "top_title": "Amber Fort Light and Sound Show"
+        },
+        {
+          "id": "jal_mahal",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "wikipedia",
+          "top_title": "Jal Mahal"
+        },
+        {
+          "id": "badrinath_miss",
+          "hit": false,
+          "rank": null,
+          "expect_hit": false,
+          "hours_pass": null,
+          "top_dataset": "tourism",
+          "top_title": "Amber Fort \u2014 Rajasthan Tourism"
+        }
+      ]
+    },
+    {
+      "chunk_strategy": "place_atomic",
+      "retriever": "hybrid_rrf",
+      "reranker": "dataset_aware",
+      "num_chunks": 542,
+      "hit_at_3": 1.0,
+      "mrr": 1.0,
+      "hours_acc": 1.0,
+      "google_hours_pref": 1.0,
+      "per_query": [
+        {
+          "id": "nevta",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Nevta Dam"
+        },
+        {
+          "id": "niota_alias",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Nevta Dam"
+        },
+        {
+          "id": "akshardham",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Akshardham Temple Jaipur"
+        },
+        {
+          "id": "jantar_hours",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": true,
+          "top_dataset": "google_places",
+          "top_title": "Jantar Mantar"
+        },
+        {
+          "id": "city_palace_hours",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": true,
+          "top_dataset": "google_places",
+          "top_title": "The City Palace"
+        },
+        {
+          "id": "hawa_hours",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": true,
+          "top_dataset": "google_places",
+          "top_title": "Hawa Mahal"
+        },
+        {
+          "id": "moon_gate",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Moon Gate"
+        },
+        {
+          "id": "hawa",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "google_places",
+          "top_title": "Hawa Mahal"
+        },
+        {
+          "id": "birla",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "wikipedia",
+          "top_title": "Birla Mandir, Jaipur"
+        },
+        {
+          "id": "city_palace",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "google_places",
+          "top_title": "The City Palace"
+        },
+        {
+          "id": "amarnath",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "curated_places",
+          "top_title": "Amarnath Cafe"
+        },
+        {
+          "id": "amber",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "google_places",
+          "top_title": "Sheesh Mahal, Amber Fort"
+        },
+        {
+          "id": "jal_mahal",
+          "hit": true,
+          "rank": 1,
+          "expect_hit": true,
+          "hours_pass": null,
+          "top_dataset": "wikipedia",
+          "top_title": "Jal Mahal"
+        },
+        {
+          "id": "badrinath_miss",
+          "hit": false,
+          "rank": null,
+          "expect_hit": false,
+          "hours_pass": null,
+          "top_dataset": "tourism",
+          "top_title": "Amber Fort \u2014 Rajasthan Tourism"
+        }
+      ]
+    }
+  ],
+  "winner": {
+    "chunk_strategy": "place_atomic",
+    "retriever": "hybrid_rrf",
+    "reranker": "dataset_aware",
+    "num_chunks": 542,
+    "hit_at_3": 1.0,
+    "mrr": 1.0,
+    "hours_acc": 1.0,
+    "google_hours_pref": 1.0,
+    "per_query": [
+      {
+        "id": "nevta",
+        "hit": true,
+        "rank": 1,
+        "expect_hit": true,
+        "hours_pass": null,
+        "top_dataset": "curated_places",
+        "top_title": "Nevta Dam"
+      },
+      {
+        "id": "niota_alias",
+        "hit": true,
+        "rank": 1,
+        "expect_hit": true,
+        "hours_pass": null,
+        "top_dataset": "curated_places",
+        "top_title": "Nevta Dam"
+      },
+      {
+        "id": "akshardham",
+        "hit": true,
+        "rank": 1,
+        "expect_hit": true,
+        "hours_pass": null,
+        "top_dataset": "curated_places",
+        "top_title": "Akshardham Temple Jaipur"
+      },
+      {
+        "id": "jantar_hours",
+        "hit": true,
+        "rank": 1,
+        "expect_hit": true,
+        "hours_pass": true,
+        "top_dataset": "google_places",
+        "top_title": "Jantar Mantar"
+      },
+      {
+        "id": "city_palace_hours",
+        "hit": true,
+        "rank": 1,
+        "expect_hit": true,
+        "hours_pass": true,
+        "top_dataset": "google_places",
+        "top_title": "The City Palace"
+      },
+      {
+        "id": "hawa_hours",
+        "hit": true,
+        "rank": 1,
+        "expect_hit": true,
+        "hours_pass": true,
+        "top_dataset": "google_places",
+        "top_title": "Hawa Mahal"
+      },
+      {
+        "id": "moon_gate",
+        "hit": true,
+        "rank": 1,
+        "expect_hit": true,
+        "hours_pass": null,
+        "top_dataset": "curated_places",
+        "top_title": "Moon Gate"
+      },
+      {
+        "id": "hawa",
+        "hit": true,
+        "rank": 1,
+        "expect_hit": true,
+        "hours_pass": null,
+        "top_dataset": "google_places",
+        "top_title": "Hawa Mahal"
+      },
+      {
+        "id": "birla",
+        "hit": true,
+        "rank": 1,
+        "expect_hit": true,
+        "hours_pass": null,
+        "top_dataset": "wikipedia",
+        "top_title": "Birla Mandir, Jaipur"
+      },
+      {
+        "id": "city_palace",
+        "hit": true,
+        "rank": 1,
+        "expect_hit": true,
+        "hours_pass": null,
+        "top_dataset": "google_places",
+        "top_title": "The City Palace"
+      },
+      {
+        "id": "amarnath",
+        "hit": true,
+        "rank": 1,
+        "expect_hit": true,
+        "hours_pass": null,
+        "top_dataset": "curated_places",
+        "top_title": "Amarnath Cafe"
+      },
+      {
+        "id": "amber",
+        "hit": true,
+        "rank": 1,
+        "expect_hit": true,
+        "hours_pass": null,
+        "top_dataset": "google_places",
+        "top_title": "Sheesh Mahal, Amber Fort"
+      },
+      {
+        "id": "jal_mahal",
+        "hit": true,
+        "rank": 1,
+        "expect_hit": true,
+        "hours_pass": null,
+        "top_dataset": "wikipedia",
+        "top_title": "Jal Mahal"
+      },
+      {
+        "id": "badrinath_miss",
+        "hit": false,
+        "rank": null,
+        "expect_hit": false,
+        "hours_pass": null,
+        "top_dataset": "tourism",
+        "top_title": "Amber Fort \u2014 Rajasthan Tourism"
+      }
+    ]
+  }
+}

@@ -1,0 +1,238 @@
+{
+  "query": "Plan a 2 day trip to Jaipur, Relaxed, interest: shopping, heritage and food",
+  "pool_size": 40,
+  "shortlist": [
+    {
+      "name": "Hawa Mahal",
+      "category": "heritage",
+      "rank_score": 27.3
+    },
+    {
+      "name": "Amber Fort",
+      "category": "heritage",
+      "rank_score": 25.8
+    },
+    {
+      "name": "Jantar Mantar",
+      "category": "heritage",
+      "rank_score": 27.3
+    },
+    {
+      "name": "Amer Palace",
+      "category": "heritage",
+      "rank_score": 22.8
+    },
+    {
+      "name": "Jaighar Fort",
+      "category": "heritage",
+      "rank_score": 27.3
+    },
+    {
+      "name": "Bapu Bazaar",
+      "category": "market",
+      "rank_score": 11.3
+    },
+    {
+      "name": "Annapurna Canteen",
+      "category": "food",
+      "rank_score": 15.0
+    },
+    {
+      "name": "Kanha",
+      "category": "food",
+      "rank_score": 15.0
+    },
+    {
+      "name": "Saras Parlour",
+      "category": "food",
+      "rank_score": 15.0
+    },
+    {
+      "name": "Brown Bites bakes and cafe",
+      "category": "food",
+      "rank_score": 15.0
+    },
+    {
+      "name": "Amrapali Jewels",
+      "category": "market",
+      "rank_score": 11.3
+    },
+    {
+      "name": "Jayanti Market",
+      "category": "market",
+      "rank_score": 11.3
+    },
+    {
+      "name": "Balaji enterprises",
+      "category": "market",
+      "rank_score": 11.3
+    },
+    {
+      "name": "CYU Cloth Yourself Urban",
+      "category": "market",
+      "rank_score": 11.3
+    }
+  ],
+  "legacy": {
+    "label": "LEGACY (old diversify)",
+    "notes": "Itinerary selection_mode=legacy.; Weighted POIs matching interests shopping, heritage, food higher (40 preferred stops).; Diversity rule: ensured ≥1 stop for interests shopping, heritage, food when live MCP candidates existed.; Assigned 8 unique grounded POIs across 2 days @ relaxed pace (≤4/day; morning + afternoon).; Day 2 draft duration 629m exceeds window 540m — Reviewer should flag or trim.; Interests considered: shopping, heritage, food.",
+    "category_counts": {
+      "market": 1,
+      "heritage": 6,
+      "food": 1
+    },
+    "names": [
+      "Amrapali Jewels",
+      "Jaighar Fort",
+      "Annapurna Canteen",
+      "Hawa Mahal",
+      "Jantar Mantar",
+      "Amber Fort",
+      "Neota Dam",
+      "Jaivan Canon"
+    ],
+    "days": [
+      {
+        "day": 1,
+        "theme": "market, heritage, food",
+        "stops": [
+          {
+            "block": "morning",
+            "name": "Amrapali Jewels",
+            "category": "market",
+            "duration_min": 105
+          },
+          {
+            "block": "morning",
+            "name": "Jaighar Fort",
+            "category": "heritage",
+            "duration_min": 125
+          },
+          {
+            "block": "afternoon",
+            "name": "Annapurna Canteen",
+            "category": "food",
+            "duration_min": 84
+          },
+          {
+            "block": "afternoon",
+            "name": "Hawa Mahal",
+            "category": "heritage",
+            "duration_min": 125
+          }
+        ]
+      },
+      {
+        "day": 2,
+        "theme": "heritage",
+        "stops": [
+          {
+            "block": "morning",
+            "name": "Jantar Mantar",
+            "category": "heritage",
+            "duration_min": 125
+          },
+          {
+            "block": "morning",
+            "name": "Amber Fort",
+            "category": "heritage",
+            "duration_min": 125
+          },
+          {
+            "block": "afternoon",
+            "name": "Neota Dam",
+            "category": "heritage",
+            "duration_min": 125
+          },
+          {
+            "block": "afternoon",
+            "name": "Jaivan Canon",
+            "category": "heritage",
+            "duration_min": 125
+          }
+        ]
+      }
+    ]
+  },
+  "hybrid": {
+    "label": "HYBRID (shortlist+quotas+clusters)",
+    "notes": "Itinerary selection_mode=preselected.; Weighted POIs matching interests shopping, heritage, food higher (14 preferred stops).; Hybrid quota pack: selected 8/8 with interest balance.; Shortlist strategy=hybrid target=8 pace=relaxed days=2.; Must-see priors present in shortlist: Bapu Bazaar, Hawa Mahal, Amber Fort, Jantar Mantar; Quota mix after shortlist: food=2, heritage=3, market=3; Shortlisted 8/14 from live POI pool.; Geographic day clusters @ relaxed (≤4/day; 8 stops).; Interests considered: shopping, heritage, food.",
+    "category_counts": {
+      "market": 3,
+      "food": 2,
+      "heritage": 3
+    },
+    "names": [
+      "Jayanti Market",
+      "Annapurna Canteen",
+      "Jantar Mantar",
+      "Hawa Mahal",
+      "Amrapali Jewels",
+      "Kanha",
+      "Bapu Bazaar",
+      "Amber Fort"
+    ],
+    "days": [
+      {
+        "day": 1,
+        "theme": "market, food, heritage",
+        "stops": [
+          {
+            "block": "morning",
+            "name": "Jayanti Market",
+            "category": "market",
+            "duration_min": 105
+          },
+          {
+            "block": "morning",
+            "name": "Annapurna Canteen",
+            "category": "food",
+            "duration_min": 84
+          },
+          {
+            "block": "afternoon",
+            "name": "Jantar Mantar",
+            "category": "heritage",
+            "duration_min": 125
+          },
+          {
+            "block": "afternoon",
+            "name": "Hawa Mahal",
+            "category": "heritage",
+            "duration_min": 125
+          }
+        ]
+      },
+      {
+        "day": 2,
+        "theme": "market, food, heritage",
+        "stops": [
+          {
+            "block": "morning",
+            "name": "Amrapali Jewels",
+            "category": "market",
+            "duration_min": 105
+          },
+          {
+            "block": "morning",
+            "name": "Kanha",
+            "category": "food",
+            "duration_min": 84
+          },
+          {
+            "block": "afternoon",
+            "name": "Bapu Bazaar",
+            "category": "market",
+            "duration_min": 105
+          },
+          {
+            "block": "afternoon",
+            "name": "Amber Fort",
+            "category": "heritage",
+            "duration_min": 125
+          }
+        ]
+      }
+    ]
+  }
+}

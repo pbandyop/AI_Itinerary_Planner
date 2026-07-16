@@ -44,6 +44,23 @@ class Stop(BaseModel):
         ge=0,
         description="Estimated travel minutes to the next stop; null if last in block/day.",
     )
+    travel_to_next_km: float | None = Field(
+        default=None,
+        ge=0,
+        description="Estimated distance (km) to the next stop from Travel Time MCP.",
+    )
+    travel_to_next_mode: Literal["walk", "car", "bus"] | None = Field(
+        default=None,
+        description="Transport mode for the next leg when available from MCP; omit when unknown.",
+    )
+    arrive_time: str | None = Field(
+        default=None,
+        description="Estimated arrival clock time HH:MM (24h), stamped by itinerary builder.",
+    )
+    depart_time: str | None = Field(
+        default=None,
+        description="Estimated departure clock time HH:MM (24h) = arrive + duration.",
+    )
     reason: str = Field(..., min_length=1, description="Why this stop was chosen.")
     citations: list[Source] = Field(default_factory=list)
     uncertainty: str | None = Field(
@@ -110,11 +127,24 @@ class TripConstraints(BaseModel):
         description="Indian city from data/india_cities.json (one city per trip).",
     )
     country: Literal["India"] = "India"
-    num_days: int = Field(..., ge=2, le=4)
+    num_days: int | None = Field(
+        default=None,
+        description="2–4 once the user states it; None while still clarifying.",
+    )
     start_date: date | None = None
     end_date: date | None = None
     interests: list[str] = Field(default_factory=list)
-    pace: Pace = "relaxed"
+    pace: Pace | None = Field(
+        default=None,
+        description="Required before generation; None until the user states it.",
+    )
+    traveler_profile: str | None = Field(
+        default=None,
+        description=(
+            "Audience profile: kid_friendly, senior_friendly, couple_friendly, "
+            "friends_friendly, solo, or general."
+        ),
+    )
     constraints: list[str] = Field(
         default_factory=list,
         description="Free-form constraints e.g. 'prefer indoor evenings', 'vegetarian'.",
@@ -126,23 +156,91 @@ class TripConstraints(BaseModel):
         description="Available activity minutes per day (default 9h).",
     )
     confirmed: bool = False
-
+    clarify_turns: int = Field(
+        default=0,
+        ge=0,
+        le=6,
+        description="How many clarifying questions have been asked this session.",
+    )
+    days_known: bool = Field(
+        default=False,
+        description="True once the user explicitly stated the day count.",
+    )
+    pace_known: bool = Field(
+        default=False,
+        description="True once the user explicitly stated the pace.",
+    )
+    interests_known: bool = Field(
+        default=False,
+        description="True once the user explicitly stated interests.",
+    )
+    dates_known: bool = Field(
+        default=False,
+        description=(
+            "True once the user stated a trip start date or said dates are flexible."
+        ),
+    )
     @field_validator("city")
     @classmethod
     def _normalize_city(cls, value: str) -> str:
         from agent.mcp.geo import resolve_city
+        from agent.trip_limits import ALLOWED_CITIES, is_city_allowed
 
         info = resolve_city(value)
         if info is None:
             raise ValueError(
                 f"City {value!r} is not in the India catalog (data/india_cities.json)."
             )
+        if not is_city_allowed(info.name):
+            raise ValueError(
+                f"City {info.name!r} is out of the current demo scope. "
+                f"Supported: {', '.join(ALLOWED_CITIES)}."
+            )
         return info.name
 
     @field_validator("interests")
     @classmethod
     def _normalize_interests(cls, values: list[str]) -> list[str]:
-        return [v.strip().lower() for v in values if v and v.strip()]
+        from agent.preferences import normalize_interests
+
+        return normalize_interests(list(values or []))
+
+    @field_validator("traveler_profile")
+    @classmethod
+    def _normalize_profile(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        key = value.strip().lower().replace(" ", "_").replace("-", "_")
+        allowed = {
+            "kid_friendly",
+            "senior_friendly",
+            "couple_friendly",
+            "friends_friendly",
+            "solo",
+            "general",
+        }
+        return key if key in allowed else "general"
+
+    @field_validator("num_days")
+    @classmethod
+    def _check_days(cls, value: int | None) -> int | None:
+        if value is None:
+            return None
+        if value < 2 or value > 4:
+            raise ValueError("num_days must be between 2 and 4")
+        return value
+
+    def slots_ready(self) -> bool:
+        """True when days, pace, interests, and travel dates are user-known."""
+        return bool(
+            self.days_known
+            and self.num_days is not None
+            and self.pace_known
+            and self.pace is not None
+            and self.interests_known
+            and bool(self.interests)
+            and self.dates_known
+        )
 
 
 class Itinerary(BaseModel):
@@ -154,9 +252,20 @@ class Itinerary(BaseModel):
     sources: list[Source] = Field(default_factory=list)
     summary: str | None = None
     uncertainty_notes: list[str] = Field(default_factory=list)
+    reasoning: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Merger synthesis decisions — why the Itinerary Agent moved/skipped/clustered "
+            "when resolving weather, travel, and knowledge conflicts."
+        ),
+    )
 
     @model_validator(mode="after")
     def _days_match_trip(self) -> Itinerary:
+        if self.trip.num_days is None:
+            raise ValueError("trip.num_days must be set on a complete itinerary")
+        if self.trip.pace is None:
+            raise ValueError("trip.pace must be set on a complete itinerary")
         if len(self.days) != self.trip.num_days:
             raise ValueError(
                 f"trip.num_days={self.trip.num_days} but days has {len(self.days)} entries"
@@ -167,7 +276,5 @@ class Itinerary(BaseModel):
         for day in self.days:
             for stop in day.all_stops:
                 if not stop.citations and not stop.uncertainty:
-                    # Soft rule enforced strictly in validate_grounding_rules;
-                    # keep model parseable for drafts mid-pipeline.
                     pass
         return self

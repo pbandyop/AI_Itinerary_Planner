@@ -25,18 +25,30 @@ class POISearchResult(BaseModel):
     city: str
     country: Literal["India"] = "India"
     query_interests: list[str] = Field(default_factory=list)
+    query_constraints: list[str] = Field(
+        default_factory=list,
+        description="Soft constraints passed into POI Search MCP (e.g. profile filters).",
+    )
     pois: list[POICandidate] = Field(default_factory=list)
     missing_data: bool = False
     notes: str | None = None
 
 
 class ItineraryDraftResult(BaseModel):
-    """Raw day packing from Itinerary Builder MCP (pre-merge enrichment)."""
+    """Optimized day packing from the Itinerary Builder MCP / Itinerary Agent."""
 
     pace: Pace
+    daily_time_window_min: int | None = Field(
+        default=None,
+        description="Activity minutes per day used when packing stops.",
+    )
     days: list[DayPlan] = Field(default_factory=list)
     missing_data: bool = False
     notes: str | None = None
+    optimization_reasoning: list[str] = Field(
+        default_factory=list,
+        description="Itinerary Agent decisions (move/skip/reorder) with reasons.",
+    )
 
 
 class KnowledgeSnippet(BaseModel):
@@ -101,13 +113,50 @@ class WeatherResult(BaseModel):
 
 
 class DispatchPlan(BaseModel):
-    """Orchestrator instructions for which specialists to run."""
+    """Orchestrator execution strategy (explicit plan object)."""
 
     run_poi: bool = True
     run_itinerary: bool = True
     run_knowledge: bool = True
     run_weather: bool = True
     run_travel_time: bool = True
+    agent_sequence: list[
+        Literal[
+            "poi_agent",
+            "itinerary_agent",
+            "knowledge_agent",
+            "weather_agent",
+            "travel_time_agent",
+        ]
+    ] = Field(
+        default_factory=list,
+        description="Flattened specialist agents (wave order preserved).",
+    )
+    agent_waves: list[
+        list[
+            Literal[
+                "poi_agent",
+                "itinerary_agent",
+                "knowledge_agent",
+                "weather_agent",
+                "travel_time_agent",
+            ]
+        ]
+    ] = Field(
+        default_factory=list,
+        description="Parallel waves: agents in one wave are independent.",
+    )
+    success_criteria: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Artifacts required before Synthesis, e.g. itinerary_complete, "
+            "travel_times_available, citations_present, weather_adjustments."
+        ),
+    )
+    plan_reason: str | None = Field(
+        default=None,
+        description="Why the Orchestrator chose this execution plan.",
+    )
     edit_patch: dict[str, Any] | None = Field(
         default=None,
         description="Serialized EditPatch when intent is edit.",
@@ -116,3 +165,20 @@ class DispatchPlan(BaseModel):
         default_factory=list,
         description="e.g. ['day2', 'day2.evening'] for scoped re-runs.",
     )
+
+    def sync_flags_from_sequence(self) -> DispatchPlan:
+        """Derive boolean flags from agent_sequence / agent_waves."""
+        seq = set(self.agent_sequence)
+        if not seq and self.agent_waves:
+            seq = {a for wave in self.agent_waves for a in wave}
+        if not seq:
+            return self
+        return self.model_copy(
+            update={
+                "run_poi": "poi_agent" in seq,
+                "run_itinerary": "itinerary_agent" in seq,
+                "run_knowledge": "knowledge_agent" in seq,
+                "run_weather": "weather_agent" in seq,
+                "run_travel_time": "travel_time_agent" in seq,
+            }
+        )

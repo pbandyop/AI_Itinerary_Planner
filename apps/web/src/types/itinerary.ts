@@ -27,6 +27,12 @@ export interface Stop {
   category?: string | null;
   duration_min: number;
   travel_to_next_min?: number | null;
+  travel_to_next_km?: number | null;
+  travel_to_next_mode?: "walk" | "car" | "bus" | null;
+  /** Estimated arrival HH:MM (24h), stamped by itinerary builder. */
+  arrive_time?: string | null;
+  /** Estimated departure HH:MM (24h) = arrive + duration. */
+  depart_time?: string | null;
   reason: string;
   citations: Source[];
   uncertainty?: string | null;
@@ -48,16 +54,24 @@ export interface DayPlan {
 }
 
 export interface TripConstraints {
-  city: string; // Indian city from data/india_cities.json
+  city: string; // Currently scoped to Jaipur
   country: "India";
-  num_days: 2 | 3 | 4;
+  /** Set once the user states it; null while clarifying. */
+  num_days?: 2 | 3 | 4 | null;
   start_date?: string | null;
   end_date?: string | null;
   interests: string[];
-  pace: Pace;
+  /** Required before generation; null until the user states it. */
+  pace?: Pace | null;
+  traveler_profile?: string | null;
   constraints: string[];
   daily_time_window_min: number;
   confirmed: boolean;
+  clarify_turns?: number;
+  days_known?: boolean;
+  pace_known?: boolean;
+  interests_known?: boolean;
+  dates_known?: boolean;
 }
 
 export interface Itinerary {
@@ -67,6 +81,8 @@ export interface Itinerary {
   sources: Source[];
   summary?: string | null;
   uncertainty_notes: string[];
+  /** Merger synthesis decisions (weather / travel / knowledge conflict resolution). */
+  reasoning?: string[];
 }
 
 export type ReviewStatus = "approve" | "revise";
@@ -79,6 +95,9 @@ export interface ReviewIssue {
 
 export interface ReviewerVerdict {
   status: ReviewStatus;
+  reason?: string | null;
+  target_agent?: string | null;
+  constraints?: string[];
   issues: ReviewIssue[];
   affected_sections: string[];
   notes?: string | null;

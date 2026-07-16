@@ -19,7 +19,7 @@
     "category": "heritage",
     "tags": { "historic": "castle", "wikipedia": "en:Agra Fort" },
     "rank_score": 9.5,
-    "matched_interests": ["heritage"]
+    "matched_interests": ["heritage", "culture"]
   },
   {
     "name": "Mehtab Bagh",
@@ -41,6 +41,138 @@
     "category": "heritage",
     "tags": { "historic": "tomb" },
     "rank_score": 8.4,
+    "matched_interests": ["heritage", "culture"]
+  },
+  {
+    "name": "Akbar's Tomb (Sikandra)",
+    "osm_type": "way",
+    "osm_id": 246830005,
+    "lat": 27.2206,
+    "lon": 77.9504,
+    "category": "heritage",
+    "tags": { "historic": "tomb", "wikipedia": "en:Tomb of Akbar the Great" },
+    "rank_score": 8.6,
+    "matched_interests": ["heritage", "culture"]
+  },
+  {
+    "name": "Fatehpur Sikri (Buland Darwaza area)",
+    "osm_type": "relation",
+    "osm_id": 246830006,
+    "lat": 27.0945,
+    "lon": 77.6611,
+    "category": "heritage",
+    "tags": { "historic": "ruins", "wikipedia": "en:Fatehpur Sikri" },
+    "rank_score": 9.0,
+    "matched_interests": ["heritage", "culture"]
+  },
+  {
+    "name": "Jama Masjid Agra",
+    "osm_type": "way",
+    "osm_id": 246830007,
+    "lat": 27.1825,
+    "lon": 78.0178,
+    "category": "temple",
+    "tags": { "amenity": "place_of_worship", "religion": "muslim" },
+    "rank_score": 7.8,
+    "matched_interests": ["culture", "heritage"]
+  },
+  {
+    "name": "Chini Ka Rauza",
+    "osm_type": "way",
+    "osm_id": 246830008,
+    "lat": 27.2005,
+    "lon": 78.0378,
+    "category": "heritage",
+    "tags": { "historic": "tomb" },
+    "rank_score": 7.2,
+    "matched_interests": ["heritage"]
+  },
+  {
+    "name": "Taj Nature Walk",
+    "osm_type": "way",
+    "osm_id": 246830009,
+    "lat": 27.1688,
+    "lon": 78.0465,
+    "category": "park",
+    "tags": { "leisure": "park" },
+    "rank_score": 6.8,
+    "matched_interests": ["nature"]
+  },
+  {
+    "name": "Agra Cantonment Market",
+    "osm_type": "node",
+    "osm_id": 246830010,
+    "lat": 27.1592,
+    "lon": 78.0105,
+    "category": "market",
+    "tags": { "shop": "mall" },
+    "rank_score": 6.5,
+    "matched_interests": ["shopping", "culture"]
+  },
+  {
+    "name": "Peshawri (ITC Mughal)",
+    "osm_type": "node",
+    "osm_id": 246830011,
+    "lat": 27.1608,
+    "lon": 78.0435,
+    "category": "food",
+    "tags": { "amenity": "restaurant", "cuisine": "north_indian" },
+    "rank_score": 7.5,
+    "matched_interests": ["food"]
+  },
+  {
+    "name": "Pinch of Spice",
+    "osm_type": "node",
+    "osm_id": 246830012,
+    "lat": 27.1762,
+    "lon": 78.0089,
+    "category": "food",
+    "tags": { "amenity": "restaurant", "cuisine": "indian" },
+    "rank_score": 7.0,
+    "matched_interests": ["food"]
+  },
+  {
+    "name": "Dasaprakash",
+    "osm_type": "node",
+    "osm_id": 246830013,
+    "lat": 27.1655,
+    "lon": 78.0152,
+    "category": "food",
+    "tags": { "amenity": "restaurant", "cuisine": "south_indian" },
+    "rank_score": 6.9,
+    "matched_interests": ["food"]
+  },
+  {
+    "name": "Mama Chicken Mama Franky",
+    "osm_type": "node",
+    "osm_id": 246830014,
+    "lat": 27.1811,
+    "lon": 78.0098,
+    "category": "food",
+    "tags": { "amenity": "fast_food", "cuisine": "indian" },
+    "rank_score": 6.6,
+    "matched_interests": ["food"]
+  },
+  {
+    "name": "Kalakriti Cultural Centre",
+    "osm_type": "node",
+    "osm_id": 246830015,
+    "lat": 27.1695,
+    "lon": 78.0412,
+    "category": "museum",
+    "tags": { "tourism": "attraction" },
+    "rank_score": 7.1,
+    "matched_interests": ["culture"]
+  },
+  {
+    "name": "Mariam's Tomb",
+    "osm_type": "way",
+    "osm_id": 246830016,
+    "lat": 27.2148,
+    "lon": 77.9489,
+    "category": "heritage",
+    "tags": { "historic": "tomb" },
+    "rank_score": 7.0,
     "matched_interests": ["heritage"]
   }
 ]

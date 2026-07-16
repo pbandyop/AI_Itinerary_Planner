@@ -236,16 +236,24 @@ def main(argv: list[str] | None = None) -> int:
         "--no-tools", action="store_true", help="Call MCP functions directly"
     )
     parser.add_argument(
-        "--no-overpass", action="store_true", help="Skip live Overpass (seed only)"
+        "--no-overpass",
+        action="store_true",
+        help="(Disabled) Capstone requires live Overpass; flag exits with error",
     )
     args = parser.parse_args(argv)
+    if args.no_overpass:
+        print(
+            "ERROR: --no-overpass is disabled. Capstone POI search is live Overpass only.",
+            file=sys.stderr,
+        )
+        return 2
     return run_smoke(
         city=args.city,
         interests=args.interests,
         num_days=args.days,
         pace=args.pace,
         use_tools=not args.no_tools,
-        use_overpass=not args.no_overpass,
+        use_overpass=True,
     )
 
 

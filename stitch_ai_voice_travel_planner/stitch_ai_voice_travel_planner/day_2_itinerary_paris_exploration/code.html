@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Day 2: Paris - VocalVoyage</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "secondary-fixed-dim": "#3fdbd4",
+                      "on-error": "#ffffff",
+                      "tertiary-fixed-dim": "#c0c7cf",
+                      "on-tertiary-fixed": "#151c22",
+                      "on-surface-variant": "#414755",
+                      "error": "#ba1a1a",
+                      "outline-variant": "#c1c6d7",
+                      "on-secondary-container": "#006f6a",
+                      "on-error-container": "#93000a",
+                      "primary-fixed-dim": "#adc6ff",
+                      "surface-bright": "#f8f9ff",
+                      "tertiary": "#555d63",
+                      "primary-container": "#0070eb",
+                      "on-secondary": "#ffffff",
+                      "error-container": "#ffdad6",
+                      "surface-dim": "#cbdbf5",
+                      "tertiary-fixed": "#dce3eb",
+                      "primary": "#0058bc",
+                      "on-secondary-fixed-variant": "#00504d",
+                      "secondary-fixed": "#65f8f0",
+                      "on-primary-fixed-variant": "#004493",
+                      "on-tertiary-fixed-variant": "#40484e",
+                      "on-primary-fixed": "#001a41",
+                      "inverse-on-surface": "#eaf1ff",
+                      "on-secondary-fixed": "#00201e",
+                      "on-tertiary": "#ffffff",
+                      "surface-container-highest": "#d3e4fe",
+                      "on-surface": "#0b1c30",
+                      "on-tertiary-container": "#fcfcff",
+                      "inverse-surface": "#213145",
+                      "surface": "#f8f9ff",
+                      "on-background": "#0b1c30",
+                      "on-primary": "#ffffff",
+                      "surface-container-lowest": "#ffffff",
+                      "on-primary-container": "#fefcff",
+                      "surface-container-high": "#dce9ff",
+                      "surface-container-low": "#eff4ff",
+                      "surface-variant": "#d3e4fe",
+                      "secondary-container": "#61f5ed",
+                      "outline": "#717786",
+                      "background": "#f8f9ff",
+                      "secondary": "#006a66",
+                      "inverse-primary": "#adc6ff",
+                      "surface-container": "#e5eeff",
+                      "tertiary-container": "#6e757c",
+                      "surface-tint": "#005bc1",
+                      "primary-fixed": "#d8e2ff"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "container-padding-mobile": "1.25rem",
+                      "itinerary-step-gap": "1rem",
+                      "container-padding-desktop": "2.5rem",
+                      "unit": "8px",
+                      "gutter": "1.5rem",
+                      "section-gap": "4rem"
+              },
+              "fontFamily": {
+                      "headline-lg-mobile": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "headline-lg": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "title-md": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "display-lg": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "body-md": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "label-sm": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "body-lg": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "label-xs": [
+                              "Plus Jakarta Sans"
+                      ]
+              },
+              "fontSize": {
+                      "headline-lg-mobile": [
+                              "24px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "headline-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "title-md": [
+                              "20px",
+                              {
+                                      "lineHeight": "1.4",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "display-lg": [
+                              "48px",
+                              {
+                                      "lineHeight": "1.1",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "1.6",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "label-sm": [
+                              "14px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "letterSpacing": "0.01em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "1.6",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "label-xs": [
+                              "12px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "fontWeight": "500"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+<style>
+        .travel-path-connector {
+            border-left: 2px dashed #c1c6d7;
+            position: absolute;
+            left: 27px;
+            top: 24px;
+            bottom: -24px;
+            z-index: 0;
+        }
+        .travel-path-connector-last {
+             display: none;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        .ambient-shadow {
+            box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.04);
+            border: 1px solid #F1F5F9;
+        }
+        .ai-glow {
+            box-shadow: 0 0 15px rgba(63, 219, 212, 0.4);
+        }
+      </style>
+</head>
+<body class="bg-surface text-on-surface font-body-md selection:bg-primary-container selection:text-on-primary-container min-h-screen flex flex-col">
+<!-- TopNavBar -->
+<nav class="bg-surface dark:bg-surface-container-highest shadow-sm docked full-width top-0 sticky z-50">
+<div class="flex justify-between items-center px-container-desktop w-full max-w-[1280px] mx-auto h-20">
+<!-- Brand -->
+<a class="font-headline-lg text-headline-lg font-bold text-primary dark:text-primary-fixed-dim" href="#">
+                VocalVoyage
+            </a>
+<!-- Navigation Links -->
+<ul class="hidden md:flex gap-8 items-center h-full">
+<li class="h-full flex items-center">
+<a class="text-on-surface-variant font-medium hover:text-primary transition-colors h-full flex items-center hover:bg-surface-container-low transition-all duration-200 px-4" href="#">New Trip</a>
+</li>
+<li class="h-full flex items-center">
+<a class="text-primary font-semibold border-b-2 border-primary pb-1 h-full flex items-center hover:bg-surface-container-low transition-all duration-200 px-4 active:scale-95 transition-transform" href="#">My Trips</a>
+</li>
+<li class="h-full flex items-center">
+<a class="text-on-surface-variant font-medium hover:text-primary transition-colors h-full flex items-center hover:bg-surface-container-low transition-all duration-200 px-4" href="#">Voice Input</a>
+</li>
+</ul>
+<!-- Actions -->
+<div class="flex items-center gap-4">
+<button class="hidden md:block font-label-sm text-label-sm text-primary hover:bg-surface-container-low px-4 py-2 rounded-full transition-colors font-semibold">
+                    Log In
+                </button>
+<button class="bg-primary text-on-primary font-label-sm text-label-sm px-6 py-2.5 rounded-full hover:bg-surface-tint transition-colors shadow-sm active:scale-95">
+                    Get Started
+                </button>
+</div>
+</div>
+</nav>
+<!-- Main Content -->
+<main class="flex-grow w-full max-w-[1280px] mx-auto px-container-mobile md:px-container-desktop py-section-gap">
+<!-- Header Section -->
+<header class="mb-12 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+<div>
+<h1 class="font-display-lg text-display-lg text-on-surface mb-2">Day 2: Art &amp; Icons</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant flex items-center gap-2">
+<span class="material-symbols-outlined text-[20px]">calendar_today</span>
+                    Saturday, October 14th • Paris, France
+                </p>
+</div>
+<button class="flex items-center gap-2 bg-secondary text-on-secondary px-5 py-3 rounded-full font-label-sm text-label-sm ai-glow hover:opacity-90 transition-opacity active:scale-95">
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">mic</span>
+                Edit this day with AI
+            </button>
+</header>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+<!-- Timeline Column -->
+<div class="lg:col-span-8 relative">
+<!-- Itinerary Items Container -->
+<div class="flex flex-col gap-0 relative z-10 pb-20">
+<!-- Item 1: Louvre -->
+<div class="relative group">
+<div class="travel-path-connector"></div>
+<div class="flex gap-6 relative z-10 bg-surface">
+<!-- Icon / Time Node -->
+<div class="flex flex-col items-center mt-1">
+<div class="w-14 h-14 rounded-full bg-surface-container-high text-primary flex items-center justify-center shrink-0 border-4 border-surface shadow-sm">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">museum</span>
+</div>
+<span class="font-label-xs text-label-xs text-on-surface-variant mt-2 whitespace-nowrap">09:00 AM</span>
+</div>
+<!-- Card Content -->
+<div class="flex-grow pb-12">
+<div class="ambient-shadow bg-surface-container-lowest rounded-2xl overflow-hidden group-hover:shadow-[0px_10px_30px_rgba(0,0,0,0.08)] transition-shadow duration-300">
+<div class="h-48 relative">
+<div class="bg-cover bg-center w-full h-full" data-alt="A bright, early morning view of the Louvre glass pyramid in Paris. The sky is a clear, light blue. Soft, diffused morning light creates a peaceful, minimalist aesthetic with generous negative space. The style is modern, airy, and inviting, matching a clean white UI design." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuA9XvbvQBLhFnYebZhKBv7Rr5oei-FWXnY-L5gzf6nPCDctsfK5q0My3piqF2RqifFCUAH0FIAkYDE0yFy2IOqyMBjHMf_HrmE9UHXHifyqC66FtOTuIZWGAy4DHj6W_2P-zNoTd3qN_c3qMgNMO24Yg8jp1FnYU-OjN_vIFJrHTxKPKTez_80vml21ozWsJ7uOhxY1wGQ4kSa0bkAySbk6xPQqGPB0tQhTPr_jDAU0wiGJm1aFOUiG')"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+<div class="absolute bottom-4 left-4 right-4 text-white">
+<div class="flex justify-between items-end">
+<h3 class="font-title-md text-title-md">The Louvre Museum</h3>
+<div class="bg-surface/20 backdrop-blur-md px-3 py-1 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">schedule</span>
+<span class="font-label-xs text-label-xs font-semibold">3h 0m</span>
+</div>
+</div>
+</div>
+</div>
+<div class="p-5">
+<p class="font-body-md text-body-md text-on-surface-variant mb-4">Focus on the Denon Wing for the Mona Lisa and Winged Victory. Use the Carrousel du Louvre entrance to avoid the main pyramid lines.</p>
+<div class="flex flex-wrap gap-2">
+<span class="border border-outline-variant text-on-surface-variant px-3 py-1 rounded-full font-label-xs text-label-xs">Art History</span>
+<span class="border border-outline-variant text-on-surface-variant px-3 py-1 rounded-full font-label-xs text-label-xs">Must See</span>
+</div>
+</div>
+</div>
+<!-- Travel Indicator -->
+<div class="flex items-center gap-3 mt-6 ml-4">
+<div class="bg-surface-container text-on-surface-variant p-1.5 rounded-full z-10 border-2 border-surface">
+<span class="material-symbols-outlined text-[16px]">directions_walk</span>
+</div>
+<span class="font-label-sm text-label-sm text-outline">15m walk through Tuileries Garden</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Item 2: Lunch -->
+<div class="relative group">
+<div class="travel-path-connector"></div>
+<div class="flex gap-6 relative z-10 bg-surface">
+<!-- Icon / Time Node -->
+<div class="flex flex-col items-center mt-1">
+<div class="w-14 h-14 rounded-full bg-surface-container-highest text-secondary flex items-center justify-center shrink-0 border-4 border-surface shadow-sm">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">restaurant</span>
+</div>
+<span class="font-label-xs text-label-xs text-on-surface-variant mt-2 whitespace-nowrap">12:30 PM</span>
+</div>
+<!-- Card Content -->
+<div class="flex-grow pb-12">
+<div class="ambient-shadow bg-surface-container-lowest rounded-2xl p-5 group-hover:shadow-[0px_10px_30px_rgba(0,0,0,0.08)] transition-shadow duration-300">
+<div class="flex justify-between items-start mb-2">
+<h3 class="font-title-md text-title-md text-on-surface">L'Avenue</h3>
+<div class="bg-surface-container-high text-on-surface px-3 py-1 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">schedule</span>
+<span class="font-label-xs text-label-xs font-semibold">1h 30m</span>
+</div>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant mb-4">Upscale brasserie with terrace seating. Perfect spot for people-watching near the designer boutiques.</p>
+<div class="flex items-center gap-4 text-sm text-tertiary">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">location_on</span> 41 Avenue Montaigne</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">payments</span> $$$</span>
+</div>
+</div>
+<!-- Travel Indicator -->
+<div class="flex items-center gap-3 mt-6 ml-4">
+<div class="bg-surface-container text-on-surface-variant p-1.5 rounded-full z-10 border-2 border-surface">
+<span class="material-symbols-outlined text-[16px]">local_taxi</span>
+</div>
+<span class="font-label-sm text-label-sm text-outline">10m taxi ride to Eiffel Tower area</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Item 3: Eiffel Tower -->
+<div class="relative group">
+<div class="travel-path-connector travel-path-connector-last"></div>
+<div class="flex gap-6 relative z-10 bg-surface">
+<!-- Icon / Time Node -->
+<div class="flex flex-col items-center mt-1">
+<div class="w-14 h-14 rounded-full bg-primary-fixed text-primary flex items-center justify-center shrink-0 border-4 border-surface shadow-sm">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">tour</span>
+</div>
+<span class="font-label-xs text-label-xs text-on-surface-variant mt-2 whitespace-nowrap">02:30 PM</span>
+</div>
+<!-- Card Content -->
+<div class="flex-grow">
+<div class="ambient-shadow bg-surface-container-lowest rounded-2xl overflow-hidden group-hover:shadow-[0px_10px_30px_rgba(0,0,0,0.08)] transition-shadow duration-300">
+<div class="h-48 relative">
+<div class="bg-cover bg-center w-full h-full" data-alt="A stunning, minimalist perspective of the Eiffel Tower shot from below against a pristine, soft white-blue sky. The lighting is bright and clean, emphasizing the intricate ironwork without harsh shadows. The aesthetic is modern, airy, and high-end, fitting a light-mode UI design with ample negative space." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAxyapF8q9_tQMyJyxqUtKhJ4z46AETMSe6eo4eX-YQzMRVuaUDNimc5OiCLSlIiEGHv618pTrP3ValKhNJFdtpaLIb95CQYUKgIppPFKEAvnKE3dGArxbzuwCDv_69Y_QPDa2XdCLXJyK10ur5OlWzW5nO3vxwYVlbZiAOkfjGqb-CvkbxwkuIHHSvXfdhpjckwn_JCkQCwn_WgcxGhZ8t0I27k4ZfpDB4ocka1jV-i6-rLyoMGgjH')"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+<div class="absolute bottom-4 left-4 right-4 text-white">
+<div class="flex justify-between items-end">
+<h3 class="font-title-md text-title-md">Eiffel Tower Summit</h3>
+<div class="bg-surface/20 backdrop-blur-md px-3 py-1 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">schedule</span>
+<span class="font-label-xs text-label-xs font-semibold">2h 30m</span>
+</div>
+</div>
+</div>
+</div>
+<div class="p-5">
+<div class="bg-error-container text-on-error-container p-3 rounded-lg flex items-start gap-3 mb-4">
+<span class="material-symbols-outlined text-[20px] mt-0.5">info</span>
+<div>
+<p class="font-label-sm text-label-sm mb-1">Pre-booked Tickets Required</p>
+<p class="font-label-xs text-label-xs opacity-90">Your digital tickets for the 14:30 elevator slot are saved in your wallet.</p>
+</div>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant">Take the elevator to the very top for panoramic views of the city. Best light for photos is on the second floor facing the Trocadéro.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Sidebar Context -->
+<div class="hidden lg:block lg:col-span-4 relative">
+<div class="sticky top-28 flex flex-col gap-6">
+<!-- Weather Widget -->
+<div class="ambient-shadow bg-surface-container-lowest rounded-2xl p-6">
+<h4 class="font-label-sm text-label-sm text-outline uppercase tracking-wider mb-4">Day 2 Conditions</h4>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-4xl text-primary" style="font-variation-settings: 'FILL' 1;">partly_cloudy_day</span>
+<div>
+<div class="font-display-lg text-display-lg text-on-surface">18°</div>
+<div class="font-body-md text-body-md text-on-surface-variant">Mostly Sunny</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Mini Map Placeholder -->
+<div class="ambient-shadow bg-surface-container-lowest rounded-2xl overflow-hidden h-64 relative group cursor-pointer">
+<div class="bg-cover bg-center w-full h-full opacity-80 group-hover:opacity-100 transition-opacity" data-alt="A highly stylized, minimalist vector map of central Paris featuring the Seine river. The map uses a light mode color palette with soft greys, white background, and delicate blue accents for water. Subtle drop pins indicate key locations. The aesthetic is clean, professional, and uncluttered, suitable for a modern app UI." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCIBqU0T4qsVzEtqxfCPueKmBO-Irv7wxVGUS7HmakHSQg_ZWz_-ZqjXU621vX4tdRCEHKjLjPIEhRBRKIiGJ3mt8o2vZgU7XvQX2ydBZ8xQddik-8cGSn7SB5U2yLeJoT_qudC5Lcm2xq4gbaQCNaisvR6JSBNr2Eo1qKxvxnmEBor376YHXIyrZAAbvhEFmceJsanWx4tdTiPnBv4velj3PmOfbQcvyMwWV1aCBjlkG5LkU8KAIUI')"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-lowest/80 to-transparent flex items-end p-4">
+<button class="bg-primary text-on-primary font-label-sm text-label-sm px-4 py-2 rounded-full shadow-sm w-full flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]">map</span>
+                                 Open Interactive Map
+                             </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer Placeholder -->
+<footer class="bg-surface-container-lowest dark:bg-inverse-surface w-full py-section-gap mt-auto">
+<div class="max-w-[1280px] mx-auto px-container-desktop flex flex-col md:flex-row justify-between items-center gap-gutter">
+<div class="font-title-md text-title-md font-bold text-on-surface dark:text-inverse-on-surface mb-4 md:mb-0">
+                © 2024 VocalVoyage AI. Your expert friend for planned spontaneity.
+            </div>
+<div class="flex flex-wrap gap-6 justify-center">
+<a class="text-on-surface-variant hover:text-primary hover:underline transition-all font-body-md text-body-md opacity-80 hover:opacity-100 transition-opacity" href="#">Travel Resources</a>
+<a class="text-on-surface-variant hover:text-primary hover:underline transition-all font-body-md text-body-md opacity-80 hover:opacity-100 transition-opacity" href="#">Privacy Policy</a>
+<a class="text-on-surface-variant hover:text-primary hover:underline transition-all font-body-md text-body-md opacity-80 hover:opacity-100 transition-opacity" href="#">Terms of Service</a>
+<a class="text-on-surface-variant hover:text-primary hover:underline transition-all font-body-md text-body-md opacity-80 hover:opacity-100 transition-opacity" href="#">Brand Kit</a>
+</div>
+</div>
+</footer>
+</body></html>

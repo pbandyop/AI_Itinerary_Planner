@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VocalVoyage - Itinerary Summary</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Manrope:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-container": "#58a6ff",
+                        "on-primary-fixed-variant": "#004882",
+                        "on-tertiary-fixed": "#141c25",
+                        "on-tertiary-fixed-variant": "#404751",
+                        "on-error": "#690005",
+                        "surface-container-highest": "#31353c",
+                        "on-background": "#dfe2eb",
+                        "surface-container": "#1c2026",
+                        "on-tertiary": "#29313a",
+                        "on-tertiary-container": "#323a44",
+                        "surface-container-high": "#262a31",
+                        "primary-fixed-dim": "#a2c9ff",
+                        "surface-variant": "#31353c",
+                        "on-secondary-fixed-variant": "#005317",
+                        "error-container": "#93000a",
+                        "on-primary": "#00315c",
+                        "inverse-primary": "#0060aa",
+                        "on-surface-variant": "#c0c7d4",
+                        "secondary-fixed": "#83fc89",
+                        "inverse-surface": "#dfe2eb",
+                        "surface-dim": "#10141a",
+                        "background": "#10141a",
+                        "secondary-container": "#27a640",
+                        "primary": "#a2c9ff",
+                        "secondary-fixed-dim": "#67df70",
+                        "tertiary": "#bfc7d3",
+                        "on-error-container": "#ffdad6",
+                        "tertiary-fixed": "#dbe3ef",
+                        "tertiary-container": "#9ca4af",
+                        "surface-tint": "#a2c9ff",
+                        "on-primary-container": "#003a6b",
+                        "outline-variant": "#414752",
+                        "outline": "#8b919d",
+                        "secondary": "#67df70",
+                        "surface-container-low": "#181c22",
+                        "on-primary-fixed": "#001c38",
+                        "tertiary-fixed-dim": "#bfc7d3",
+                        "surface-container-lowest": "#0a0e14",
+                        "primary-fixed": "#d3e4ff",
+                        "on-surface": "#dfe2eb",
+                        "on-secondary": "#00390d",
+                        "inverse-on-surface": "#2d3137",
+                        "error": "#ffb4ab",
+                        "on-secondary-container": "#00320a",
+                        "surface-bright": "#353940",
+                        "surface": "#10141a",
+                        "on-secondary-fixed": "#002105"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "base": "4px",
+                        "xl": "32px",
+                        "sm": "12px",
+                        "lg": "24px",
+                        "xs": "8px",
+                        "md": "16px",
+                        "margin": "24px",
+                        "gutter": "20px"
+                    },
+                    "fontFamily": {
+                        "headline-sm": ["Manrope"],
+                        "headline-lg": ["Manrope"],
+                        "body-sm": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-md": ["Manrope"],
+                        "body-md": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "label-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-sm": ["11px", { "lineHeight": "14px", "fontWeight": "500" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        h1, h2, h3, h4, h5, h6, .font-headline-lg, .font-headline-md, .font-headline-sm {
+            font-family: 'Manrope', sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .ambient-shadow-level-1 {
+            box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.4);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface min-h-screen flex flex-col antialiased">
+<!-- TopNavBar -->
+<nav class="bg-surface-container-highest shadow-sm docked full-width top-0 z-50">
+<div class="flex justify-between items-center px-lg w-full max-w-[1280px] mx-auto h-20">
+<div class="flex items-center gap-8">
+<a class="font-headline-md text-headline-md font-bold text-primary" href="#">
+                    VocalVoyage
+                </a>
+<div class="hidden md:flex items-center gap-6">
+<a class="font-body-md text-body-md text-on-surface-variant font-medium hover:text-primary transition-colors" href="#">New Trip</a>
+<a class="font-body-md text-body-md text-primary font-semibold border-b-2 border-primary pb-1" href="#">My Trips</a>
+<a class="font-body-md text-body-md text-on-surface-variant font-medium hover:text-primary transition-colors" href="#">Voice Input</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="hidden md:block font-label-md text-label-md text-primary hover:text-primary-container transition-colors">Log In</button>
+<button class="bg-primary text-on-primary font-label-md text-label-md px-6 py-3 rounded-full hover:bg-primary-container transition-all active:scale-95 shadow-sm">Get Started</button>
+</div>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="flex-grow w-full max-w-[1280px] mx-auto px-margin py-xl flex flex-col gap-12">
+<!-- Header Section -->
+<header class="flex flex-col gap-4">
+<h1 class="font-headline-lg text-headline-lg text-on-surface">Kyoto Spring Awakening</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-2xl">
+                Here is the rest of your meticulously planned journey. We've balanced iconic sights with tranquil moments to keep you energized.
+            </p>
+</header>
+<!-- Itinerary Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-gutter items-start">
+<!-- Day 3 Card -->
+<article class="bg-surface-container rounded-[24px] ambient-shadow-level-1 border border-outline-variant overflow-hidden flex flex-col transition-transform hover:scale-[1.01] duration-300">
+<div class="p-6 border-b border-outline-variant flex justify-between items-center bg-surface-container-low">
+<h2 class="font-headline-md text-headline-md text-on-surface">Nature &amp; Zen</h2>
+<span class="font-label-md text-label-md text-on-secondary-container bg-secondary-container px-3 py-1 rounded-full">Day 3</span>
+</div>
+<div class="p-6 flex flex-col gap-6">
+<div class="flex flex-col gap-4">
+<!-- Activity 1 -->
+<div class="flex items-start gap-4">
+<div class="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary" data-icon="nature">nature</span>
+</div>
+<div class="flex-grow flex flex-col gap-1">
+<div class="flex justify-between items-start">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Arashiyama Bamboo Grove</h3>
+<span class="font-label-sm text-label-sm bg-surface-variant text-on-surface-variant px-2 py-1 rounded-full shrink-0">2 hours</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant">Arrive early to avoid crowds. A peaceful stroll through towering bamboo stalks.</p>
+</div>
+</div>
+<!-- Connector -->
+<div class="pl-6 py-2">
+<div class="w-[2px] h-8 border-l-2 border-dashed border-outline-variant ml-[-1px]"></div>
+</div>
+<!-- Activity 2 -->
+<div class="flex items-start gap-4">
+<div class="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary" data-icon="restaurant">restaurant</span>
+</div>
+<div class="flex-grow flex flex-col gap-1">
+<div class="flex justify-between items-start">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Yudofu Lunch</h3>
+<span class="font-label-sm text-label-sm bg-surface-variant text-on-surface-variant px-2 py-1 rounded-full shrink-0">1.5 hours</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant">Traditional Buddhist vegetarian cuisine featuring silken tofu, overlooking a zen garden.</p>
+</div>
+</div>
+</div>
+</div>
+</article>
+<!-- Day 4 Card -->
+<article class="bg-surface-container rounded-[24px] ambient-shadow-level-1 border border-outline-variant overflow-hidden flex flex-col transition-transform hover:scale-[1.01] duration-300">
+<div class="p-6 border-b border-outline-variant flex justify-between items-center bg-surface-container-low">
+<h2 class="font-headline-md text-headline-md text-on-surface">Culture &amp; Cuisine</h2>
+<span class="font-label-md text-label-md text-on-secondary-container bg-secondary-container px-3 py-1 rounded-full">Day 4</span>
+</div>
+<div class="p-6 flex flex-col gap-6">
+<div class="flex flex-col gap-4">
+<!-- Activity 1 -->
+<div class="flex items-start gap-4">
+<div class="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary" data-icon="museum">museum</span>
+</div>
+<div class="flex-grow flex flex-col gap-1">
+<div class="flex justify-between items-start">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Kyoto National Museum</h3>
+<span class="font-label-sm text-label-sm bg-surface-variant text-on-surface-variant px-2 py-1 rounded-full shrink-0">3 hours</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant">Explore extensive collections of pre-modern Japanese art and cultural artifacts.</p>
+</div>
+</div>
+<!-- Connector -->
+<div class="pl-6 py-2">
+<div class="w-[2px] h-8 border-l-2 border-dashed border-outline-variant ml-[-1px]"></div>
+</div>
+<!-- Activity 2 -->
+<div class="flex items-start gap-4">
+<div class="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary" data-icon="stadium">stadium</span>
+</div>
+<div class="flex-grow flex flex-col gap-1">
+<div class="flex justify-between items-start">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Gion Evening Walk</h3>
+<span class="font-label-sm text-label-sm bg-surface-variant text-on-surface-variant px-2 py-1 rounded-full shrink-0">2 hours</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant">Stroll through the historic entertainment district. Spotting a geiko is rare but magical.</p>
+</div>
+</div>
+</div>
+</div>
+</article>
+</div>
+</main>
+</body></html>

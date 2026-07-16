@@ -1,0 +1,85 @@
+{
+  "city": "Jaipur",
+  "source": "Curated demo places",
+  "dataset": "curated_places",
+  "license": "Curated for demo (not scraped from TripAdvisor/Google)",
+  "places": [
+    {
+      "title": "Moon Gate",
+      "place_name": "Moon Gate",
+      "aliases": ["Moon Gate Jaipur", "Moon gate"],
+      "source": "Curated demo places",
+      "dataset": "curated_places",
+      "url": "https://www.openstreetmap.org/search?query=Moon%20Gate%20Jaipur",
+      "license": "Curated for demo",
+      "atomic": true,
+      "text": "Moon Gate is a named landmark/gate in Jaipur recorded on local maps (OpenStreetMap lists it as Moon Gate). It is a photo stop / orientation point rather than a ticketed palace museum. Confirm access and hours on-site; map listings may not publish fixed opening hours."
+    },
+    {
+      "title": "Amarnath Cafe",
+      "place_name": "Amarnath Cafe",
+      "aliases": ["Amarnath Café", "Amarnath Cafe Jaipur"],
+      "source": "Curated demo places",
+      "dataset": "curated_places",
+      "url": "https://www.openstreetmap.org/search?query=Amarnath%20Cafe%20Jaipur",
+      "license": "Curated for demo",
+      "atomic": true,
+      "text": "Amarnath Cafe is a local cafe/eatery name used in Jaipur listings. Opening hours are not published in the Wikivoyage Jaipur guide. When OpenStreetMap or Google Places lists hours for this cafe, prefer those cited cards; otherwise hours are unknown and should not be invented."
+    },
+    {
+      "title": "Nevta Dam",
+      "place_name": "Nevta Dam",
+      "aliases": ["Neota Dam", "Niota Dam", "Nevta Dam Jaipur"],
+      "source": "Curated demo places",
+      "dataset": "curated_places",
+      "url": "https://en.wikivoyage.org/wiki/Jaipur",
+      "license": "Curated aliases + Wikivoyage alignment",
+      "atomic": true,
+      "text": "Nevta Dam (also spelled Neota Dam or Niota Dam) is a popular birdwatching destination near Jaipur. About 150 bird species flock around the eastern side of the dam seasonally, including the lesser whistling-duck and eastern cattle egret. Spelling variants Neota and Niota refer to the same place."
+    },
+    {
+      "title": "Akshardham Temple Jaipur",
+      "place_name": "Akshardham Temple",
+      "aliases": ["Akshardham", "Akshardham Temple Vaishali Nagar"],
+      "source": "Curated demo places",
+      "dataset": "curated_places",
+      "url": "https://en.wikivoyage.org/wiki/Jaipur",
+      "license": "Curated for demo",
+      "atomic": true,
+      "text": "Akshardham Temple in Jaipur is listed at Vaishali Nagar (Wikivoyage contact ☏ +91 141 224 6100). The city guide listing is brief (address/phone); detailed opening hours may be absent from that guide entry."
+    },
+    {
+      "title": "Jantar Mantar Jaipur hours",
+      "place_name": "Jantar Mantar",
+      "aliases": ["Jantar Mantar Observatory", "Jantar-Mantar"],
+      "source": "Curated demo places",
+      "dataset": "curated_places",
+      "url": "https://en.wikivoyage.org/wiki/Jaipur",
+      "license": "Aligned to Wikivoyage listing",
+      "atomic": true,
+      "text": "Jantar Mantar (Jaipur), very close to the City Palace, ☏ +91 141-261-0494. Opening hours: 9AM-5PM. UNESCO World Heritage astronomical observatory built by Maharaja Jai Singh (1727–1734)."
+    },
+    {
+      "title": "Caravana",
+      "place_name": "Caravana",
+      "aliases": ["Caravana Jaipur", "Caravana Amer Road"],
+      "source": "Curated demo places",
+      "dataset": "curated_places",
+      "url": "https://www.openstreetmap.org/node/13335517604",
+      "license": "Curated from OpenStreetMap id (no Google card matched)",
+      "atomic": true,
+      "text": "Caravana is a named attraction on Amer Road (Brahmapuri), Jaipur, recorded in OpenStreetMap (node/13335517604). It appears on local maps as an attraction stop along the Amer Road corridor toward Amber Fort. Fixed public opening hours are not published in the matched guide cards; confirm access on-site and do not invent hours."
+    },
+    {
+      "title": "Ganesh Restaurant",
+      "place_name": "Ganesh Restaurant",
+      "aliases": ["Ganesh Resturent", "Ganesh Restaurant Jaipur", "Ganesh Restaurant Nehru Bazar"],
+      "source": "Curated demo places",
+      "dataset": "curated_places",
+      "url": "https://www.openstreetmap.org/node/2583229954",
+      "license": "Curated alias card; prefer Google Places hours when present",
+      "atomic": true,
+      "text": "Ganesh Restaurant is a restaurant in Nehru Bazar / Modikhana, Jaipur (also listed on OpenStreetMap node/2583229954). Prefer the Google Places hours card for this restaurant when answering opening-hours questions; this curated card is an alias/locator tip for traveler questions about Ganesh Restaurant."
+    }
+  ]
+}

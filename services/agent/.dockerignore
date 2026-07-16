@@ -1,0 +1,23 @@
+# Context is the monorepo root (see railway.toml / railway.json).
+.git
+**/.venv
+**/node_modules
+**/__pycache__
+**/*.pyc
+.env
+.env.*
+!.env.example
+apps/web
+evals
+n8n
+stitch_ai_voice_travel_planner
+scripts
+docs
+agent_serve.log
+**/.chroma
+data/rag/chroma
+data/rag/index
+data/_poi_type_scan.json
+**/*.md
+!services/agent/README.md
+!data/rag/README.md

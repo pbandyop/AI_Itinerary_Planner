@@ -1,0 +1,46 @@
+{
+  "name": "Itinerary PDF Email (template)",
+  "meta": {
+    "description": "Import into n8n Cloud as a starting point. Wire Gmail/SMTP + HTML-to-PDF nodes for your instance. Webhook path should match N8N_WEBHOOK_URL.",
+    "payload": {
+      "email": "string",
+      "city": "string",
+      "summary": "string|null",
+      "itinerary": "Itinerary JSON",
+      "sources": "Source[]",
+      "sent_at": "ISO-8601"
+    }
+  },
+  "nodes": [
+    {
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "notes": "POST JSON body from Next.js /api/email-itinerary"
+    },
+    {
+      "name": "Validate email",
+      "type": "n8n-nodes-base.if",
+      "notes": "Require $json.email"
+    },
+    {
+      "name": "Build HTML",
+      "type": "n8n-nodes-base.code",
+      "notes": "See docs/n8n.md sample HTML sketch"
+    },
+    {
+      "name": "HTML to PDF",
+      "type": "placeholder",
+      "notes": "Use n8n Convert to File / community PDF node / Gotenberg"
+    },
+    {
+      "name": "Send Email",
+      "type": "n8n-nodes-base.gmail",
+      "notes": "To=$json.email; attach PDF; subject=Your Jaipur itinerary"
+    },
+    {
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "notes": "{ \"ok\": true, \"message\": \"Email sent\" }"
+    }
+  ]
+}

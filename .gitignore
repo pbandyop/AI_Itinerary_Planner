@@ -43,5 +43,8 @@ next-env.d.ts
 
 # Local data / vector stores (Phase 3+)
 data/embeddings/
+data/rag/index/
+data/rag/chroma/
+data/rag/chunks.jsonl
 *.faiss
 *.pkl

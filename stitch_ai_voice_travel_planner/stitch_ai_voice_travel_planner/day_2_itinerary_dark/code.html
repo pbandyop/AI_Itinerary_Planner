@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Day 2: Paris - VocalVoyage</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "primary-container": "#58a6ff",
+                "on-primary-fixed-variant": "#004882",
+                "on-tertiary-fixed": "#141c25",
+                "on-tertiary-fixed-variant": "#404751",
+                "on-error": "#690005",
+                "surface-container-highest": "#31353c",
+                "on-background": "#dfe2eb",
+                "surface-container": "#1c2026",
+                "on-tertiary": "#29313a",
+                "on-tertiary-container": "#323a44",
+                "surface-container-high": "#262a31",
+                "primary-fixed-dim": "#a2c9ff",
+                "surface-variant": "#31353c",
+                "on-secondary-fixed-variant": "#005317",
+                "error-container": "#93000a",
+                "on-primary": "#00315c",
+                "inverse-primary": "#0060aa",
+                "on-surface-variant": "#c0c7d4",
+                "secondary-fixed": "#83fc89",
+                "inverse-surface": "#dfe2eb",
+                "surface-dim": "#10141a",
+                "background": "#10141a",
+                "secondary-container": "#27a640",
+                "primary": "#a2c9ff",
+                "secondary-fixed-dim": "#67df70",
+                "tertiary": "#bfc7d3",
+                "on-error-container": "#ffdad6",
+                "tertiary-fixed": "#dbe3ef",
+                "tertiary-container": "#9ca4af",
+                "surface-tint": "#a2c9ff",
+                "on-primary-container": "#003a6b",
+                "outline-variant": "#414752",
+                "outline": "#8b919d",
+                "secondary": "#67df70",
+                "surface-container-low": "#181c22",
+                "on-primary-fixed": "#001c38",
+                "tertiary-fixed-dim": "#bfc7d3",
+                "surface-container-lowest": "#0a0e14",
+                "primary-fixed": "#d3e4ff",
+                "on-surface": "#dfe2eb",
+                "on-secondary": "#00390d",
+                "inverse-on-surface": "#2d3137",
+                "error": "#ffb4ab",
+                "on-secondary-container": "#00320a",
+                "surface-bright": "#353940",
+                "surface": "#10141a",
+                "on-secondary-fixed": "#002105"
+        },
+        "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+        },
+        "spacing": {
+                "base": "4px",
+                "xl": "32px",
+                "sm": "12px",
+                "lg": "24px",
+                "xs": "8px",
+                "md": "16px",
+                "margin": "24px",
+                "gutter": "20px"
+        },
+        "fontFamily": {
+                "headline-sm": [
+                        "Manrope"
+                ],
+                "headline-lg": [
+                        "Manrope"
+                ],
+                "body-sm": [
+                        "Inter"
+                ],
+                "body-lg": [
+                        "Inter"
+                ],
+                "headline-md": [
+                        "Manrope"
+                ],
+                "body-md": [
+                        "Inter"
+                ],
+                "label-sm": [
+                        "Inter"
+                ],
+                "label-md": [
+                        "Inter"
+                ]
+        },
+        "fontSize": {
+                "headline-sm": [
+                        "20px",
+                        {
+                                "lineHeight": "28px",
+                                "fontWeight": "600"
+                        }
+                ],
+                "headline-lg": [
+                        "32px",
+                        {
+                                "lineHeight": "40px",
+                                "letterSpacing": "-0.02em",
+                                "fontWeight": "700"
+                        }
+                ],
+                "body-sm": [
+                        "14px",
+                        {
+                                "lineHeight": "20px",
+                                "fontWeight": "400"
+                        }
+                ],
+                "body-lg": [
+                        "18px",
+                        {
+                                "lineHeight": "28px",
+                                "fontWeight": "400"
+                        }
+                ],
+                "headline-md": [
+                        "24px",
+                        {
+                                "lineHeight": "32px",
+                                "letterSpacing": "-0.01em",
+                                "fontWeight": "600"
+                        }
+                ],
+                "body-md": [
+                        "16px",
+                        {
+                                "lineHeight": "24px",
+                                "fontWeight": "400"
+                        }
+                ],
+                "label-sm": [
+                        "11px",
+                        {
+                                "lineHeight": "14px",
+                                "fontWeight": "500"
+                        }
+                ],
+                "label-md": [
+                        "12px",
+                        {
+                                "lineHeight": "16px",
+                                "letterSpacing": "0.05em",
+                                "fontWeight": "600"
+                        }
+                ]
+        }
+},
+    },
+  }
+</script>
+<style>
+        .travel-path-connector {
+            border-left: 2px dashed #414752;
+            position: absolute;
+            left: 27px;
+            top: 24px;
+            bottom: -24px;
+            z-index: 0;
+        }
+        .travel-path-connector-last {
+             display: none;
+        }
+        .glass-card {
+            background: rgba(10, 14, 20, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .ambient-shadow {
+            box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.2);
+            border: 1px solid #31353c;
+        }
+        .ai-glow {
+            box-shadow: 0 0 15px rgba(103, 223, 112, 0.2);
+        }
+      </style>
+</head>
+<body class="bg-surface text-on-surface font-body-md selection:bg-primary-container selection:text-on-primary-container min-h-screen flex flex-col">
+<!-- TopNavBar -->
+<nav class="bg-surface dark:bg-surface-container-highest shadow-sm docked full-width top-0 sticky z-50">
+<div class="flex justify-between items-center px-margin md:px-xl w-full max-w-[1280px] mx-auto h-20">
+<!-- Brand -->
+<a class="font-headline-lg text-headline-lg font-bold text-primary dark:text-primary-fixed-dim" href="#">
+                VocalVoyage
+            </a>
+<!-- Navigation Links -->
+<ul class="hidden md:flex gap-8 items-center h-full">
+<li class="h-full flex items-center">
+<a class="text-on-surface-variant font-medium hover:text-primary transition-colors h-full flex items-center hover:bg-surface-container-low transition-all duration-200 px-4" href="#">New Trip</a>
+</li>
+<li class="h-full flex items-center">
+<a class="text-primary font-semibold border-b-2 border-primary pb-1 h-full flex items-center hover:bg-surface-container-low transition-all duration-200 px-4 active:scale-95 transition-transform" href="#">My Trips</a>
+</li>
+<li class="h-full flex items-center">
+<a class="text-on-surface-variant font-medium hover:text-primary transition-colors h-full flex items-center hover:bg-surface-container-low transition-all duration-200 px-4" href="#">Voice Input</a>
+</li>
+</ul>
+<!-- Actions -->
+<div class="flex items-center gap-4">
+<button class="hidden md:block font-label-md text-label-md text-primary hover:bg-surface-container-low px-4 py-2 rounded-full transition-colors font-semibold">
+                    Log In
+                </button>
+<button class="bg-primary text-on-primary font-label-md text-label-md px-6 py-2.5 rounded-full hover:bg-surface-tint transition-colors shadow-sm active:scale-95">
+                    Get Started
+                </button>
+</div>
+</div>
+</nav>
+<!-- Main Content -->
+<main class="flex-grow w-full max-w-[1280px] mx-auto px-margin md:px-xl py-xl">
+<!-- Header Section -->
+<header class="mb-12 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+<div>
+<h1 class="font-headline-lg text-headline-lg text-on-surface mb-2">Day 2: Art &amp; Icons</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant flex items-center gap-2">
+<span class="material-symbols-outlined text-[20px]">calendar_today</span>
+                    Saturday, October 14th • Paris, France
+                </p>
+</div>
+<button class="flex items-center gap-2 bg-secondary text-on-secondary px-5 py-3 rounded-full font-label-md text-label-md ai-glow hover:opacity-90 transition-opacity active:scale-95">
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">mic</span>
+                Edit this day with AI
+            </button>
+</header>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+<!-- Timeline Column -->
+<div class="lg:col-span-8 relative">
+<!-- Itinerary Items Container -->
+<div class="flex flex-col gap-0 relative z-10 pb-20">
+<!-- Item 1: Louvre -->
+<div class="relative group">
+<div class="travel-path-connector"></div>
+<div class="flex gap-6 relative z-10 bg-surface">
+<!-- Icon / Time Node -->
+<div class="flex flex-col items-center mt-1">
+<div class="w-14 h-14 rounded-full bg-surface-container-high text-primary flex items-center justify-center shrink-0 border-4 border-surface shadow-sm">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">museum</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant mt-2 whitespace-nowrap">09:00 AM</span>
+</div>
+<!-- Card Content -->
+<div class="flex-grow pb-12">
+<div class="ambient-shadow bg-surface-container-lowest rounded-2xl overflow-hidden group-hover:shadow-[0px_10px_30px_rgba(0,0,0,0.4)] transition-shadow duration-300 p-5">
+<div class="flex justify-between items-start mb-2">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">The Louvre Museum</h3>
+<div class="bg-surface-container-high text-on-surface px-3 py-1 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">schedule</span>
+<span class="font-label-sm text-label-sm font-semibold">3h 0m</span>
+</div>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant mb-4">Focus on the Denon Wing for the Mona Lisa and Winged Victory. Use the Carrousel du Louvre entrance to avoid the main pyramid lines.</p>
+<div class="flex flex-wrap gap-2">
+<span class="border border-outline-variant text-on-surface-variant px-3 py-1 rounded-full font-label-sm text-label-sm">Art History</span>
+<span class="border border-outline-variant text-on-surface-variant px-3 py-1 rounded-full font-label-sm text-label-sm">Must See</span>
+</div>
+</div>
+<!-- Travel Indicator -->
+<div class="flex items-center gap-3 mt-6 ml-4">
+<div class="bg-surface-container text-on-surface-variant p-1.5 rounded-full z-10 border-2 border-surface">
+<span class="material-symbols-outlined text-[16px]">directions_walk</span>
+</div>
+<span class="font-label-md text-label-md text-outline">15m walk through Tuileries Garden</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Item 2: Lunch -->
+<div class="relative group">
+<div class="travel-path-connector"></div>
+<div class="flex gap-6 relative z-10 bg-surface">
+<!-- Icon / Time Node -->
+<div class="flex flex-col items-center mt-1">
+<div class="w-14 h-14 rounded-full bg-surface-container-highest text-secondary flex items-center justify-center shrink-0 border-4 border-surface shadow-sm">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">restaurant</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant mt-2 whitespace-nowrap">12:30 PM</span>
+</div>
+<!-- Card Content -->
+<div class="flex-grow pb-12">
+<div class="ambient-shadow bg-surface-container-lowest rounded-2xl p-5 group-hover:shadow-[0px_10px_30px_rgba(0,0,0,0.4)] transition-shadow duration-300">
+<div class="flex justify-between items-start mb-2">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">L'Avenue</h3>
+<div class="bg-surface-container-high text-on-surface px-3 py-1 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">schedule</span>
+<span class="font-label-sm text-label-sm font-semibold">1h 30m</span>
+</div>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant mb-4">Upscale brasserie with terrace seating. Perfect spot for people-watching near the designer boutiques.</p>
+<div class="flex items-center gap-4 text-sm text-tertiary">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">location_on</span> 41 Avenue Montaigne</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">payments</span> $$$</span>
+</div>
+</div>
+<!-- Travel Indicator -->
+<div class="flex items-center gap-3 mt-6 ml-4">
+<div class="bg-surface-container text-on-surface-variant p-1.5 rounded-full z-10 border-2 border-surface">
+<span class="material-symbols-outlined text-[16px]">local_taxi</span>
+</div>
+<span class="font-label-md text-label-md text-outline">10m taxi ride to Eiffel Tower area</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Item 3: Eiffel Tower -->
+<div class="relative group">
+<div class="travel-path-connector travel-path-connector-last"></div>
+<div class="flex gap-6 relative z-10 bg-surface">
+<!-- Icon / Time Node -->
+<div class="flex flex-col items-center mt-1">
+<div class="w-14 h-14 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center shrink-0 border-4 border-surface shadow-sm">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">tour</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant mt-2 whitespace-nowrap">02:30 PM</span>
+</div>
+<!-- Card Content -->
+<div class="flex-grow">
+<div class="ambient-shadow bg-surface-container-lowest rounded-2xl overflow-hidden group-hover:shadow-[0px_10px_30px_rgba(0,0,0,0.4)] transition-shadow duration-300 p-5">
+<div class="flex justify-between items-start mb-2">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Eiffel Tower Summit</h3>
+<div class="bg-surface-container-high text-on-surface px-3 py-1 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">schedule</span>
+<span class="font-label-sm text-label-sm font-semibold">2h 30m</span>
+</div>
+</div>
+<div class="bg-error-container text-on-error-container p-3 rounded-lg flex items-start gap-3 mb-4 mt-4">
+<span class="material-symbols-outlined text-[20px] mt-0.5">info</span>
+<div>
+<p class="font-label-md text-label-md mb-1">Pre-booked Tickets Required</p>
+<p class="font-label-sm text-label-sm opacity-90">Your digital tickets for the 14:30 elevator slot are saved in your wallet.</p>
+</div>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant">Take the elevator to the very top for panoramic views of the city. Best light for photos is on the second floor facing the Trocadéro.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Sidebar Context -->
+<div class="hidden lg:block lg:col-span-4 relative">
+<div class="sticky top-28 flex flex-col gap-6">
+<!-- Weather Widget -->
+<div class="ambient-shadow bg-surface-container-lowest rounded-2xl p-6">
+<h4 class="font-label-md text-label-md text-outline uppercase tracking-wider mb-4">Day 2 Conditions</h4>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-4xl text-primary" style="font-variation-settings: 'FILL' 1;">partly_cloudy_day</span>
+<div>
+<div class="font-headline-lg text-headline-lg text-on-surface">18°</div>
+<div class="font-body-md text-body-md text-on-surface-variant">Mostly Sunny</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Mini Map Placeholder -->
+<div class="ambient-shadow bg-surface-container-lowest rounded-2xl overflow-hidden h-64 relative group cursor-pointer flex items-center justify-center">
+<button class="bg-primary text-on-primary font-label-md text-label-md px-4 py-2 rounded-full shadow-sm flex items-center justify-center gap-2 m-4 hover:bg-surface-tint transition-colors w-[80%]">
+<span class="material-symbols-outlined text-[18px]">map</span>
+                                 Open Interactive Map
+                             </button>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer Placeholder -->
+<footer class="bg-surface-container-lowest dark:bg-inverse-surface w-full py-xl mt-auto border-t border-outline-variant">
+<div class="max-w-[1280px] mx-auto px-margin md:px-xl flex flex-col md:flex-row justify-between items-center gap-gutter">
+<div class="font-headline-sm text-headline-sm font-bold text-on-surface dark:text-inverse-on-surface mb-4 md:mb-0">
+                © 2024 VocalVoyage AI. Your expert friend for planned spontaneity.
+            </div>
+<div class="flex flex-wrap gap-6 justify-center">
+<a class="text-on-surface-variant hover:text-primary hover:underline transition-all font-body-md text-body-md opacity-80 hover:opacity-100 transition-opacity" href="#">Travel Resources</a>
+<a class="text-on-surface-variant hover:text-primary hover:underline transition-all font-body-md text-body-md opacity-80 hover:opacity-100 transition-opacity" href="#">Privacy Policy</a>
+<a class="text-on-surface-variant hover:text-primary hover:underline transition-all font-body-md text-body-md opacity-80 hover:opacity-100 transition-opacity" href="#">Terms of Service</a>
+<a class="text-on-surface-variant hover:text-primary hover:underline transition-all font-body-md text-body-md opacity-80 hover:opacity-100 transition-opacity" href="#">Brand Kit</a>
+</div>
+</div>
+</footer>
+</body></html>

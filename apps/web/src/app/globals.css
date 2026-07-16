@@ -1,0 +1,88 @@
+:root {
+  /* Celestial Journey — VocalVoyage (Stitch) */
+  --background: #f8f9ff;
+  --on-background: #0b1c30;
+  --surface: #f8f9ff;
+  --surface-lowest: #ffffff;
+  --surface-low: #eff4ff;
+  --surface-container: #e5eeff;
+  --surface-high: #dce9ff;
+  --surface-highest: #d3e4fe;
+  --on-surface: #0b1c30;
+  --on-surface-variant: #414755;
+  --outline: #717786;
+  --outline-variant: #c1c6d7;
+  --primary: #0058bc;
+  --primary-bright: #0070eb;
+  --on-primary: #ffffff;
+  --primary-fixed: #d8e2ff;
+  --on-primary-fixed: #001a41;
+  --secondary: #006a66;
+  --secondary-container: #61f5ed;
+  --on-secondary-container: #006f6a;
+  --error: #ba1a1a;
+  --error-soft: #ffdad6;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-full: 9999px;
+  --shadow-ambient: 0 4px 20px rgba(0, 0, 0, 0.05);
+  --shadow-ai: 0 4px 15px rgba(216, 226, 255, 0.5);
+  --font-display: "Plus Jakarta Sans", "Segoe UI", sans-serif;
+  --font-body: "Plus Jakarta Sans", "Segoe UI", sans-serif;
+  --max-width: 1280px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--on-surface);
+  background: var(--background);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+button,
+textarea,
+input {
+  font: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--outline-variant);
+  border-radius: 10px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
