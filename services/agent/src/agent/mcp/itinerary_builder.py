@@ -266,8 +266,8 @@ def _diversify_for_interests(
         must = 1 if _MUST_SEE_NAME_RE.search(name) else 0
         return (must, float(p.rank_score or 0), name)
 
-    # Seed ≥1 best-scoring POI per interest (must-sees win ties).
-    for key in keys:
+    # Seed culture-tier first (2 each when mixed), then soft (1 each).
+    def _seed_key(key: str, take_n: int) -> None:
         cats = categories_for_interest(key)
         candidates = [
             p
@@ -279,12 +279,25 @@ def _diversify_for_interests(
             )
         ]
         if not candidates:
-            missing_interests.append(key)
-            continue
-        chosen = max(candidates, key=_pick_score)
-        picks.append(chosen)
-        used.add(_poi_key(chosen))
-        covered.append(key)
+            if key not in missing_interests and key not in covered:
+                missing_interests.append(key)
+            return
+        for _ in range(take_n):
+            remaining = [p for p in candidates if _poi_key(p) not in used]
+            if not remaining:
+                break
+            chosen = max(remaining, key=_pick_score)
+            picks.append(chosen)
+            used.add(_poi_key(chosen))
+            if key not in covered:
+                covered.append(key)
+
+    for key in keys:
+        if key in CULTURE_TIER_INTERESTS:
+            _seed_key(key, 2 if mixed else 1)
+    for key in keys:
+        if key not in CULTURE_TIER_INTERESTS:
+            _seed_key(key, 1)
 
     buckets: dict[str, list[POICandidate]] = {k: [] for k in keys}
     other: list[POICandidate] = []

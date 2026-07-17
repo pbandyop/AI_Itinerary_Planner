@@ -54,6 +54,8 @@ LOW_QUALITY_PATTERNS: tuple[str, ...] = (
     r"\bapartment",
     r"sector[-\s]?\d",
     r"^ground$",
+    r"\bpark\s*[-#]?\s*\d+\b",
+    r"^deer\s+park$",
     r"\bcollege\b",
     r"\bschool\b",
     r"state\s+bank",
@@ -127,18 +129,52 @@ def selection_score(p: POICandidate, interests: list[str]) -> float:
 def _quota_slots(shortlist_size: int, interest_keys: list[str]) -> dict[str, int]:
     if not interest_keys:
         return {}
-    from agent.preferences import CULTURE_TIER_INTERESTS, order_interests_by_priority
+    from agent.preferences import (
+        CULTURE_TIER_INTERESTS,
+        SOFT_TIER_INTERESTS,
+        culture_soft_mix_active,
+        order_interests_by_priority,
+    )
 
     keys = order_interests_by_priority(interest_keys)
+    culture = [k for k in keys if k in CULTURE_TIER_INTERESTS]
+    soft = [k for k in keys if k in SOFT_TIER_INTERESTS]
+    rest = [
+        k
+        for k in keys
+        if k not in CULTURE_TIER_INTERESTS and k not in SOFT_TIER_INTERESTS
+    ]
+
+    # Mixed culture+soft trips: ~2× weight for heritage/temple/museum slots.
+    if culture_soft_mix_active(keys) and culture and (soft or rest):
+        weights = {
+            k: (2.0 if k in CULTURE_TIER_INTERESTS else 1.0) for k in keys
+        }
+        total_w = sum(weights.values()) or 1.0
+        quotas = {
+            k: max(1, int(shortlist_size * weights[k] / total_w)) for k in keys
+        }
+        while sum(quotas.values()) > shortlist_size:
+            trim_order = soft + rest + culture
+            trimmed = False
+            for k in reversed(trim_order):
+                if quotas.get(k, 0) > 1:
+                    quotas[k] -= 1
+                    trimmed = True
+                    break
+            if not trimmed:
+                break
+        while sum(quotas.values()) < shortlist_size:
+            grow = culture[0] if culture else keys[0]
+            quotas[grow] = quotas.get(grow, 0) + 1
+        return quotas
+
     n = len(keys)
     base, rem = divmod(shortlist_size, n)
-    # Prefer giving remainder to culture-tier / earlier (priority) interests.
     quotas = {k: base for k in keys}
-    culture = [k for k in keys if k in CULTURE_TIER_INTERESTS]
-    rest = [k for k in keys if k not in CULTURE_TIER_INTERESTS]
+    prefer = culture or rest or soft or keys
     for i in range(rem):
-        target = culture[i % len(culture)] if culture else rest[i % len(rest)]
-        quotas[target] = quotas.get(target, 0) + 1
+        quotas[prefer[i % len(prefer)]] = quotas.get(prefer[i % len(prefer)], 0) + 1
     return quotas
 
 
@@ -176,9 +212,22 @@ def shortlist_pois(
             notes="; ".join(notes + ["Empty POI pool — nothing to shortlist."]),
         )
 
+    from agent.mcp.poi_search import _is_low_signal_poi
+
     ranked = dedupe_pois(list(candidate_pois))
+    filtered: list[POICandidate] = []
+    dropped_low = 0
+    for p in ranked:
+        if _is_low_signal_poi(
+            p.name or "", p.tags or {}, (p.category or "").lower()
+        ):
+            dropped_low += 1
+            continue
+        filtered.append(p)
+    if dropped_low:
+        notes.append(f"Dropped {dropped_low} low-signal POIs before quotas.")
     scored = sorted(
-        ranked,
+        filtered,
         key=lambda p: (-selection_score(p, interests_list), p.name or ""),
     )
 

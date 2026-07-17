@@ -137,6 +137,78 @@ def _pick_add_block(day: DayPlan, preferred: TimeOfDay | None) -> TimeOfDay:
     return "afternoon"
 
 
+def _stop_name_match_score(query: str, name: str) -> float:
+    """Score how well an utterance place name matches a stop (higher = better)."""
+    q = re.sub(r"\s+", " ", (query or "").strip().lower())
+    n = re.sub(r"\s+", " ", (name or "").strip().lower())
+    if not q or not n:
+        return 0.0
+    if n == q:
+        return 100.0
+    if q in n or n in q:
+        return 80.0
+    q_tokens = set(re.findall(r"[a-z0-9]+", q))
+    n_tokens = set(re.findall(r"[a-z0-9]+", n))
+    if not q_tokens or not n_tokens:
+        return 0.0
+    overlap = len(q_tokens & n_tokens)
+    if overlap == 0:
+        return 0.0
+    return 40.0 + 20.0 * overlap / max(len(q_tokens), len(n_tokens))
+
+
+def _find_stop_on_day(
+    day: DayPlan,
+    *,
+    name_query: str,
+    target_block: TimeOfDay | None,
+) -> tuple[TimeOfDay, int, Stop] | None:
+    """Best fuzzy match for a named stop on the day (optionally scoped to a block)."""
+    best: tuple[float, TimeOfDay, int, Stop] | None = None
+    for bname, block in _get_block(day, target_block):
+        for i, s in enumerate(block.stops):
+            score = _stop_name_match_score(name_query, s.name or "")
+            if score < 40.0:
+                continue
+            if best is None or score > best[0]:
+                best = (score, bname, i, s)
+    if best is None:
+        return None
+    return best[1], best[2], best[3]
+
+
+def _remove_named_stop_day(
+    day: DayPlan,
+    *,
+    name_query: str,
+    target_block: TimeOfDay | None,
+) -> tuple[DayPlan, list[str]]:
+    """Remove a single named stop; leave other same-category stops alone."""
+    hit = _find_stop_on_day(day, name_query=name_query, target_block=target_block)
+    if hit is None and target_block is not None:
+        # Name may be on another block of the same day.
+        hit = _find_stop_on_day(day, name_query=name_query, target_block=None)
+    if hit is None:
+        return day, [
+            f"Could not find a stop matching '{name_query}' on Day {day.day_index}."
+        ]
+    bname, idx, stop = hit
+    block = day.block(bname)
+    new_stops = [s for i, s in enumerate(block.stops) if i != idx]
+    new_day = _set_block(
+        day,
+        bname,
+        TimeBlock(
+            time_of_day=bname,
+            stops=new_stops,
+            notes=block.notes,
+        ),
+    )
+    return new_day, [
+        f"Removed {stop.name} from Day {day.day_index} {bname}."
+    ]
+
+
 def _trim_category_day(
     day: DayPlan,
     *,
@@ -987,6 +1059,18 @@ def apply_edit_patch(
             new_day, cut_notes = _reduce_day_travel(new_day)
             notes.extend(cut_notes)
 
+        elif op == "remove_stop":
+            name_q = str((patch.payload or {}).get("name") or "").strip()
+            if not name_q:
+                notes.append("No place name given to remove.")
+            else:
+                new_day, rm_notes = _remove_named_stop_day(
+                    new_day,
+                    name_query=name_q,
+                    target_block=target_block,
+                )
+                notes.extend(rm_notes)
+
         elif op == "add_stop":
             category = str((patch.payload or {}).get("category") or "food").lower()
             wanted = _category_set(category)
@@ -1070,7 +1154,7 @@ def apply_edit_patch(
                 )
 
         else:
-            # swap_stop / remove_stop / replace_block — soft fallthrough to relax
+            # swap_stop / replace_block — soft fallthrough to relax
             for bname, block in _get_block(new_day, target_block):
                 new_stops = _relax_stops(
                     list(block.stops), keep=max(1, len(block.stops) - 1)

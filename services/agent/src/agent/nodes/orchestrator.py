@@ -1501,16 +1501,54 @@ def _parse_clause_patch(
         return None
     block = _clause_block(clause) or default_block
 
+    # Don't steal "remove/cut travel" — that is reduce_travel.
+    is_travel_cut = bool(
+        re.search(r"\b(remove|drop|cut|delete).{0,24}\b(travel|walking)\b", lower)
+    )
+
+    # Named place first: "remove Park 4 from day 2" / "drop Deer Park"
+    # (must beat bare "remove park …" category trim).
+    named_rm = re.search(
+        r"\b(remove|drop|delete|exclude|cut out|take out)\b\s+"
+        r"(?:the\s+)?(?P<name>.+?)"
+        r"(?=\s+from\b|\s+on\b|\s*$)",
+        lower,
+    )
+    if named_rm and not is_travel_cut and not re.search(r"\bwithout\b", lower):
+        raw_name = named_rm.group("name").strip(" .,!")
+        raw_name = re.sub(
+            r"\s+(?:from|on)\s+day\s+(?:\d+|one|two|three|four)\s*$",
+            "",
+            raw_name,
+            flags=re.I,
+        ).strip(" .,!")
+        bare_cat = re.fullmatch(
+            rf"({_EDIT_CATEGORIES})s?(?:\s+stops?)?",
+            raw_name,
+        )
+        if bare_cat:
+            category = _normalize_edit_category(bare_cat.group(1))
+            return EditPatch(
+                target=EditTarget(day=day, block=block),  # type: ignore[arg-type]
+                operation="trim_category",
+                payload={"category": category, "keep": 0},
+                user_utterance=full_message,
+            )
+        if raw_name and len(raw_name) >= 2:
+            return EditPatch(
+                target=EditTarget(day=day, block=block),  # type: ignore[arg-type]
+                operation="remove_stop",
+                payload={"name": raw_name},
+                user_utterance=full_message,
+            )
+
     # "remove market from day one" / "drop shopping stops" / "without food"
     remove_m = re.search(
         rf"\b(remove|drop|delete|exclude|cut out|take out|without)\b"
         rf".{{0,50}}\b({_EDIT_CATEGORIES})s?\b",
         lower,
     )
-    # Don't steal "remove/cut travel" — that is reduce_travel.
-    if remove_m and not re.search(
-        r"\b(remove|drop|cut|delete).{0,24}\b(travel|walking)\b", lower
-    ):
+    if remove_m and not is_travel_cut:
         category = _normalize_edit_category(remove_m.group(2))
         return EditPatch(
             target=EditTarget(day=day, block=block),  # type: ignore[arg-type]

@@ -490,29 +490,32 @@ def _is_low_signal_heritage_name(name: str) -> bool:
 
 
 def _is_low_signal_park(name: str, tags: dict[str, str], category: str) -> bool:
-    """Drop cricket grounds / apartment / campus parks unless tourist-grade."""
+    """Keep only tourist-grade parks/gardens; drop numbered/neighborhood noise."""
     if category not in {"park", "garden"}:
         return False
-    if _TOURIST_PARK_RE.search(name):
+    n = name or ""
+    stripped = n.strip()
+    # "park 4", "Park-2", "Park #1" — never tourist attractions.
+    if re.search(r"\bpark\s*[-#]?\s*\d+\b", stripped, re.I):
+        return True
+    if re.fullmatch(r"park\s*[-#]?\s*\d+", stripped, re.I):
+        return True
+    if _TOURIST_PARK_RE.search(n):
         return False
     if tags.get("wikidata") or tags.get("wikipedia"):
         # Still drop obvious campus/sports parks even with wiki links.
-        if _LOW_SIGNAL_PARK_RE.search(name):
+        if _LOW_SIGNAL_PARK_RE.search(n):
             return True
         return False
-    if tags.get("leisure") == "garden" or category == "garden":
-        if _LOW_SIGNAL_PARK_RE.search(name):
-            return True
-        return False
-    if _LOW_SIGNAL_PARK_RE.search(name):
+    if _LOW_SIGNAL_PARK_RE.search(n):
         return True
-    # Bare / tiny names ("Ground") or generic sector parks without tourist cues.
-    stripped = name.strip()
+    # Bare / tiny names ("Ground") without tourist cues.
     if len(stripped) < 5 or stripped.lower() in {"ground", "park", "the park"}:
         return True
     if re.search(r"sector|nagar|colony|apartment|college|school", stripped, re.I):
         return True
-    return False
+    # Default: neighborhood parks (e.g. Deer Park) are not itinerary-worthy.
+    return True
 
 
 def _is_low_signal_poi(name: str, tags: dict[str, str], category: str) -> bool:
