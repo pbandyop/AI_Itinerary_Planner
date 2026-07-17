@@ -29,6 +29,9 @@ const SAMPLE_PROMPTS = [
   "What if it rains?",
 ];
 
+const WELCOME_SPEECH =
+  "Hi — I’m VocalVoyage. Tap the mic and say “Plan a trip to Jaipur.” Voice input is required — I’ll ask for days, pace, and interests before building anything.";
+
 function newSessionId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
@@ -96,6 +99,32 @@ export default function VoicePlanner() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [conversation, pending]);
 
+  // Greet on landing. Retry on first gesture if the browser blocks autoplay TTS.
+  useEffect(() => {
+    if (!tts) return;
+    let spoken = false;
+    const speakWelcome = () => {
+      if (spoken || conversationRef.current.length > 0) return;
+      speakText(WELCOME_SPEECH, true, {
+        onStart: () => {
+          spoken = true;
+          setAiSpeaking(true);
+        },
+        onEnd: () => setAiSpeaking(false),
+      });
+    };
+    speakWelcome();
+    const unlock = () => speakWelcome();
+    window.addEventListener("pointerdown", unlock);
+    window.addEventListener("keydown", unlock);
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+      stopSpeaking();
+      setAiSpeaking(false);
+    };
+  }, [tts]);
+
   useEffect(() => {
     if (!aiSpeaking) {
       setAiLevel(0);
@@ -140,9 +169,18 @@ export default function VoicePlanner() {
     setSources([]);
     setConversation([]);
     setSessionId(newSessionId());
-    setAiSpeaking(false);
     stopSpeaking();
-  }, [speech]);
+    setAiSpeaking(false);
+    if (tts) {
+      // Re-greet after reset so the empty chat state matches landing.
+      window.setTimeout(() => {
+        speakText(WELCOME_SPEECH, true, {
+          onStart: () => setAiSpeaking(true),
+          onEnd: () => setAiSpeaking(false),
+        });
+      }, 120);
+    }
+  }, [speech, tts]);
 
   const submit = useCallback(
     async (message: string) => {
@@ -372,7 +410,10 @@ export default function VoicePlanner() {
             <span className={styles.brandMark} aria-hidden>
               ✈
             </span>
-            VocalVoyage
+            <span className={styles.brandText}>
+              <span className={styles.brandName}>VocalVoyage</span>
+              <span className={styles.brandSub}>Jaipur · 2–4 days</span>
+            </span>
           </a>
           <ul className={styles.navLinks}>
             <li>
@@ -410,38 +451,10 @@ export default function VoicePlanner() {
 
       <div className={styles.main}>
         <section className={styles.chatColumn} aria-label="Voice conversation">
-          <div className={styles.chatHeader}>
-            <div>
-              <h2>Travel AI</h2>
-              <p className={styles.chatSub}>
-                {itinerary
-                  ? `${itinerary.trip.num_days ?? "?"}‑day ${
-                      itinerary.trip.pace === "moderate"
-                        ? "balanced"
-                        : itinerary.trip.pace ?? ""
-                    } plan · ${itinerary.trip.city}`
-                  : clarifying
-                    ? "Clarifying your trip…"
-                    : awaitingConfirm
-                      ? "Say “yes” or “confirm” into the mic"
-                      : "Jaipur · 2–4 days · STT required"}
-              </p>
-            </div>
-            {clarifying ? (
-              <span className={styles.statusPill}>clarifying</span>
-            ) : awaitingConfirm ? (
-              <span className={styles.statusPill}>confirm</span>
-            ) : itinerary ? (
-              <span className={styles.statusPill}>editable</span>
-            ) : null}
-          </div>
-
           <div className={styles.chatLog} aria-live="polite">
             {conversation.length === 0 && (
               <p className={styles.chatEmpty}>
-                Hi — I’m VocalVoyage. Tap the mic and say “Plan a trip to
-                Jaipur.” Voice input is required — I’ll ask for days, pace, and
-                interests before building anything.
+                {WELCOME_SPEECH}
               </p>
             )}
             {conversation.map((turn, i) => (

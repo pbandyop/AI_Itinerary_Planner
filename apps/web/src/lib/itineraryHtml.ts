@@ -60,11 +60,11 @@ function formatClockAmPm(hhmm?: string | null): string | null {
 }
 
 function spendDurationLabel(minutes?: number): string {
-  if (!minutes || minutes <= 0) return "spend a short time in this place";
+  if (!minutes || minutes <= 0) return "Spend a short time in this place";
   const hours = Math.round(minutes / 60);
-  if (hours <= 0) return `spend about ${minutes} minutes in this place`;
-  if (hours === 1) return "spend about 1 hour in this place";
-  return `spend about ${hours} hours in this place`;
+  if (hours <= 0) return `Spend about ${minutes} minutes in this place`;
+  if (hours === 1) return "Spend about 1 hour in this place";
+  return `Spend about ${hours} hours in this place`;
 }
 
 function travelHint(stop: StopLike): string {

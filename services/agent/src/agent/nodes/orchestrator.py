@@ -203,10 +203,11 @@ def _find_any_day_count(message: str) -> int | None:
 
 def _find_pace(message: str) -> Pace | None:
     lower = message.lower()
-    if re.search(r"\b(relax(?:ed)?|chill|slow|leisurely)\b", lower):
-        return "relaxed"
+    # Prefer packed when both cues appear (e.g. STT noise / "packed not relaxed").
     if re.search(r"\b(packed|busy|intense|full[\s-]?day)\b", lower):
         return "packed"
+    if re.search(r"\b(relax(?:ed)?|chill|slow|leisurely)\b", lower):
+        return "relaxed"
     if re.search(r"\b(moderate|balanced|balance)\b", lower):
         return "moderate"
     return None
@@ -2957,11 +2958,15 @@ def orchestrator_node(state: GraphState) -> dict[str, Any]:
         ]
         reason = str(feedback.get("reason") or v.reason or "feasibility").strip()
 
-        # Soft trip tweak only when Reviewer targeted itinerary for pace/duration
+        # Soft trip tweak only when Reviewer targeted itinerary for pace/duration.
+        # Never overwrite a user-confirmed pace (packed → relaxed was a hallucination).
         if trip and target == "itinerary_agent" and any(
             i.code in {"feasibility_duration", "feasibility_pace"} for i in v.issues
         ):
-            trip = trip.model_copy(update={"pace": "relaxed", "confirmed": True})
+            if not getattr(trip, "pace_known", False) and trip.pace != "relaxed":
+                # Only soft-demote when pace was never explicitly set by the user.
+                trip = trip.model_copy(update={"pace": "moderate", "confirmed": True})
+            # else: keep trip.pace; builder will trim within the stated pace.
 
         waves = waves_for_revision(target)
         criteria = success_criteria_for_waves(waves)

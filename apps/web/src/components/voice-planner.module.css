@@ -40,12 +40,33 @@
 .brandLink {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.55rem;
   color: var(--primary);
+  text-decoration: none;
+  min-width: 0;
+}
+
+.brandText {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  line-height: 1.15;
+  min-width: 0;
+}
+
+.brandName {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 1.35rem;
   letter-spacing: -0.02em;
+}
+
+.brandSub {
+  font-family: var(--font-body, inherit);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--on-surface-variant);
 }
 
 .brandMark {
@@ -58,6 +79,7 @@
   place-items: center;
   font-size: 0.85rem;
   font-weight: 700;
+  flex-shrink: 0;
 }
 
 .navLinks {
@@ -273,7 +295,7 @@
 
 .chatEmpty {
   margin: auto;
-  max-width: 28ch;
+  max-width: 40ch;
   text-align: center;
   color: var(--on-surface-variant);
   font-size: 0.95rem;

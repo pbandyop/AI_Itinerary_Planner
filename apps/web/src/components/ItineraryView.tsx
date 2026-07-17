@@ -23,11 +23,11 @@ function blockStops(block: TimeBlock) {
 }
 
 function spendDurationLabel(minutes: number): string {
-  if (!minutes || minutes <= 0) return "spend a short time in this place";
+  if (!minutes || minutes <= 0) return "Spend a short time in this place";
   const hours = Math.round(minutes / 60);
-  if (hours <= 0) return `spend about ${minutes} minutes in this place`;
-  if (hours === 1) return "spend about 1 hour in this place";
-  return `spend about ${hours} hours in this place`;
+  if (hours <= 0) return `Spend about ${minutes} minutes in this place`;
+  if (hours === 1) return "Spend about 1 hour in this place";
+  return `Spend about ${hours} hours in this place`;
 }
 
 /** Convert builder HH:MM (24h) to a short 12-hour label. */
@@ -183,12 +183,20 @@ export default function ItineraryView({
           {itinerary.trip.num_days ?? "?"}‑day {paceLabel} plan for{" "}
           {itinerary.trip.city}
         </h2>
-        <p className={styles.sub}>
-          {itinerary.trip.interests?.length
-            ? `Focus: ${itinerary.trip.interests.join(", ")}`
-            : "Your customized day plan"}
-          . Each day has morning and afternoon. Say what you’d like to change.
-        </p>
+        {itinerary.trip.interests?.length ? (
+          <div className={styles.focusRow} aria-label="Trip focus">
+            <span className={styles.focusLabel}>Focus:</span>
+            <ul className={styles.focusTags}>
+              {itinerary.trip.interests.map((interest) => (
+                <li key={interest} className={styles.focusTag}>
+                  {categoryLabel(interest) || interest}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <p className={styles.sub}>Your customized day plan</p>
+        )}
       </header>
 
       <div className={styles.days}>
@@ -245,22 +253,14 @@ export default function ItineraryView({
                         return (
                           <li key={`${stopKey}-${i}`}>
                             <div className={styles.stopCard}>
-                              <div className={styles.stopRow}>
-                                <div className={styles.stopMain}>
-                                  {formatClockAmPm(stop.arrive_time) ? (
-                                    <span className={styles.stopClock}>
-                                      {formatClockAmPm(stop.arrive_time)}
-                                    </span>
-                                  ) : null}
-                                  <span className={styles.stopName}>
-                                    {stop.name}
+                              <div className={styles.stopTimeRow}>
+                                {formatClockAmPm(stop.arrive_time) ? (
+                                  <span className={styles.stopClock}>
+                                    {formatClockAmPm(stop.arrive_time)}
                                   </span>
-                                  {category ? (
-                                    <span className={styles.categoryTag}>
-                                      {category}
-                                    </span>
-                                  ) : null}
-                                </div>
+                                ) : (
+                                  <span className={styles.stopClock} />
+                                )}
                                 <span className={styles.stopDuration}>
                                   {spendDurationLabel(stop.duration_min)}
                                   {formatClockAmPm(stop.depart_time)
@@ -268,28 +268,24 @@ export default function ItineraryView({
                                     : ""}
                                 </span>
                               </div>
+                              <span className={styles.stopName}>
+                                {stop.name}
+                              </span>
+                              {category ? (
+                                <span className={styles.categoryTag}>
+                                  {category}
+                                </span>
+                              ) : null}
                               {modes.length > 0 ? (
                                 <div className={styles.travelHint}>
                                   <span className={styles.travelLead}>
                                     Travel to next destination:
                                   </span>
-                                  {modes.length === 1 ? (
-                                    <span>
-                                      {" "}
-                                      about {modes[0].minutes} minutes
-                                      {modes[0].km != null
-                                        ? ` (${modes[0].km.toFixed(1)} km by ${modes[0].mode})`
-                                        : modes[0].mode
-                                          ? ` by ${modes[0].mode}`
-                                          : ""}
-                                    </span>
-                                  ) : (
-                                    <ul className={styles.modeList}>
-                                      {modes.map((m) => (
-                                        <li key={m.mode}>{formatModeLine(m)}</li>
-                                      ))}
-                                    </ul>
-                                  )}
+                                  <ul className={styles.modeList}>
+                                    {modes.map((m) => (
+                                      <li key={m.mode}>{formatModeLine(m)}</li>
+                                    ))}
+                                  </ul>
                                 </div>
                               ) : null}
                             </div>

@@ -160,10 +160,16 @@ def _constraints_from_issues(
     codes = {i.code for i in issues}
 
     if "feasibility_duration" in codes or "feasibility_pace" in codes:
+        constraints.append("Trim day under window")
         constraints.append("Reduce travel")
-        constraints.append("Reduce stops")
+        # Only ask for relaxed packing when the trip is already relaxed.
         if trip and trip.pace == "relaxed":
             constraints.append("Respect relaxed pace")
+            constraints.append("Reduce stops")
+        elif trip and trip.pace == "packed":
+            constraints.append("Respect packed pace")
+        else:
+            constraints.append("Reduce stops")
     if "feasibility_travel" in codes:
         constraints.append("Reduce travel")
         constraints.append("Cluster nearby stops")

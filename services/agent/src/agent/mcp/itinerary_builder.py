@@ -538,27 +538,24 @@ def _rebalance_day_interest_mix(
     *,
     stops_cap: int,
 ) -> list[list[POICandidate]]:
-    """Prefer each day to keep ≥1 food-ish and ≥1 sight-ish stop when possible."""
+    """Prefer each day to keep >=1 food-ish and >=1 sight-ish stop when possible."""
     if len(groups) < 2:
         return groups
 
     def is_food(p: POICandidate) -> bool:
-        return (p.category or "").lower() == "food"
+        return _is_food(p)
 
     def is_shop(p: POICandidate) -> bool:
-        return (p.category or "").lower() in {"market", "shopping"}
+        return _is_shop(p)
+
+    def is_park(p: POICandidate) -> bool:
+        return _cat(p) in {"park", "garden", "viewpoint"}
 
     def is_sight(p: POICandidate) -> bool:
-        return (p.category or "").lower() in {
-            "heritage",
-            "museum",
-            "temple",
-            "attraction",
-            "viewpoint",
-        }
+        return _is_sight(p) and not is_park(p)
 
-    # If day A has 2+ restaurants and day B has 0, swap one food for a sight/shop.
-    for _ in range(4):
+    # If day A has 2+ foods and day B has 0, swap one food for a sight/shop.
+    for _ in range(6):
         changed = False
         for i, gi in enumerate(groups):
             for j, gj in enumerate(groups):
@@ -566,8 +563,10 @@ def _rebalance_day_interest_mix(
                     continue
                 foods_i = [p for p in gi if is_food(p)]
                 foods_j = [p for p in gj if is_food(p)]
-                sights_j = [p for p in gj if is_sight(p) or is_shop(p)]
+                sights_j = [p for p in gj if is_sight(p) or is_shop(p) or is_park(p)]
                 sights_i = [p for p in gi if is_sight(p)]
+                parks_i = [p for p in gi if is_park(p)]
+                parks_j = [p for p in gj if is_park(p)]
                 if len(foods_i) >= 2 and not foods_j and sights_j:
                     a = foods_i[-1]
                     b = sights_j[-1]
@@ -576,9 +575,23 @@ def _rebalance_day_interest_mix(
                     gi.append(b)
                     gj.append(a)
                     changed = True
-                elif len(sights_i) >= 3 and len([p for p in gj if is_sight(p)]) <= 1 and foods_j:
+                elif len(sights_i) >= 2 and len([p for p in gj if is_sight(p)]) == 0 and (
+                    foods_j or parks_j or [p for p in gj if is_shop(p)]
+                ):
                     a = sights_i[-1]
-                    b = foods_j[-1]
+                    donors = foods_j or parks_j or [p for p in gj if is_shop(p)]
+                    b = donors[-1]
+                    gi.remove(a)
+                    gj.remove(b)
+                    gi.append(b)
+                    gj.append(a)
+                    changed = True
+                elif len(parks_i) >= 2 and not parks_j and (
+                    foods_j or [p for p in gj if is_sight(p)]
+                ):
+                    a = parks_i[-1]
+                    donors = foods_j or [p for p in gj if is_sight(p)]
+                    b = donors[-1]
                     gi.remove(a)
                     gj.remove(b)
                     gi.append(b)
@@ -880,11 +893,38 @@ def densify_packed_am_pm(
             if (normalize_interest(i) or i)
         )
     )
+    from agent.mcp.poi_search import _MUST_SEE_NAME_RE, _is_low_signal_poi
+
     working = [d.model_copy(deep=True) for d in days]
-    pool = sorted(
-        list(candidate_pois or []),
-        key=lambda p: (-(p.rank_score or 0.0), p.name or ""),
-    )
+    pool = [
+        p
+        for p in (candidate_pois or [])
+        if not _is_low_signal_poi(
+            p.name or "", p.tags or {}, (p.category or "").lower()
+        )
+    ]
+    # Prefer must-sees / heritage / parks when filling packed gaps.
+    culture_keys = {"heritage", "culture", "history", "temple", "museum", "art"}
+    park_keys = {"park", "garden", "nature", "viewpoint", "outdoor"}
+    want_culture = bool(set(interest_keys) & culture_keys)
+    want_park = bool(set(interest_keys) & park_keys)
+
+    def _densify_rank(p: POICandidate) -> tuple:
+        name = p.name or ""
+        cat = (p.category or "").lower()
+        must = 1 if _MUST_SEE_NAME_RE.search(name) else 0
+        heritage = 1 if cat in {"heritage", "museum", "temple", "attraction"} else 0
+        park = 1 if cat in {"park", "garden", "viewpoint"} else 0
+        prefer = 0
+        if want_culture and heritage:
+            prefer += 2
+        if want_park and park:
+            prefer += 2
+        if must:
+            prefer += 3
+        return (-prefer, -(p.rank_score or 0.0), name)
+
+    pool = sorted(pool, key=_densify_rank)
 
     def _used() -> PlaceSeen:
         seen = PlaceSeen()
@@ -899,7 +939,14 @@ def densify_packed_am_pm(
             (s.category or "").lower() in {"food", "cafe", "restaurant"}
             for s in block_stops
         )
+        block_has_sight = any(
+            (s.category or "").lower()
+            in {"heritage", "museum", "temple", "attraction", "park", "garden"}
+            for s in block_stops
+        )
         require_non_food = prefer_non_food and block_has_food
+        # Empty or food-only blocks: prefer a must-see / park / heritage first.
+        prefer_sight = prefer_non_food and not block_has_sight
         non_food_keys = [k for k in interest_keys if k != "food"]
 
         def _ok(p: POICandidate) -> bool:
@@ -907,6 +954,18 @@ def densify_packed_am_pm(
             is_food = cat in {"food", "cafe", "restaurant"} or _is_food(p)
             if require_non_food and is_food:
                 return False
+            if prefer_sight and is_food:
+                return False
+            if prefer_sight and (want_culture or want_park):
+                is_h = cat in {"heritage", "museum", "temple", "attraction"}
+                is_p = cat in {"park", "garden", "viewpoint"}
+                if want_culture and is_h:
+                    return True
+                if want_park and is_p:
+                    return True
+                if _MUST_SEE_NAME_RE.search(p.name or ""):
+                    return True
+                # Fall through if no sight left — allow other non-food.
             if require_non_food and non_food_keys:
                 return any(_stop_covers_interest(p, key) for key in non_food_keys)
             if interest_keys and not any(
@@ -920,7 +979,7 @@ def densify_packed_am_pm(
                 continue
             if _ok(p):
                 return p
-        if require_non_food:
+        if prefer_sight or require_non_food:
             for p in pool:
                 if used.contains(p):
                     continue
@@ -1635,16 +1694,53 @@ def _ensure_meal_candidate_floor(
     need_shop = num_days if want_shop else 0
     if need_eve_soft and not want_park_eve:
         need_shop = max(need_shop, need_eve_soft)
-    need_sight = min(
-        2 * num_days,
-        max(0, max_total - need_food - need_shop - need_park_eve),
+    want_culture = bool(
+        interest_keys
+        & {"heritage", "culture", "history", "temple", "museum", "art"}
     )
+    # Packed trips need many sights; don't let meal swaps starve forts/palaces.
+    if per_day >= 8 and want_culture:
+        need_sight = min(
+            5 * num_days,
+            max(0, max_total - need_food - need_shop - need_park_eve),
+        )
+    else:
+        need_sight = min(
+            2 * num_days,
+            max(0, max_total - need_food - need_shop - need_park_eve),
+        )
 
-    selected = list(ranked[:max_total])
-    used = {_poi_key(p) for p in selected}
+    from agent.mcp.poi_search import _MUST_SEE_NAME_RE, _is_low_signal_poi
+
+    # Start from ranked, but pin must-sees first so meal swaps cannot drop them.
+    must_sees = [
+        p
+        for p in (full_pool or ranked)
+        if _MUST_SEE_NAME_RE.search(p.name or "")
+        and not _is_low_signal_poi(
+            p.name or "", p.tags or {}, (p.category or "").lower()
+        )
+    ]
+    selected: list[POICandidate] = []
+    used: set[str] = set()
+    for p in must_sees + list(ranked):
+        ref = _poi_key(p)
+        if ref in used:
+            continue
+        if _is_low_signal_poi(
+            p.name or "", p.tags or {}, (p.category or "").lower()
+        ):
+            continue
+        selected.append(p)
+        used.add(ref)
+        if len(selected) >= max_total:
+            break
 
     def _is_park_soft(p: POICandidate) -> bool:
         return _cat(p) in {"park", "garden", "viewpoint"}
+
+    def _is_must(p: POICandidate) -> bool:
+        return bool(_MUST_SEE_NAME_RE.search(p.name or ""))
 
     def _evict_for(
         incoming_is_food: bool,
@@ -1662,6 +1758,8 @@ def _ensure_meal_candidate_floor(
         sight_n = sum(1 for p in selected if _is_sight(p) and not _is_park_soft(p))
 
         def _can_drop(p: POICandidate) -> bool:
+            if _is_must(p):
+                return False
             if _is_food(p):
                 return food_n > need_food
             if _is_park_soft(p):
@@ -1680,32 +1778,29 @@ def _ensure_meal_candidate_floor(
         candidates = [p for p in selected if _can_drop(p)]
         if not candidates:
             if incoming_is_food:
-                candidates = [p for p in selected if not _is_food(p)]
+                candidates = [
+                    p for p in selected if not _is_food(p) and not _is_must(p)
+                ]
             elif incoming_is_park_soft:
                 candidates = [
                     p
                     for p in selected
-                    if not _is_food(p) and not _is_park_soft(p)
+                    if not _is_food(p)
+                    and not _is_park_soft(p)
+                    and not _is_must(p)
                 ]
             elif incoming_is_shop:
                 candidates = [
-                    p for p in selected if not _is_food(p) and not _is_shop(p)
+                    p
+                    for p in selected
+                    if not _is_food(p) and not _is_shop(p) and not _is_must(p)
                 ]
         if not candidates:
             return False
-        victim = min(
-            candidates,
-            key=lambda p: (
-                0
-                if (_is_sight(p) and not _is_park_soft(p))
-                or not (_is_food(p) or _is_shop(p) or _is_park_soft(p))
-                else 1,
-                p.rank_score or 0,
-                p.name or "",
-            ),
-        )
-        selected.remove(victim)
-        used.discard(_poi_key(victim))
+        # Drop lowest-score non-must first.
+        drop = min(candidates, key=lambda p: (float(p.rank_score or 0), p.name or ""))
+        selected = [p for p in selected if _poi_key(p) != _poi_key(drop)]
+        used.discard(_poi_key(drop))
         return True
 
     def _add_from(pool: list[POICandidate], pred, need: int) -> None:
@@ -1733,15 +1828,36 @@ def _ensure_meal_candidate_floor(
 
     pool = _dedupe_pois(list(full_pool))
     foods = sorted(
-        [p for p in pool if _is_food(p)],
+        [
+            p
+            for p in pool
+            if _is_food(p)
+            and not _is_low_signal_poi(
+                p.name or "", p.tags or {}, (p.category or "").lower()
+            )
+        ],
         key=lambda p: (-(p.rank_score or 0), p.name or ""),
     )
     shops = sorted(
-        [p for p in pool if _is_shop(p)],
+        [
+            p
+            for p in pool
+            if _is_shop(p)
+            and not _is_low_signal_poi(
+                p.name or "", p.tags or {}, (p.category or "").lower()
+            )
+        ],
         key=lambda p: (-(p.rank_score or 0), p.name or ""),
     )
     parks = sorted(
-        [p for p in pool if _is_park_soft(p)],
+        [
+            p
+            for p in pool
+            if _is_park_soft(p)
+            and not _is_low_signal_poi(
+                p.name or "", p.tags or {}, (p.category or "").lower()
+            )
+        ],
         key=lambda p: (-(p.rank_score or 0), p.name or ""),
     )
     _add_from(foods, _is_food, need_food)
@@ -1778,25 +1894,107 @@ def _distribute_days_for_meals(
 
     Aim for ≥2 foods/day when available (breakfast + dinner); allow a 3rd when
     the day still has room (lunch on balanced/packed).
+
+    Also pin ≥1 heritage and ≥1 park per day when the pool has them, so later
+    days are not left food-only.
     """
-    foods = [p for p in ranked if _is_food(p)]
-    shops = [p for p in ranked if _is_shop(p)]
-    rest = [p for p in ranked if not _is_food(p) and not _is_shop(p)]
+    from agent.mcp.poi_search import _MUST_SEE_NAME_RE, _is_low_signal_poi
+
+    clean = [
+        p
+        for p in ranked
+        if not _is_low_signal_poi(
+            p.name or "", p.tags or {}, (p.category or "").lower()
+        )
+    ]
+    foods = [p for p in clean if _is_food(p)]
+    shops = [p for p in clean if _is_shop(p)]
+    parks = [
+        p
+        for p in clean
+        if _cat(p) in {"park", "garden", "viewpoint"} and not _is_food(p)
+    ]
+    heritages = [
+        p
+        for p in clean
+        if _is_sight(p)
+        and _cat(p) not in {"park", "garden", "viewpoint"}
+        and not _is_shop(p)
+    ]
+    # Must-sees first within each bucket.
+    def _must_first(items: list[POICandidate]) -> list[POICandidate]:
+        return sorted(
+            items,
+            key=lambda p: (
+                0 if _MUST_SEE_NAME_RE.search(p.name or "") else 1,
+                -(p.rank_score or 0),
+                p.name or "",
+            ),
+        )
+
+    foods = _must_first(foods)
+    shops = _must_first(shops)
+    parks = _must_first(parks)
+    heritages = _must_first(heritages)
+    placed_keys: set[str] = set()
+    rest = [
+        p
+        for p in clean
+        if not _is_food(p)
+        and not _is_shop(p)
+        and _poi_key(p) not in {_poi_key(x) for x in parks + heritages}
+    ]
     groups: list[list[POICandidate]] = [[] for _ in range(num_days)]
     min_foods_per_day = 2 if len(foods) >= 2 * num_days else 1
 
     def _food_count(d: int) -> int:
         return sum(1 for x in groups[d] if _is_food(x))
 
-    def _place(p: POICandidate, *, is_food: bool = False) -> None:
+    def _heritage_count(d: int) -> int:
+        return sum(
+            1
+            for x in groups[d]
+            if _is_sight(x) and _cat(x) not in {"park", "garden", "viewpoint"}
+        )
+
+    def _park_count(d: int) -> int:
+        return sum(1 for x in groups[d] if _cat(x) in {"park", "garden", "viewpoint"})
+
+    def _place(
+        p: POICandidate,
+        *,
+        is_food: bool = False,
+        prefer_zero_heritage: bool = False,
+        prefer_zero_park: bool = False,
+    ) -> None:
+        ref = _poi_key(p)
+        if ref in placed_keys:
+            return
         if is_food:
-            # Prefer days still below the breakfast+dinner floor, then thinnest.
             day = min(
                 range(num_days),
                 key=lambda d: (
                     0 if _food_count(d) < min_foods_per_day else 1,
                     _food_count(d),
                     len(groups[d]),
+                ),
+            )
+        elif prefer_zero_heritage:
+            day = min(
+                range(num_days),
+                key=lambda d: (
+                    0 if _heritage_count(d) == 0 else 1,
+                    len(groups[d]),
+                    _food_count(d),
+                ),
+            )
+        elif prefer_zero_park:
+            day = min(
+                range(num_days),
+                key=lambda d: (
+                    0 if _park_count(d) == 0 else 1,
+                    len(groups[d]),
+                    _food_count(d),
                 ),
             )
         else:
@@ -1810,19 +2008,35 @@ def _distribute_days_for_meals(
             )
         if len(groups[day]) < stops_cap:
             groups[day].append(p)
+            placed_keys.add(ref)
             return
         for d in range(num_days):
             if len(groups[d]) < stops_cap:
                 groups[d].append(p)
+                placed_keys.add(ref)
                 return
 
+    # Pin one heritage + one park per day before flooding with meals.
+    for p in heritages:
+        if all(_heritage_count(d) >= 1 for d in range(num_days)):
+            break
+        _place(p, prefer_zero_heritage=True)
+    for p in parks:
+        if all(_park_count(d) >= 1 for d in range(num_days)):
+            break
+        _place(p, prefer_zero_park=True)
     for p in foods:
         _place(p, is_food=True)
     for p in shops:
         _place(p)
+    for p in heritages:
+        _place(p, prefer_zero_heritage=True)
+    for p in parks:
+        _place(p, prefer_zero_park=True)
     for p in rest:
         _place(p)
-    return [g[:stops_cap] for g in groups if g]
+    groups = [g[:stops_cap] for g in groups if g]
+    return _rebalance_day_interest_mix(groups, stops_cap=stops_cap)
 
 
 def _assign_blocks(
@@ -2024,40 +2238,82 @@ def build_itinerary(
         mode = "hybrid"
     notes.append(f"Itinerary selection_mode={mode}.")
 
-    # Honor Reviewer constraints
+    # Honor Reviewer constraints — trim density, but never rewrite the user's pace.
+    # (Old logic mapped "Reduce stops/travel" → relaxed, which hallucinated packed→relaxed.)
     effective_pace: Pace = pace
     stops_cap = STOPS_PER_DAY[pace]
-    if any("relax" in c or "reduce stop" in c or "reduce travel" in c for c in constraints_l):
-        effective_pace = "relaxed"
+    trim_for_feasibility = any(
+        "reduce stop" in c or "reduce travel" in c or "trim day" in c
+        for c in constraints_l
+    )
+    if trim_for_feasibility and pace == "packed":
+        # Stay packed (08:30 + densify); slightly fewer stops to fit the window.
+        stops_cap = max(8, STOPS_PER_DAY["packed"] // 2)
+        notes.append(
+            "Applied Reviewer feasibility trim within packed pace "
+            "(kept packed clocks/densify)."
+        )
+    elif trim_for_feasibility and pace == "moderate":
+        stops_cap = max(4, STOPS_PER_DAY["moderate"] - 1)
+        notes.append(
+            "Applied Reviewer feasibility trim within balanced pace."
+        )
+    elif trim_for_feasibility and pace == "relaxed":
         stops_cap = max(2, STOPS_PER_DAY["relaxed"] - 1)
         notes.append(
-            "Applied Reviewer constraints: reduced stops/travel for feasibility."
+            "Applied Reviewer feasibility trim within relaxed pace."
         )
-    if any("respect relaxed" in c for c in constraints_l):
+    if any("respect relaxed" in c for c in constraints_l) and pace == "relaxed":
         effective_pace = "relaxed"
         stops_cap = min(stops_cap, STOPS_PER_DAY["relaxed"])
 
-    # Traveler-profile constraints from Orchestrator
+    # Traveler-profile constraints from Orchestrator — soft-cap only; never
+    # override an explicit packed/moderate choice to relaxed.
     if any("kid_friendly" in c or "senior_friendly" in c for c in constraints_l):
-        effective_pace = "relaxed"
-        stops_cap = min(stops_cap, 3)
-        notes.append(
-            "Audience profile: fewer stops and relaxed pacing "
-            "(kid-friendly or senior-friendly)."
-        )
+        if pace == "packed":
+            stops_cap = min(stops_cap, 10)
+            notes.append(
+                "Audience profile: soft-capped stops but kept packed pace "
+                "(user-confirmed)."
+            )
+        else:
+            effective_pace = "relaxed"
+            stops_cap = min(stops_cap, 3)
+            notes.append(
+                "Audience profile: fewer stops and relaxed pacing "
+                "(kid-friendly or senior-friendly)."
+            )
     elif any("friends_friendly" in c for c in constraints_l):
         if pace != "relaxed":
-            effective_pace = "packed"
-            stops_cap = max(stops_cap, STOPS_PER_DAY["packed"])
+            effective_pace = "packed" if pace == "packed" else pace
+            if pace == "packed":
+                stops_cap = max(stops_cap, STOPS_PER_DAY["packed"])
         notes.append("Audience profile: friends-friendly — denser day packing.")
     elif any("couple_friendly" in c for c in constraints_l):
         if pace == "packed":
-            effective_pace = "moderate"
-            stops_cap = STOPS_PER_DAY["moderate"]
-        notes.append("Audience profile: couple-friendly — moderate scenic pacing.")
+            # Soft-cap only — do not demote confirmed packed to moderate.
+            stops_cap = min(stops_cap, 12)
+            notes.append(
+                "Audience profile: couple-friendly soft-cap; kept packed pace."
+            )
+        else:
+            notes.append("Audience profile: couple-friendly — moderate scenic pacing.")
 
     # Drop avoided categories when profile asks
-    filtered_pois = list(candidate_pois)
+    from agent.mcp.poi_search import _is_low_signal_poi
+
+    filtered_pois = [
+        p
+        for p in candidate_pois
+        if not _is_low_signal_poi(
+            p.name or "", p.tags or {}, (p.category or "").lower()
+        )
+    ]
+    if len(filtered_pois) < len(candidate_pois):
+        notes.append(
+            f"Dropped {len(candidate_pois) - len(filtered_pois)} low-signal POIs "
+            "(generic/junk names)."
+        )
     if any("avoid nightlife" in c or "kid_friendly" in c or "senior_friendly" in c for c in constraints_l):
         before = len(filtered_pois)
         filtered_pois = [

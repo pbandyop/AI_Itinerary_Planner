@@ -201,6 +201,19 @@ _JAIPUR_PARK_NAME_QUERIES = (
     "Nehru Park Jaipur",
 )
 
+# Famous Jaipur heritage — pin must-sees when Overpass is thin/flaky.
+_JAIPUR_HERITAGE_NAME_QUERIES = (
+    "Hawa Mahal Jaipur",
+    "City Palace Jaipur",
+    "Jantar Mantar Jaipur",
+    "Amber Fort Jaipur",
+    "Amer Fort Jaipur",
+    "Nahargarh Fort Jaipur",
+    "Jaigarh Fort Jaipur",
+    "Jal Mahal Jaipur",
+    "Albert Hall Museum Jaipur",
+)
+
 
 def nominatim_category_search(
     *,
@@ -260,6 +273,11 @@ def nominatim_category_search(
         if ref in seen:
             return
         seen.add(ref)
+        score = 7.0
+        if category == "heritage" and _MUST_SEE_NAME_RE.search(name):
+            score = 18.0
+        elif category == "garden" and _MUST_SEE_NAME_RE.search(name):
+            score = 18.0
         pois.append(
             POICandidate(
                 name=name,
@@ -269,7 +287,7 @@ def nominatim_category_search(
                 lon=lon,
                 category=category,
                 tags={"source": "nominatim", "amenity": interest_key},
-                rank_score=7.0,
+                rank_score=score,
                 matched_interests=[interest.lower()],
             )
         )
@@ -300,6 +318,36 @@ def nominatim_category_search(
                 for row in rows:
                     if isinstance(row, dict):
                         _append_row(row, category="garden", interest_key="park")
+
+        # For heritage: pin Jaipur must-sees by name.
+        if interest.lower().strip() in {
+            "heritage",
+            "culture",
+            "history",
+        } and info.name.lower() == "jaipur":
+            for q in _JAIPUR_HERITAGE_NAME_QUERIES:
+                if len(pois) >= limit:
+                    break
+                params = {
+                    "q": q,
+                    "format": "jsonv2",
+                    "addressdetails": 0,
+                    "limit": 2,
+                    "countrycodes": "in",
+                }
+                try:
+                    logger.info("Nominatim heritage name q=%s", q)
+                    resp = client.get(_NOMINATIM_URL, params=params)
+                    resp.raise_for_status()
+                    rows = resp.json()
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("Nominatim heritage name failed q=%s: %s", q, exc)
+                    continue
+                if not isinstance(rows, list):
+                    continue
+                for row in rows:
+                    if isinstance(row, dict):
+                        _append_row(row, category="heritage", interest_key="heritage")
 
         for amenity in amenity_keys:
             if len(pois) >= limit:
@@ -374,7 +422,45 @@ def _category_from_tags(tags: dict[str, str]) -> str:
         return "park"
     if leisure and ("garden" in name or "bagh" in name):
         return "garden"
+    # Forts/palaces/must-sees before shop — OSM gift shops inside Amber Fort
+    # often have shop=* and were mislabeled "market".
+    if _MUST_SEE_NAME_RE.search(name) and (
+        re.search(r"\b(fort|palace|mahal|qila|garh|museum|mandir|temple)\b", name, re.I)
+        or _looks_like_heritage_name(name)
+    ):
+        if re.search(r"\b(museum|gallery)\b", name, re.I) or tourism in {
+            "museum",
+            "gallery",
+        }:
+            return "museum"
+        if re.search(r"\b(mandir|temple|masjid|mosque)\b", name, re.I):
+            return "temple"
+        return "heritage"
+    if (
+        historic
+        in {
+            "castle",
+            "fort",
+            "palace",
+            "monument",
+            "memorial",
+            "ruins",
+            "archaeological_site",
+            "citywalls",
+            "city_gate",
+            "tower",
+            "manor",
+        }
+        or tourism in {"castle", "monument"}
+    ):
+        if not _is_low_signal_heritage_name(name):
+            return "heritage"
     if shop or "bazaar" in name or "market" in name:
+        # Never classify a named fort/palace as a market.
+        if _looks_like_heritage_name(name) and not (
+            "bazaar" in name or "market" in name or "bazar" in name
+        ):
+            return "heritage"
         return "market"
     # Never treat civic/commercial amenities as heritage even if OSM marks historic.
     if amenity in {
@@ -473,8 +559,11 @@ _HERITAGE_NAME_RE = re.compile(
 _LOW_SIGNAL_FOOD_RE = re.compile(
     r"\b("
     r"canteen|mess\b|tiffin|dhaba\s*no|hotel\s*and\s*restaurant|"
-    r"cafe\s*coffee\s*day|\bccd\b|domino|mcdonald|kfc\b|subway|"
-    r"pizza\s*hut|starbucks|burger\s*king|haldiram'?s?\s*express"
+    r"cafe\s*coffee\s*day|\bccd\b|coffey\s*day|coffee\s*day|"
+    r"domino|mcdonald|kfc\b|subway|"
+    r"pizza\s*hut|starbucks|burger\s*king|haldiram'?s?\s*express|"
+    r"cheap\s+food|food\s+places?|street\s+food\s+stall|"
+    r"food\s+court|unknown\s+restaurant|unnamed\s+restaurant"
     r")\b",
     re.I,
 )
@@ -578,7 +667,8 @@ _GENERIC_PLACE_NAME_RE = re.compile(
     r"fort|palace|museum|gallery|temple|mandir|park|garden|zoo|"
     r"market|marketplace|shop|store|mall|attraction|viewpoint|"
     r"monument|memorial|ruins|gate|building|place|unnamed|unknown|"
-    r"food|eatery|dhaba|bakery"
+    r"food|eatery|dhaba|bakery|"
+    r"cheap\s+food\s+places?|food\s+places?"
     r")s?$",
     re.I,
 )
@@ -627,12 +717,18 @@ def _is_low_signal_poi(name: str, tags: dict[str, str], category: str) -> bool:
             return True
         if len(n.strip()) < 4:
             return True
-    if cat == "food":
-        if _LOW_SIGNAL_FOOD_RE.search(n):
-            return True
+    # Junk food stubs (any category — OSM often mis-tags cafés).
+    if _LOW_SIGNAL_FOOD_RE.search(n):
+        return True
+    if cat in {"food", "cafe", "restaurant"} and len(n.strip()) < 4:
+        return True
     if cat in {"market", "shopping"}:
-        # Prefer bazaars; drop random jewelry/brand showrooms unless must-see.
-        if _MUST_SEE_NAME_RE.search(n) or _TOURIST_MARKET_RE.search(n):
+        # Prefer bazaars; never keep forts/palaces mis-tagged as markets.
+        if _MUST_SEE_NAME_RE.search(n) and re.search(
+            r"\b(fort|palace|mahal|qila|garh|museum)\b", n, re.I
+        ):
+            return True  # drop — wrong category; heritage copy should win
+        if _TOURIST_MARKET_RE.search(n):
             return False
         if _LOW_SIGNAL_MARKET_RE.search(n):
             return True
@@ -644,6 +740,7 @@ def _is_low_signal_poi(name: str, tags: dict[str, str], category: str) -> bool:
             # Keep named malls; drop generic single shops when no bazaar cue.
             if not (tags.get("wikidata") or tags.get("wikipedia")):
                 return True
+        return False
     return False
 
 
@@ -1186,8 +1283,8 @@ def poi_search(
                 p.name or "", p.tags or {}, (p.category or "").lower()
             )
         )
-        # Parks are junk-heavy in OSM — top up until a few tourist gardens exist.
-        min_needed = 3 if key in {"park", "garden"} else 1
+        # Parks/heritage are junk-heavy or flaky — top up until icons exist.
+        min_needed = 3 if key in {"park", "garden", "heritage", "culture", "history"} else 1
         if quality_hits >= min_needed:
             continue
         try:
@@ -1214,8 +1311,10 @@ def poi_search(
                 p.name or "", p.tags or {}, (p.category or "").lower()
             ):
                 continue
-            # Named park queries get a must-see boost.
-            if key in {"park", "garden"} and _MUST_SEE_NAME_RE.search(p.name or ""):
+            # Named park/heritage queries get a must-see boost.
+            if key in {"park", "garden", "heritage", "culture", "history"} and (
+                _MUST_SEE_NAME_RE.search(p.name or "")
+            ):
                 p.rank_score = max(float(p.rank_score or 0), 18.0)
             pois.append(p)
             existing.add(ref)
