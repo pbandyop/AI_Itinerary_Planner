@@ -520,17 +520,8 @@ def _answer_knowledge_query(
                 message.lower(),
             )
         )
-        _HOUR_CLOCK_RE = re.compile(
-            # Guides often write "9AM-5PM" with no space after the digit
-            # (\\b does not fire between digit and letter).
-            r"\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)\b"
-            r"(?:\s*[-–]\s*\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)\b)?|"
-            r"\b(?:mo|tu|we|th|fr|sa|su|mon|tue|wed|thu|fri|sat|sun)"
-            r"[a-z]*\s*[-–]\s*"
-            r"(?:mo|tu|we|th|fr|sa|su|mon|tue|wed|thu|fri|sat|sun)"
-            r"[a-z]*.{0,40}\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)\b",
-            re.I,
-        )
+        from agent.rag.hours import HOUR_CLOCK_RE as _HOUR_CLOCK_RE
+
         # Prefer snippets that mention the asked place when possible
         snippets = list(result.snippets)
         place_matched = False

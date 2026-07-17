@@ -2,17 +2,26 @@
 
 The companion UI lives in `apps/web`. Browser calls go to same-origin `/api/agent/*`, which Next.js rewrites to the Railway agent (`AGENT_BASE_URL` / `NEXT_PUBLIC_AGENT_BASE_URL`).
 
+## Project settings (important)
+
+This project is configured so the Vercel **Root Directory is empty (`.`)** and you deploy **from `apps/web`**.
+
+Do **not** set Root Directory to `apps/web`. That makes Vercel look for `apps/web/apps/web` when the CLI uploads from inside `apps/web`, and fails with:
+
+> The specified Root Directory "apps/web" does not exist
+
+GitHub auto-deploy is disabled for this project (monorepo root has no Next.js app). Use the CLI below after each web change.
+
 ## Quick path (CLI)
 
 From **`apps/web`**:
 
 ```bash
+cd apps/web
 npx vercel login
+npx vercel link   # itinerary-planner-web; Root Directory must stay empty / "."
 
-# Link / create project (Root Directory = apps/web if linking from repo root)
-npx vercel link
-
-# Production env (set before first production deploy)
+# Production env (once)
 npx vercel env add AGENT_BASE_URL production
 # paste: https://agent-production-1675.up.railway.app
 
@@ -26,16 +35,10 @@ npx vercel env add N8N_WEBHOOK_URL production
 npx vercel --prod
 ```
 
-Or from the **repo root** with an explicit path:
-
-```bash
-npx vercel --prod --cwd apps/web
-```
-
-## Dashboard path
+## Dashboard path (first-time import)
 
 1. [vercel.com/new](https://vercel.com/new) → Import `AI_Itinerary_Planner`
-2. **Root Directory** → `apps/web`
+2. **Root Directory** → leave **empty**, or pick `apps/web` *only if* you will always deploy via Git from the monorepo (not via CLI from `apps/web`)
 3. Environment variables (Production + Preview):
 
 | Name | Value |
@@ -44,7 +47,7 @@ npx vercel --prod --cwd apps/web
 | `NEXT_PUBLIC_AGENT_BASE_URL` | same as above |
 | `N8N_WEBHOOK_URL` | optional n8n production webhook |
 
-4. Deploy
+4. Deploy (or use CLI from `apps/web` as above)
 
 **Live (this project):** https://itinerary-planner-web-seven.vercel.app  
 **Agent:** https://agent-production-1675.up.railway.app
@@ -70,3 +73,4 @@ npx vercel --prod --cwd apps/web
 - Railway closes HTTP with **no bytes for ~5 minutes**. The client uses `Accept: application/x-ndjson` so `/invoke` streams keepalive pings during long Overpass/LLM/revise runs.
 - `next.config.ts` still rewrites `/api/agent` for local/dev; change the Railway URL → redeploy the web app so `NEXT_PUBLIC_*` is baked in.
 - Do not commit `.env.local` or API keys.
+- Do not commit `.vercel/` (local link only).

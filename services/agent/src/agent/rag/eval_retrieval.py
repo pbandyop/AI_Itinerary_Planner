@@ -93,10 +93,9 @@ def rerank_none(query: str, docs: list[Document], k: int) -> list[Document]:
 
 
 def _hours_signals(hay: str) -> bool:
-    return bool(
-        "opening hours" in hay
-        or re.search(r"\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?|am|pm)", hay)
-    )
+    from agent.rag.hours import has_hour_clock
+
+    return has_hour_clock(hay)
 
 
 def rerank_place_boost(query: str, docs: list[Document], k: int) -> list[Document]:
@@ -162,9 +161,11 @@ def rerank_dataset_aware(query: str, docs: list[Document], k: int) -> list[Docum
         if places and not matched:
             s -= 20.0
         if hours_q:
+            from agent.rag.hours import has_hour_clock
+
             if "opening hours" in hay:
                 s += 20.0
-            if re.search(r"\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?|am|pm)", hay):
+            if has_hour_clock(hay):
                 s += 15.0
             if ds == "google_places" and _hours_signals(hay):
                 s += 50.0

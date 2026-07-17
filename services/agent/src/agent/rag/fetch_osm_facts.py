@@ -64,11 +64,32 @@ def _build_fact_text(name: str, tags: dict[str, Any], osm_type: str, osm_id: int
     return " ".join(lines)
 
 
-def fetch_osm_facts(*, limit: int = 250) -> Path:
+# Food / drink amenities to pull into RAG (bars were previously excluded).
+_FOOD_AMENITY_RE = (
+    r"cafe|restaurant|fast_food|bar|pub|biergarten|food_court|"
+    r"ice_cream|place_of_worship"
+)
+_FOOD_AMENITIES = frozenset(
+    {
+        "cafe",
+        "restaurant",
+        "fast_food",
+        "bar",
+        "pub",
+        "biergarten",
+        "food_court",
+        "ice_cream",
+        "place_of_worship",
+    }
+)
+
+
+def fetch_osm_facts(*, limit: int = 500) -> Path:
     s, w, n, e = JAIPUR_BBOX
-    # Prefer elements that have useful tip/hours fields; also keep notable named tourism.
+    # Prefer elements that have useful tip/hours fields; also keep notable named tourism
+    # and food/drink amenities (cafe/restaurant/bar/pub/…).
     query = f"""
-    [out:json][timeout:90];
+    [out:json][timeout:120];
     (
       node["name"]["opening_hours"]({s},{w},{n},{e});
       way["name"]["opening_hours"]({s},{w},{n},{e});
@@ -78,12 +99,24 @@ def fetch_osm_facts(*, limit: int = 250) -> Path:
       way["name"]["tourism"~"attraction|museum|viewpoint|theme_park|zoo|hotel"]({s},{w},{n},{e});
       node["name"]["historic"]({s},{w},{n},{e});
       way["name"]["historic"]({s},{w},{n},{e});
-      node["name"]["amenity"~"cafe|restaurant|place_of_worship"]({s},{w},{n},{e});
-      way["name"]["amenity"~"cafe|restaurant|place_of_worship"]({s},{w},{n},{e});
+      node["name"]["amenity"~"{_FOOD_AMENITY_RE}"]({s},{w},{n},{e});
+      way["name"]["amenity"~"{_FOOD_AMENITY_RE}"]({s},{w},{n},{e});
     );
     out center tags;
     """
-    elements = fetch_overpass(query, timeout=100.0)
+    elements = fetch_overpass(query, timeout=120.0)
+    # Prefer hours cards and food amenities so the limit does not fill with
+    # historic/tourism nodes alone.
+    def _el_rank(el: dict[str, Any]) -> tuple[int, int, str]:
+        tags = el.get("tags") or {}
+        amenity = str(tags.get("amenity") or "").strip().lower()
+        return (
+            0 if tags.get("opening_hours") else 1,
+            0 if amenity in _FOOD_AMENITIES else 1,
+            str(tags.get("name") or ""),
+        )
+
+    elements = sorted(elements, key=_el_rank)
     places: list[dict[str, Any]] = []
     seen: set[str] = set()
     for el in elements:
@@ -98,7 +131,8 @@ def fetch_osm_facts(*, limit: int = 250) -> Path:
         key = f"{osm_type}/{osm_id}"
         if key in seen:
             continue
-        # Require at least one useful field OR tourism/historic
+        amenity = str(tags.get("amenity") or "").strip().lower()
+        # Require tip/hours/tourism signal, or a named food/drink amenity.
         useful = any(
             tags.get(k)
             for k in (
@@ -108,7 +142,7 @@ def fetch_osm_facts(*, limit: int = 250) -> Path:
                 "historic",
                 "wikipedia",
             )
-        )
+        ) or amenity in _FOOD_AMENITIES
         if not useful:
             continue
         seen.add(key)

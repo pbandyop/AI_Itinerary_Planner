@@ -238,6 +238,8 @@ def _place_boost_score(text: str, places: list[str], doc: Document | None = None
             score += 20
         if "am-" in low or "am–" in low or re.search(r"\d+\s*am\s*[-–]\s*\d+\s*pm", low):
             score += 3
+        if re.search(r"\b\d{1,2}:\d{2}\s*(?:[-–]|to)\s*\d{1,2}:\d{2}\b", low):
+            score += 3
         if "opening hours" in low:
             score += 5
     if matched and doc is not None:
@@ -605,10 +607,9 @@ def _dataset_aware_rerank(
         if places and not matched:
             s -= 25.0
         if hours_q:
-            has_hours = bool(
-                "opening hours" in h
-                or re.search(r"\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?|am|pm)", h)
-            )
+            from agent.rag.hours import has_hour_clock
+
+            has_hours = has_hour_clock(h)
             if "opening hours" in h:
                 s += 20.0
             if has_hours:

@@ -10,9 +10,9 @@
 |--------|------|-----------------|
 | Wikivoyage | `corpus/jaipur.json` | CC BY-SA 4.0 |
 | Wikipedia place pages | `corpus/wikipedia/*.json` | CC BY-SA 4.0 |
-| OpenStreetMap fact cards | `corpus/osm/jaipur_osm_facts.json` | ODbL 1.0 (`description`, `opening_hours`, …) |
+| OpenStreetMap fact cards | `corpus/osm/jaipur_osm_facts.json` | ODbL 1.0 (`description`, `opening_hours`, …); amenities include cafe/restaurant/bar/pub/fast_food (limit 500) |
 | Rajasthan Tourism | `corpus/tourism/jaipur_tourism.json` | Official site extracts (cited) |
-| Google Places | `corpus/google/jaipur_places.json` | API when `GOOGLE_PLACES_API_KEY` is set (no HTML scrape) |
+| Google Places | `corpus/google/jaipur_places.json` | API when `GOOGLE_PLACES_API_KEY` is set (no HTML scrape); default cap **900** places (`python -m agent.rag.fetch_google_places`) |
 | Curated demo places | `corpus/curated/jaipur_places.json` | Hand-curated stubs + aliases (not scraped TripAdvisor) |
 
 ## Build & eval
