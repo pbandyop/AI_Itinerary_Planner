@@ -44,7 +44,7 @@ Companion UI (transcript · pipeline log · day blocks · sources)
 
 **Ownership split**
 - **Itinerary Agent** — plan optimization *and* **scoped voice edits** via `apply_edit_patch` (only target day/block changes; other days copied). Pace budgets: **relaxed ≤4**, **moderate ≤6**, **packed ≤11** stops/day when POIs allow; ideal block splits (relaxed **2-1-1**, moderate **2-2-2**, packed up to **4+4+3** with dinner last). Meal rules when food + other interests: breakfast-first, dinner-last; evening soft stops (market/shopping/park) only when the user chose matching interests. **`reassert_meal_pace_layout`** runs after optimize/LLM reshuffles; **`ensure_interest_coverage`** post-pack guard restores any missing stated interest (e.g. park) from live POI pool. Travel legs get distance + walk/car mode.
-- **Synthesis Agent** — presentation; for explain, grounds answers in place-matched RAG tips (or honest “no citation”), day load / pace, weather adjustments; attaches place-matched stop citations (never random round-robin Wikivoyage cites).
+- **Synthesis Agent** — presentation; for explain, grounds answers in place-matched RAG tips (or honest “no citation”); for plan/edit attaches OSM stop + weather + travel sources only (no topic-RAG dump).
 - **Orchestrator** — clarify (max 6), **confirm before generate**, dispatch waves; **also** answers standalone Weather MCP and Knowledge RAG tip questions (safety / etiquette / areas / POI tips / **opening hours**) with **`(Source: Title - URL)`** citations or explicit missing-data refusals.
 - **Reviewer** — structured feedback (`target_agent` + `constraints`), not free-form inter-agent chat
 
@@ -70,19 +70,20 @@ Example execution plan object:
 ```json
 {
   "waves": [
-    ["poi_agent", "weather_agent", "knowledge_agent"],
+    ["poi_agent", "weather_agent"],
     ["travel_time_agent"],
     ["itinerary_agent"]
   ],
   "success_criteria": [
     "poi_candidates",
     "travel_times_available",
-    "citations_present",
     "weather_adjustments",
     "itinerary_complete"
   ]
 }
 ```
+
+`knowledge_agent` runs on **explain** / place-tip questions only (not during itinerary generation).
 
 ### Runtime split: LangGraph vs LangChain
 
@@ -104,7 +105,7 @@ Example execution plan object:
 | **Itinerary Agent** | `itinerary_agent` | No | Itinerary Builder MCP + optimizer | **Owns** move/skip/reorder; best draft + `optimization_reasoning` |
 | **Travel-Time Agent** | `travel_time_agent` | No | Travel Time Estimator MCP | Legs among POI candidates (before itinerary) |
 | **Weather Agent** | `weather_agent` | No | Weather Adjustment MCP (Open-Meteo) | Rain risk + indoor/outdoor context |
-| **Knowledge Agent** | `knowledge_agent` | No | LangChain RAG retriever | Tips + citations for plan/explain waves |
+| **Knowledge Agent** | `knowledge_agent` | No | LangChain RAG retriever | Tips + citations for **explain** / place Q&A only (not plan waves) |
 | **Synthesis** | `synthesis_agent` | No* | No MCP | **Presentation only**: citations, schema, narrative, `user_reply` |
 | **Reviewer** | `reviewer` | No | No MCP | **Autonomous gate**: `{status, reason, target_agent, constraints}` |
 \*Synthesis may set `user_reply` but does not run clarification dialogue — that stays with Orchestrator.
@@ -122,8 +123,8 @@ START → orchestrator
                                             → waves_for_revision(target) → … → merger → reviewer
 ```
 
-**Default plan waves (workflow):** `[poi ∥ knowledge ∥ weather] → [travel_time] → [itinerary]`.  
-**Explain:** `[knowledge]` or `[knowledge ∥ weather]` (rain).  
+**Default plan waves (workflow):** `[poi ∥ weather] → [travel_time] → [itinerary]`.  
+**Explain:** `[knowledge]` or `[knowledge ∥ weather]` (rain). RAG is **not** part of plan generation.  
 **Edit:** `[itinerary]` or `[poi] → [itinerary]` (add food / indoor); weather first when indoor/rain.  
 **Revise (Reviewer-directed):** e.g. target `itinerary_agent` → `[itinerary]`.
 

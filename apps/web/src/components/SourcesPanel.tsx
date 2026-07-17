@@ -70,7 +70,7 @@ export default function SourcesPanel({ sources }: { sources: Source[] }) {
           <h2>References</h2>
           <p className={styles.sub}>
             {expanded
-              ? "Cited sources for tips and facts — Wikivoyage, OpenStreetMap, weather, and related datasets."
+              ? "Stops on this plan (OSM), weather, and travel times — or guide tips when you ask about a place."
               : `${sources.length} source${sources.length === 1 ? "" : "s"} · click to expand`}
           </p>
         </header>

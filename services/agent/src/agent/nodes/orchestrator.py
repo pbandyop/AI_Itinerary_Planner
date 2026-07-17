@@ -2115,6 +2115,9 @@ def _start_agent_loop(
         out["edit_patch"] = dump(primary)
     if patches:
         out["edit_patches"] = [dump(p) for p in patches]
+    # Plan/edit: clear stale RAG so Synthesis References stay POI/weather/travel only.
+    if intent in {"plan", "edit"}:
+        out["knowledge_results"] = None
     if extra:
         out.update(extra)
     else:

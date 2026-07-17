@@ -599,7 +599,25 @@ def _format_readable_itinerary(
     return "\n".join(lines).strip()
 
 
-def _collect_sources(*, knowledge, weather, itinerary: Itinerary) -> list[Source]:
+def _is_osm_citation(c: Source) -> bool:
+    if (c.dataset or "") == "openstreetmap":
+        return True
+    return bool(re.match(r"^(node|way|relation)/\d+$", c.source_id or ""))
+
+
+def _collect_sources(
+    *,
+    knowledge,
+    weather,
+    travel,
+    itinerary: Itinerary,
+    include_rag: bool,
+) -> list[Source]:
+    """Build References panel sources.
+
+    Plan/edit: displayed-stop OSM links + weather (if shown) + travel-time
+    attribution. Explain/RAG turns: include knowledge citations.
+    """
     sources: list[Source] = []
     seen: set[str] = set()
 
@@ -610,31 +628,85 @@ def _collect_sources(*, knowledge, weather, itinerary: Itinerary) -> list[Source
         seen.add(key)
         sources.append(src)
 
-    add(
-        Source(
-            title="OpenStreetMap via Overpass",
-            url="https://www.openstreetmap.org",
-            dataset="openstreetmap",
-            snippet="POIs resolved to osm_type/osm_id records.",
-        )
-    )
-    if knowledge:
+    if include_rag and knowledge:
         for s in sources_from_knowledge(knowledge):
             add(s)
-    if weather and not weather.missing_data:
+
+    if weather and not weather.missing_data and getattr(weather, "days", None):
         add(
             Source(
                 title="Open-Meteo Forecast",
                 url="https://open-meteo.com/",
                 dataset="open-meteo",
                 snippet="Daily weather used for rain-risk context.",
+                source_id="open-meteo",
             )
         )
+
+    if travel and getattr(travel, "legs", None):
+        add(
+            Source(
+                title="Travel time estimates",
+                url="https://www.openstreetmap.org/",
+                dataset="openstreetmap",
+                snippet="Leg times from OSM coordinates (haversine / mode heuristics).",
+                source_id="travel-time-mcp",
+            )
+        )
+
+    # POI sources: only stops on the displayed itinerary (OSM grounding).
     for day in itinerary.days:
         for stop in day.all_stops:
-            for c in stop.citations:
-                add(c)
+            osm_cites = [
+                c for c in (stop.citations or []) if _is_osm_citation(c)
+            ]
+            if osm_cites:
+                c0 = osm_cites[0]
+                add(
+                    Source(
+                        title=stop.name or c0.title,
+                        url=c0.url,
+                        dataset="openstreetmap",
+                        snippet=c0.snippet
+                        or f"{stop.name} ({stop.category or 'poi'})",
+                        source_id=c0.source_id
+                        or f"{stop.osm_type}/{stop.osm_id}",
+                    )
+                )
+            elif stop.osm_type and stop.osm_id is not None:
+                add(
+                    Source(
+                        title=stop.name or f"OSM {stop.osm_type}/{stop.osm_id}",
+                        url=(
+                            f"https://www.openstreetmap.org/"
+                            f"{stop.osm_type}/{stop.osm_id}"
+                        ),
+                        dataset="openstreetmap",
+                        snippet=f"{stop.name} ({stop.category or 'poi'})",
+                        source_id=f"{stop.osm_type}/{stop.osm_id}",
+                    )
+                )
     return sources
+
+
+def _strip_rag_citations_from_days(days: list) -> list:
+    """Keep OSM stop grounding only — drop leftover RAG cites from prior turns."""
+    out = []
+    for day in days:
+        d = day.model_copy(deep=True)
+        for block_name in ("morning", "afternoon", "evening"):
+            block: TimeBlock = getattr(d, block_name)
+            new_stops: list[Stop] = []
+            for stop in block.stops:
+                osm_only = [c for c in (stop.citations or []) if _is_osm_citation(c)]
+                new_stops.append(stop.model_copy(update={"citations": osm_only}))
+            setattr(
+                d,
+                block_name,
+                TimeBlock(time_of_day=block_name, stops=new_stops, notes=block.notes),
+            )
+        out.append(d)
+    return out
 
 
 def _trace_append(state: GraphState, entry: dict[str, Any]) -> list[dict[str, Any]]:
@@ -1008,7 +1080,7 @@ def synthesis_node(state: GraphState) -> dict[str, Any]:
                         )
                     }
                 )
-        days = _attach_knowledge_to_stops(list(source_itin.days), knowledge)
+        days = _strip_rag_citations_from_days(list(source_itin.days))
         mutate_days = {int(p.target.day) for p in patches}
         # Only restamp travel on edited day(s) — other days stay byte-identical.
         days, travel_stamped = _stamp_travel_via_mcp(
@@ -1054,7 +1126,11 @@ def synthesis_node(state: GraphState) -> dict[str, Any]:
         )
         composed = _ensure_stop_uncertainty(composed)
         sources = _collect_sources(
-            knowledge=knowledge, weather=weather, itinerary=composed
+            knowledge=None,
+            weather=weather,
+            travel=travel_stamped,
+            itinerary=composed,
+            include_rag=False,
         )
         composed = composed.model_copy(
             update={"sources": sources, "summary": None}
@@ -1144,15 +1220,14 @@ def synthesis_node(state: GraphState) -> dict[str, Any]:
     uncertainty: list[str] = []
     if draft.notes:
         uncertainty.append(draft.notes)
-    if knowledge and knowledge.notes:
-        uncertainty.append(knowledge.notes)
+    # Plan path: do not surface topic-RAG notes (knowledge is explain-only).
     if weather and weather.notes:
         uncertainty.append(weather.notes)
     if travel and travel.notes:
         uncertainty.append(travel.notes)
 
-    # Presentation only: attach citations / travel labels; do not reorder
-    days = _attach_knowledge_to_stops(list(draft.days), knowledge)
+    # Presentation only: OSM-grounded stops + travel labels; no RAG attach on plan.
+    days = _strip_rag_citations_from_days(list(draft.days))
     days, travel_stamped = _stamp_travel_via_mcp(days, pace=trip.pace)
     if travel and getattr(travel, "legs", None) and not travel_stamped.legs:
         days = _apply_travel_times(days, travel)
@@ -1185,7 +1260,11 @@ def synthesis_node(state: GraphState) -> dict[str, Any]:
     )
     itinerary = _ensure_stop_uncertainty(itinerary)
     sources = _collect_sources(
-        knowledge=knowledge, weather=weather, itinerary=itinerary
+        knowledge=None,
+        weather=weather,
+        travel=travel_stamped,
+        itinerary=itinerary,
+        include_rag=False,
     )
     itinerary = itinerary.model_copy(update={"sources": sources})
 

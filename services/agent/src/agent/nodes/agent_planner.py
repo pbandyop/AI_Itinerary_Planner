@@ -34,7 +34,8 @@ VALID_AGENTS: set[str] = {
 }
 
 # Hard dependencies: agent → must complete in an earlier wave
-# Travel estimates among POIs first; Itinerary optimizes using travel + weather + knowledge.
+# Travel estimates among POIs first; Itinerary optimizes using travel + weather.
+# RAG (knowledge_agent) is explain/Q&A only — not part of plan generation.
 _DEPENDS_ON: dict[str, set[str]] = {
     "travel_time_agent": {"poi_agent"},
     "itinerary_agent": {"poi_agent", "travel_time_agent"},
@@ -157,7 +158,8 @@ def heuristic_agent_waves(
         if "indoor" in lower or "rain" in lower:
             return [["weather_agent"], ["itinerary_agent"]]
         return [["itinerary_agent"]]
-    # plan: Wave1 POI∥Knowledge∥Weather → Wave2 Travel → Wave3 Itinerary
+    # plan: Wave1 POI∥Weather → Wave2 Travel → Wave3 Itinerary
+    # knowledge_agent is explain-only (place tips / hours), not plan generation.
     has_poi = bool(state.get("poi_results"))
     has_draft = bool(state.get("itinerary_draft"))
     has_travel = bool(state.get("travel_time_results"))
@@ -165,7 +167,7 @@ def heuristic_agent_waves(
     wave1: list[AgentName] = []
     if not has_poi:
         wave1.append("poi_agent")
-    wave1.extend(["knowledge_agent", "weather_agent"])
+    wave1.append("weather_agent")
     if wave1:
         waves.append(wave1)
     if not has_travel:
@@ -207,20 +209,22 @@ def llm_agent_waves(
         "travel_time_agent. "
         "Dependencies: travel_time_agent and itinerary_agent need poi_agent first "
         "(unless POIs exist). itinerary_agent is the OPTIMIZER — it should run AFTER "
-        "poi, weather, knowledge, and travel when possible. "
-        "knowledge_agent and weather_agent can share a wave with poi_agent. "
+        "poi, weather, and travel when possible. "
+        "knowledge_agent is ONLY for explain / place tips / hours — NEVER include it "
+        "on plan or edit waves. weather_agent can share a wave with poi_agent. "
         "explain → knowledge_agent (+ weather_agent if rain, same wave). "
         "edit → itinerary_agent (+ weather_agent first if rain/indoor). "
         "plan → typically "
-        '[["poi_agent","knowledge_agent","weather_agent"], ["travel_time_agent"], '
+        '[["poi_agent","weather_agent"], ["travel_time_agent"], '
         '["itinerary_agent"]]. '
         'Also return success_criteria from: '
-        "poi_candidates, travel_times_available, citations_present, "
-        "weather_adjustments, itinerary_complete. "
-        'Return ONLY JSON: {"waves": [["poi_agent","weather_agent","knowledge_agent"], '
+        "poi_candidates, travel_times_available, "
+        "weather_adjustments, itinerary_complete "
+        "(use citations_present only for explain). "
+        'Return ONLY JSON: {"waves": [["poi_agent","weather_agent"], '
         '["travel_time_agent"], ["itinerary_agent"]], '
         '"success_criteria": ["poi_candidates","travel_times_available",'
-        '"citations_present","weather_adjustments","itinerary_complete"], '
+        '"weather_adjustments","itinerary_complete"], '
         '"reason": "..."}'
     )
     human = (
@@ -274,6 +278,20 @@ def llm_agent_waves(
     return None
 
 
+def _strip_knowledge_from_plan_waves(
+    waves: list[list[AgentName]], *, intent: str
+) -> list[list[AgentName]]:
+    """RAG is explain-only — never dispatch knowledge_agent on plan/edit."""
+    if intent == "explain":
+        return waves
+    cleaned: list[list[AgentName]] = []
+    for wave in waves:
+        kept = [a for a in wave if a != "knowledge_agent"]
+        if kept:
+            cleaned.append(kept)
+    return cleaned
+
+
 def plan_agent_waves(
     *,
     intent: str,
@@ -299,18 +317,23 @@ def plan_agent_waves(
     # inline for add/indoor edits. Expanding deps caused long Overpass hangs → 500.
     if intent in {"edit", "explain"}:
         waves = heuristic_agent_waves(intent=intent, message=message, state=state)
+        waves = _strip_knowledge_from_plan_waves(waves, intent=intent)
         return waves, "workflow", success_criteria_for_waves(waves)
 
     if workflow:
         waves = heuristic_agent_waves(intent=intent, message=message, state=state)
         waves = enforce_wave_dependencies(waves, state)
+        waves = _strip_knowledge_from_plan_waves(waves, intent=intent)
         return waves, "workflow", success_criteria_for_waves(waves)
 
     llm_waves = llm_agent_waves(intent=intent, message=message, state=state)
     if llm_waves:
+        llm_waves = _strip_knowledge_from_plan_waves(llm_waves, intent=intent)
+        llm_waves = enforce_wave_dependencies(llm_waves, state)
         return llm_waves, "llm", success_criteria_for_waves(llm_waves)
     waves = heuristic_agent_waves(intent=intent, message=message, state=state)
     waves = enforce_wave_dependencies(waves, state)
+    waves = _strip_knowledge_from_plan_waves(waves, intent=intent)
     return waves, "heuristic", success_criteria_for_waves(waves)
 
 
@@ -328,7 +351,8 @@ def waves_for_revision(target: str | None) -> list[list[AgentName]]:
     if t == "itinerary_agent":
         return [["itinerary_agent"]]
     if t == "knowledge_agent":
-        return [["knowledge_agent"], ["itinerary_agent"]]
+        # Explain-style revise: re-retrieve tips only (no itinerary rebuild).
+        return [["knowledge_agent"]]
     if t == "weather_agent":
         return [["weather_agent"], ["itinerary_agent"]]
     return [["itinerary_agent"]]
