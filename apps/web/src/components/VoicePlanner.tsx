@@ -11,6 +11,7 @@ import {
 import type { Itinerary, Source, TripConstraints } from "@/types/itinerary";
 import type { TravelTimeResult, WeatherResult } from "@/types/mcp";
 import type { PipelineLogStep } from "@/lib/agent";
+import AssistantReply, { speakableReply } from "./AssistantReply";
 import PipelineTrace from "./PipelineTrace";
 import ItineraryView from "./ItineraryView";
 import SourcesPanel, { collectSources } from "./SourcesPanel";
@@ -32,32 +33,6 @@ function newSessionId(): string {
     return crypto.randomUUID();
   }
   return `sess-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-}
-
-function speakableReply(full: string): string {
-  const trimmed = full.trim();
-  if (!trimmed) return "";
-  if (
-    /^From the .+ travel guide/i.test(trimmed) ||
-    /^Here's the .+ forecast/i.test(trimmed)
-  ) {
-    const firstLine =
-      trimmed.split("\n").find((l) => l.trim().startsWith("•")) ||
-      trimmed.split("\n")[0];
-    const plain = firstLine
-      .replace(/^•\s*/, "")
-      .replace(/\s*\(Source:.*$/i, "")
-      .trim();
-    if (plain.length <= 280) {
-      return `${plain} Details and sources are on screen.`;
-    }
-    return `${plain.slice(0, 260).trim()}… Details and sources are on screen.`;
-  }
-  const match = trimmed.match(/^(.+?)\.\s*\n/);
-  if (match) return match[1].trim() + ". Details and sources are on screen.";
-  const intro = trimmed.split("\n")[0] || trimmed;
-  if (intro.length <= 420) return intro;
-  return `${intro.slice(0, 400).trim()}… Full details and sources are on screen.`;
 }
 
 export default function VoicePlanner() {
@@ -387,7 +362,11 @@ export default function VoicePlanner() {
                     turn.role === "user" ? styles.bubbleUser : styles.bubbleAi
                   }
                 >
-                  {turn.content}
+                  {turn.role === "assistant" ? (
+                    <AssistantReply text={turn.content} />
+                  ) : (
+                    turn.content
+                  )}
                 </div>
               </div>
             ))}

@@ -346,7 +346,13 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
 /** Optional short TTS for confirmations / explanations. */
 export function speakText(text: string, enabled: boolean): void {
   if (!enabled || typeof window === "undefined" || !window.speechSynthesis) return;
-  const clean = text.replace(/\*\*/g, "").trim();
+  // Never read raw URLs or markdown emphasis aloud.
+  const clean = text
+    .replace(/\*\*/g, "")
+    .replace(/https?:\/\/\S+/gi, "")
+    .replace(/\s*\(Source:\s*[^)]*\)/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
   if (!clean) return;
   window.speechSynthesis.cancel();
   const utter = new SpeechSynthesisUtterance(clean.slice(0, 600));
