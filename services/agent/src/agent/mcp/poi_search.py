@@ -41,13 +41,17 @@ _SHOPPING_FILTERS = [
 
 # Parks & gardens share one interest (like shopping & bazaars).
 _PARK_GARDEN_FILTERS = [
-    'node["leisure"~"park|playground|garden"]',
-    'way["leisure"~"park|playground|garden"]',
+    # Named tourist parks/gardens first so out-limit cannot drop them for sector parks.
+    'node["name"~"Ram Niwas Garden|Sisodia Rani|Sisodiya Rani|Central Park|Statue Circle|Kanak Vrindavan|Vidyadhar Garden|Vidyadhar ka Bagh|Nahargarh Biological|Jawahar Circle|Nehru Park|Smriti Van|Birla Mandir Garden",i]',
+    'way["name"~"Ram Niwas Garden|Sisodia Rani|Sisodiya Rani|Central Park|Statue Circle|Kanak Vrindavan|Vidyadhar Garden|Vidyadhar ka Bagh|Nahargarh Biological|Jawahar Circle|Nehru Park|Smriti Van",i]',
+    'relation["name"~"Ram Niwas Garden|Sisodia Rani|Central Park|Kanak Vrindavan|Vidyadhar|Nahargarh Biological|Jawahar Circle",i]',
+    'node["leisure"~"park|garden"]',
+    'way["leisure"~"park|garden"]',
     'relation["leisure"="garden"]',
     'node["leisure"="park"]["garden"="yes"]',
     'way["leisure"="park"]["garden"="yes"]',
-    'node["name"~"[Gg]arden|[Bb]agh"]["leisure"~"park|garden"]',
-    'way["name"~"[Gg]arden|[Bb]agh"]["leisure"~"park|garden"]',
+    'node["name"~"[Bb]agh"]["leisure"~"park|garden"]',
+    'way["name"~"[Bb]agh"]["leisure"~"park|garden"]',
     'node["tourism"="zoo"]',
     'way["tourism"="zoo"]',
 ]
@@ -184,6 +188,19 @@ _NOMINATIM_QUERIES: dict[str, list[str]] = {
     "nightlife": ["bar", "pub"],
 }
 
+# Famous Jaipur parks — Nominatim name search when generic "park in Jaipur" is junk-heavy.
+_JAIPUR_PARK_NAME_QUERIES = (
+    "Ram Niwas Garden Jaipur",
+    "Sisodia Rani Garden Jaipur",
+    "Central Park Jaipur",
+    "Statue Circle Jaipur",
+    "Kanak Vrindavan Jaipur",
+    "Vidyadhar Garden Jaipur",
+    "Jawahar Circle Garden Jaipur",
+    "Nahargarh Biological Park Jaipur",
+    "Nehru Park Jaipur",
+)
+
 
 def nominatim_category_search(
     *,
@@ -208,7 +225,82 @@ def nominatim_category_search(
     }
     pois: list[POICandidate] = []
     seen: set[str] = set()
+
+    def _append_row(row: dict[str, Any], *, category: str, interest_key: str) -> None:
+        nonlocal pois
+        if len(pois) >= limit:
+            return
+        name = str(
+            row.get("name") or row.get("display_name") or ""
+        ).split(",")[0].strip()
+        if not name:
+            return
+        try:
+            lat = float(row["lat"])
+            lon = float(row["lon"])
+        except (KeyError, TypeError, ValueError):
+            return
+        center = (info.lat, info.lon)
+        if abs(lat - center[0]) > 0.45 or abs(lon - center[1]) > 0.45:
+            return
+        osm_type = str(row.get("osm_type") or "").lower()
+        if osm_type == "node":
+            ot = "node"
+        elif osm_type == "way":
+            ot = "way"
+        elif osm_type == "relation":
+            ot = "relation"
+        else:
+            return
+        try:
+            osm_id = int(row.get("osm_id"))
+        except (TypeError, ValueError):
+            return
+        ref = f"{ot}/{osm_id}"
+        if ref in seen:
+            return
+        seen.add(ref)
+        pois.append(
+            POICandidate(
+                name=name,
+                osm_type=ot,  # type: ignore[arg-type]
+                osm_id=osm_id,
+                lat=lat,
+                lon=lon,
+                category=category,
+                tags={"source": "nominatim", "amenity": interest_key},
+                rank_score=7.0,
+                matched_interests=[interest.lower()],
+            )
+        )
+
     with httpx.Client(timeout=timeout, headers=headers) as client:
+        # For parks: query famous names first so tourist gardens beat sector parks.
+        if interest.lower().strip() in {"park", "garden"} and info.name.lower() == "jaipur":
+            for q in _JAIPUR_PARK_NAME_QUERIES:
+                if len(pois) >= limit:
+                    break
+                params = {
+                    "q": q,
+                    "format": "jsonv2",
+                    "addressdetails": 0,
+                    "limit": 3,
+                    "countrycodes": "in",
+                }
+                try:
+                    logger.info("Nominatim park name q=%s", q)
+                    resp = client.get(_NOMINATIM_URL, params=params)
+                    resp.raise_for_status()
+                    rows = resp.json()
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("Nominatim park name failed q=%s: %s", q, exc)
+                    continue
+                if not isinstance(rows, list):
+                    continue
+                for row in rows:
+                    if isinstance(row, dict):
+                        _append_row(row, category="garden", interest_key="park")
+
         for amenity in amenity_keys:
             if len(pois) >= limit:
                 break
@@ -232,38 +324,6 @@ def nominatim_category_search(
             for row in rows:
                 if not isinstance(row, dict):
                     continue
-                name = str(
-                    row.get("name") or row.get("display_name") or ""
-                ).split(",")[0].strip()
-                if not name:
-                    continue
-                # Keep results near Jaipur center when possible.
-                try:
-                    lat = float(row["lat"])
-                    lon = float(row["lon"])
-                except (KeyError, TypeError, ValueError):
-                    continue
-                center = (info.lat, info.lon)
-                # Crude 0.45° ~ 50km box filter around city center
-                if abs(lat - center[0]) > 0.45 or abs(lon - center[1]) > 0.45:
-                    continue
-                osm_type = str(row.get("osm_type") or "").lower()
-                if osm_type == "node":
-                    ot = "node"
-                elif osm_type == "way":
-                    ot = "way"
-                elif osm_type == "relation":
-                    ot = "relation"
-                else:
-                    continue
-                try:
-                    osm_id = int(row.get("osm_id"))
-                except (TypeError, ValueError):
-                    continue
-                ref = f"{ot}/{osm_id}"
-                if ref in seen:
-                    continue
-                seen.add(ref)
                 category = {
                     "restaurant": "food",
                     "cafe": "food",
@@ -283,21 +343,7 @@ def nominatim_category_search(
                 }.get(amenity, interest.lower())
                 if interest.lower() == "heritage" and category == "attraction":
                     category = "heritage"
-                pois.append(
-                    POICandidate(
-                        name=name,
-                        osm_type=ot,  # type: ignore[arg-type]
-                        osm_id=osm_id,
-                        lat=lat,
-                        lon=lon,
-                        category=category,
-                        tags={"source": "nominatim", "amenity": amenity},
-                        rank_score=7.0,
-                        matched_interests=[interest.lower()],
-                    )
-                )
-                if len(pois) >= limit:
-                    break
+                _append_row(row, category=category, interest_key=amenity)
     return pois
 
 
@@ -393,10 +439,15 @@ _LOW_SIGNAL_PARK_RE = re.compile(
 )
 _TOURIST_PARK_RE = re.compile(
     r"\b("
-    r"garden|bagh|central\s+park|jawahar|ram\s*niwas|sisodia|vidyadhar|"
-    r"biological|zoological|\bzoo\b|rose\s+garden|statue\s+circle|"
-    r"kanak|vrindavan|smriti|peace\s+park|nehru"
+    r"central\s+park|jawahar(?:\s+circle)?|ram\s*niwas|sisod(?:ia|iya)\s*rani|"
+    r"vidyadhar|biological|zoological|\bzoo\b|rose\s+garden|statue\s+circle|"
+    r"kanak(?:\s*vrindavan)?|smriti(?:\s*van)?|peace\s+park|nehru(?:\s+park)?|"
+    r"gulab\s*bagh|company\s*bagh|\bbagh\b"
     r")\b",
+    re.I,
+)
+_WEDDING_GARDEN_RE = re.compile(
+    r"\b(marriage|wedding|farmhouse|banquet|lawn|party\s+plot)\b",
     re.I,
 )
 
@@ -491,7 +542,7 @@ def _is_low_signal_heritage_name(name: str) -> bool:
 
 
 def _is_low_signal_park(name: str, tags: dict[str, str], category: str) -> bool:
-    """Keep only tourist-grade parks/gardens; drop numbered/neighborhood noise."""
+    """Keep tourist-grade parks/gardens; drop numbered/neighborhood/wedding noise."""
     if category not in {"park", "garden"}:
         return False
     n = name or ""
@@ -501,7 +552,9 @@ def _is_low_signal_park(name: str, tags: dict[str, str], category: str) -> bool:
         return True
     if re.fullmatch(r"park\s*[-#]?\s*\d+", stripped, re.I):
         return True
-    if _TOURIST_PARK_RE.search(n):
+    if _WEDDING_GARDEN_RE.search(n):
+        return True
+    if _TOURIST_PARK_RE.search(n) or _MUST_SEE_NAME_RE.search(n):
         return False
     if tags.get("wikidata") or tags.get("wikipedia"):
         # Still drop obvious campus/sports parks even with wiki links.
@@ -827,28 +880,40 @@ def _balance_by_interests(
             return True
         return False
 
+    # Guarantee ≥1 per stated interest before weighted fill (stops food starving park).
+    for key in keys:
+        if len(out) >= limit:
+            break
+        _take(key)
+
+    soft_rr = 0
     while len(out) < limit:
         took = False
         if mixed:
+            culture_keys = [k for k in keys if k in CULTURE_TIER_INTERESTS]
+            soft_keys = [k for k in keys if k in SOFT_TIER_INTERESTS]
+            other_keys = [
+                k
+                for k in keys
+                if k not in CULTURE_TIER_INTERESTS and k not in SOFT_TIER_INTERESTS
+            ]
             for _ in range(2):
                 if len(out) >= limit:
                     break
-                for key in keys:
-                    if key in CULTURE_TIER_INTERESTS and _take(key):
+                for key in culture_keys:
+                    if _take(key):
+                        took = True
+                        break
+            if len(out) < limit and soft_keys:
+                for i in range(len(soft_keys)):
+                    key = soft_keys[(soft_rr + i) % len(soft_keys)]
+                    if _take(key):
+                        soft_rr = (soft_rr + i + 1) % len(soft_keys)
                         took = True
                         break
             if len(out) < limit:
-                for key in keys:
-                    if key in SOFT_TIER_INTERESTS and _take(key):
-                        took = True
-                        break
-            if len(out) < limit:
-                for key in keys:
-                    if (
-                        key not in CULTURE_TIER_INTERESTS
-                        and key not in SOFT_TIER_INTERESTS
-                        and _take(key)
-                    ):
+                for key in other_keys:
+                    if _take(key):
                         took = True
                         break
         else:
@@ -1077,13 +1142,22 @@ def poi_search(
     # Live Nominatim backup per interest that Overpass missed (still OSM ids).
     from agent.preferences import INTEREST_CATEGORY_MAP, normalize_interest
 
-    have_cats = {(p.category or "").lower() for p in pois}
     for interest in interests:
         key = normalize_interest(interest) or interest.lower().strip()
         # Require a *primary* category hit — e.g. heritage needs historic sites,
         # not a leftover tourism=attraction from the park/zoo query.
         primary = {key} | INTEREST_CATEGORY_MAP.get(key, set())
-        if primary & have_cats:
+        quality_hits = sum(
+            1
+            for p in pois
+            if (p.category or "").lower() in primary
+            and not _is_low_signal_poi(
+                p.name or "", p.tags or {}, (p.category or "").lower()
+            )
+        )
+        # Parks are junk-heavy in OSM — top up until a few tourist gardens exist.
+        min_needed = 3 if key in {"park", "garden"} else 1
+        if quality_hits >= min_needed:
             continue
         try:
             extra = nominatim_category_search(
@@ -1100,6 +1174,7 @@ def poi_search(
             f"Live Nominatim backup supplied {len(extra)} POIs for interest={interest!r}."
         )
         existing = {f"{p.osm_type}/{p.osm_id}" for p in pois}
+        added = 0
         for p in extra:
             ref = f"{p.osm_type}/{p.osm_id}"
             if ref in existing:
@@ -1108,10 +1183,18 @@ def poi_search(
                 p.name or "", p.tags or {}, (p.category or "").lower()
             ):
                 continue
+            # Named park queries get a must-see boost.
+            if key in {"park", "garden"} and _MUST_SEE_NAME_RE.search(p.name or ""):
+                p.rank_score = max(float(p.rank_score or 0), 18.0)
             pois.append(p)
             existing.add(ref)
-            have_cats.add((p.category or "").lower())
-        missing = False
+            added += 1
+        if added:
+            missing = False
+            notes.append(
+                f"Kept {added} quality Nominatim POIs after low-signal filter "
+                f"for interest={interest!r}."
+            )
 
     pois.sort(key=lambda p: (-(p.rank_score or 0), p.name))
     pois = _apply_audience_bias(pois, constraints)

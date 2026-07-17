@@ -334,6 +334,8 @@ def _diversify_for_interests(
         return False
 
     # When culture + soft are both requested, prefer ~2 culture : 1 soft while filling.
+    # Round-robin soft keys so food cannot starve park/shopping.
+    soft_rr = 0
     while len(picks) < max_total:
         took = False
         if mixed:
@@ -351,9 +353,11 @@ def _diversify_for_interests(
                     if _take_from(key):
                         took = True
                         break
-            if len(picks) < max_total:
-                for key in soft_keys:
+            if len(picks) < max_total and soft_keys:
+                for i in range(len(soft_keys)):
+                    key = soft_keys[(soft_rr + i) % len(soft_keys)]
                     if _take_from(key):
+                        soft_rr = (soft_rr + i + 1) % len(soft_keys)
                         took = True
                         break
             if len(picks) < max_total:
