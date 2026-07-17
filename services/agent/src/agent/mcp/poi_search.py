@@ -572,9 +572,40 @@ def _is_low_signal_park(name: str, tags: dict[str, str], category: str) -> bool:
     return True
 
 
+_GENERIC_PLACE_NAME_RE = re.compile(
+    r"^("
+    r"restaurant|cafe|café|coffee|bar|pub|hotel|motel|hostel|"
+    r"fort|palace|museum|gallery|temple|mandir|park|garden|zoo|"
+    r"market|marketplace|shop|store|mall|attraction|viewpoint|"
+    r"monument|memorial|ruins|gate|building|place|unnamed|unknown|"
+    r"food|eatery|dhaba|bakery"
+    r")s?$",
+    re.I,
+)
+
+
+def _is_generic_place_name(name: str) -> bool:
+    """True for OSM stubs like 'Restaurant', 'Fort', 'Park' with no real title."""
+    stripped = (name or "").strip()
+    if not stripped:
+        return True
+    if len(stripped) < 3:
+        return True
+    if _GENERIC_PLACE_NAME_RE.match(stripped):
+        return True
+    # All-caps type labels: RESTAURANT, FORT, CAFE
+    if stripped.isupper() and len(stripped.split()) <= 2 and _GENERIC_PLACE_NAME_RE.match(
+        stripped.lower()
+    ):
+        return True
+    return False
+
+
 def _is_low_signal_poi(name: str, tags: dict[str, str], category: str) -> bool:
     cat = (category or "").lower()
     n = name or ""
+    if _is_generic_place_name(n):
+        return True
     if _is_low_signal_park(n, tags, cat):
         return True
     if cat == "heritage" and (

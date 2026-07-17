@@ -113,6 +113,29 @@ function dayWeatherLabel(w?: DayWeather | null): string | null {
   return bits.length ? bits.join(" · ") : null;
 }
 
+function categoryLabel(category?: string | null): string | null {
+  const key = (category || "").trim().toLowerCase();
+  if (!key) return null;
+  const labels: Record<string, string> = {
+    food: "Food",
+    heritage: "Heritage",
+    museum: "Museum",
+    temple: "Temple",
+    park: "Park",
+    garden: "Garden",
+    market: "Market",
+    shopping: "Shopping",
+    nightlife: "Nightlife",
+    viewpoint: "Viewpoint",
+    art: "Art",
+    attraction: "Attraction",
+  };
+  return (
+    labels[key] ||
+    key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+  );
+}
+
 function formatWeatherDate(iso?: string | null): string | null {
   if (!iso) return null;
   const d = new Date(iso.includes("T") ? iso : `${iso}T12:00:00`);
@@ -218,7 +241,7 @@ export default function ItineraryView({
                         const stopKey = `${stop.osm_type}/${stop.osm_id}`;
                         const modes =
                           stopKey !== lastKey ? travelModesForStop(stop) : [];
-                        const category = (stop.category || "").trim();
+                        const category = categoryLabel(stop.category);
                         return (
                           <li key={`${stopKey}-${i}`}>
                             <div className={styles.stopCard}>

@@ -43,14 +43,14 @@ export default function VoiceOrb({
       : mode === "aiSpeaking"
         ? aiLevel
         : mode === "listening"
-          ? 0.12
+          ? 0.1
           : mode === "thinking" || mode === "transcribing"
-            ? 0.2
+            ? 0.16
             : 0;
 
-  const scale = 1 + live * 0.42;
-  const ringOpacity = 0.18 + live * 0.55;
-  const ringScale = 1 + live * 0.85;
+  const scale = 1 + live * 0.18;
+  const ringOpacity = 0.16 + live * 0.4;
+  const ringScale = 1 + live * 0.28;
 
   const modeClass =
     mode === "idle"

@@ -209,7 +209,6 @@
   font-size: 0.72rem;
   font-weight: 650;
   letter-spacing: 0.02em;
-  text-transform: lowercase;
   color: var(--primary);
   background: var(--primary-fixed);
   border: 1px solid color-mix(in srgb, var(--primary) 22%, transparent);

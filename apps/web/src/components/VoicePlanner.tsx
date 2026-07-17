@@ -60,7 +60,6 @@ export default function VoicePlanner() {
   const [autoSend, setAutoSend] = useState(true);
   const [pending, setPending] = useState(false);
   const [samplesOpen, setSamplesOpen] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
   /** Capstone: user turns must be exact STT output (no typed bypass). */
   const [voiceUnlocked, setVoiceUnlocked] = useState(false);
   const [speakHint, setSpeakHint] = useState<string | null>(null);
@@ -73,6 +72,7 @@ export default function VoicePlanner() {
   const conversationRef = useRef<ConversationTurn[]>([]);
   const sessionIdRef = useRef(sessionId);
   const lastAutoSentRef = useRef<string>("");
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
   const submitRef = useRef<(message: string) => Promise<void>>(async () => {});
   const aiLevelRafRef = useRef(0);
   itineraryRef.current = itinerary;
@@ -91,6 +91,10 @@ export default function VoicePlanner() {
       setError(null);
     },
   });
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [conversation, pending]);
 
   useEffect(() => {
     if (!aiSpeaking) {
@@ -412,8 +416,8 @@ export default function VoicePlanner() {
       </header>
 
       <div className={styles.main}>
-        <section className={styles.voiceStage} aria-label="Voice conversation">
-          <div className={styles.stageHeader}>
+        <section className={styles.chatColumn} aria-label="Voice conversation">
+          <div className={styles.chatHeader}>
             <div>
               <h2>Travel AI</h2>
               <p className={styles.chatSub}>
@@ -439,35 +443,95 @@ export default function VoicePlanner() {
             ) : null}
           </div>
 
-          <div className={styles.stageBody}>
-            <p className={styles.stageStatus} aria-live="polite">
-              {statusLabel}
-            </p>
+          <div className={styles.chatLog} aria-live="polite">
+            {conversation.length === 0 && (
+              <p className={styles.chatEmpty}>
+                Hi — I’m VocalVoyage. Tap the mic and say “Plan a trip to
+                Jaipur.” Voice input is required — I’ll ask for days, pace, and
+                interests before building anything.
+              </p>
+            )}
+            {conversation.map((turn, i) => (
+              <div
+                key={`${turn.role}-${i}`}
+                className={`${styles.bubbleRow} ${
+                  turn.role === "user" ? styles.bubbleRowUser : ""
+                }`}
+              >
+                <div
+                  className={`${styles.avatar} ${
+                    turn.role === "user" ? styles.avatarUser : styles.avatarAi
+                  }`}
+                  aria-hidden
+                >
+                  {turn.role === "user" ? "You" : "AI"}
+                </div>
+                <div
+                  className={
+                    turn.role === "user" ? styles.bubbleUser : styles.bubbleAi
+                  }
+                >
+                  {turn.role === "assistant" ? (
+                    <AssistantReply text={turn.content} />
+                  ) : (
+                    turn.content
+                  )}
+                </div>
+              </div>
+            ))}
+            {pending && (
+              <div className={styles.bubbleRow}>
+                <div
+                  className={`${styles.avatar} ${styles.avatarAi}`}
+                  aria-hidden
+                >
+                  AI
+                </div>
+                <div className={styles.bubbleAi}>
+                  <span className={styles.typing} aria-label="Working">
+                    <span className={styles.typingDot} />
+                    <span className={styles.typingDot} />
+                    <span className={styles.typingDot} />
+                  </span>
+                </div>
+              </div>
+            )}
+            <div ref={chatEndRef} />
+          </div>
 
-            <VoiceOrb
-              mode={orbMode}
-              audioLevel={speech.audioLevel}
-              aiLevel={aiLevel}
-              disabled={speech.transcribing || pending || !speech.supported}
-              pressed={speech.listening}
-              onClick={toggleMic}
-              label={
-                speech.listening ? "Stop listening" : "Start microphone"
-              }
-            />
-
-            <div className={styles.caption} aria-live="polite">
-              <span className={styles.captionWho}>{captionWho}</span>
-              <p className={styles.captionText}>{liveCaption}</p>
+          <div className={styles.composer}>
+            <div className={styles.composerRow}>
+              <div className={styles.liveCaption} aria-live="polite">
+                <span className={styles.captionWho}>{captionWho}</span>
+                <p className={styles.captionText}>{liveCaption}</p>
+                <p className={styles.stageStatus}>{statusLabel}</p>
+              </div>
+              <VoiceOrb
+                mode={orbMode}
+                audioLevel={speech.audioLevel}
+                aiLevel={aiLevel}
+                disabled={speech.transcribing || pending || !speech.supported}
+                pressed={speech.listening}
+                onClick={toggleMic}
+                label={
+                  speech.listening ? "Stop listening" : "Start microphone"
+                }
+              />
             </div>
 
             <div className={styles.composerMeta}>
               <p className={styles.hint}>
                 {!speech.supported
-                  ? "Use Chrome/Edge with mic access"
-                  : speech.mode === "server"
-                    ? "STT · tap orb to finish"
-                    : "STT · browser speech"}
+                  ? "Microphone required — use Chrome/Edge with mic access"
+                  : speech.transcribing
+                    ? "Transcribing…"
+                    : speech.listening
+                      ? "Listening… tap mic to finish"
+                      : voiceUnlocked
+                        ? "STT ready · Send or Auto-send"
+                        : awaitingConfirm && slotsReady
+                          ? "Say “yes” or “confirm” — voice only"
+                          : "STT required · tap mic to speak"}
               </p>
               <div className={styles.toggles}>
                 <label className={styles.ttsToggle}>
@@ -570,54 +634,6 @@ export default function VoicePlanner() {
                       {p}
                     </button>
                   ))}
-                </div>
-              ) : null}
-            </div>
-
-            <div className={styles.historyWrap}>
-              <button
-                type="button"
-                className={styles.samplesToggle}
-                onClick={() => setHistoryOpen((v) => !v)}
-                aria-expanded={historyOpen}
-              >
-                <span>Conversation</span>
-                <span className={styles.samplesHint}>
-                  {historyOpen
-                    ? "Hide"
-                    : `${conversation.length || 0} turns · show`}
-                </span>
-                <span className={styles.samplesChev} aria-hidden>
-                  {historyOpen ? "▾" : "▸"}
-                </span>
-              </button>
-              {historyOpen ? (
-                <div className={styles.historyLog} aria-live="polite">
-                  {conversation.length === 0 ? (
-                    <p className={styles.chatEmpty}>
-                      No turns yet — speak to start planning.
-                    </p>
-                  ) : (
-                    conversation.map((turn, i) => (
-                      <div
-                        key={`${turn.role}-${i}`}
-                        className={`${styles.historyRow} ${
-                          turn.role === "user" ? styles.historyRowUser : ""
-                        }`}
-                      >
-                        <span className={styles.historyRole}>
-                          {turn.role === "user" ? "You" : "AI"}
-                        </span>
-                        <div className={styles.historyText}>
-                          {turn.role === "assistant" ? (
-                            <AssistantReply text={turn.content} />
-                          ) : (
-                            turn.content
-                          )}
-                        </div>
-                      </div>
-                    ))
-                  )}
                 </div>
               ) : null}
             </div>
