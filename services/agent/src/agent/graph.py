@@ -72,6 +72,12 @@ def route_after_orchestrator(
         if nxt in _SPECIALISTS:
             agents = [str(nxt)]
 
+    # Nuclear gate: never fan out to knowledge_agent unless this turn is explain.
+    # Plan/edit/confirm must not RAG even if a stale dispatch still lists it.
+    intent = state.get("intent") or "plan"
+    if intent != "explain":
+        agents = [a for a in agents if a != "knowledge_agent"]
+
     if not agents:
         return "__end__"
 

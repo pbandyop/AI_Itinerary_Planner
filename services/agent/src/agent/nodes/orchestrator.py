@@ -2916,9 +2916,22 @@ def orchestrator_node(state: GraphState) -> dict[str, Any]:
         return _answer_weather_query(state, message, existing_trip)
 
     # Tips / POI / hours Q&A → Knowledge RAG (no trip required).
+    # Never steal confirm / slot-fill / plan turns — those must build the itinerary.
     # Itinerary "why did you pick X" keeps the explain→synthesis path for
     # place-matched justifications + citations in the UI.
     if _is_knowledge_query(message):
+        confirmish = bool(
+            intent == "confirm"
+            or (
+                existing_trip
+                and not existing_trip.confirmed
+                and _yes_no(message) is True
+            )
+            or re.search(
+                r"transcription task|i will transcribe|audio contains the word",
+                message.lower(),
+            )
+        )
         has_itin = bool(prev_itin)
         itinerary_why = bool(
             re.search(
@@ -2926,7 +2939,12 @@ def orchestrator_node(state: GraphState) -> dict[str, Any]:
                 message.lower(),
             )
         )
-        if not (has_itin and itinerary_why):
+        if confirmish:
+            logger.info(
+                "NODE orchestrator skip knowledge_qa (confirm/plan turn) intent=%s",
+                intent,
+            )
+        elif not (has_itin and itinerary_why):
             return _answer_knowledge_query(state, message, existing_trip)
 
     # Rain hypothetical → monsoon-month clarifying dialog (not instant swap).

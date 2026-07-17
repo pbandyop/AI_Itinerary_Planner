@@ -148,6 +148,13 @@ class KnowledgeRequest(BaseModel):
 @api.get("/health")
 def health() -> dict[str, Any]:
     tools = [t.name for t in get_mcp_tools()]
+    # Railway injects RAILWAY_GIT_COMMIT_SHA; useful to verify which build is live.
+    git_sha = (
+        os.getenv("RAILWAY_GIT_COMMIT_SHA")
+        or os.getenv("RAILWAY_GIT_COMMIT")
+        or os.getenv("SOURCE_COMMIT")
+        or ""
+    ).strip()
     return {
         "status": "ok",
         "phase": "5",
@@ -160,6 +167,8 @@ def health() -> dict[str, Any]:
         "schema_version": "1.0",
         "mcp_tools": tools,
         "rag": "knowledge_rag (Wikivoyage + Chroma/BGE)",
+        "git_sha": git_sha or None,
+        "rag_on_plan": False,
     }
 
 

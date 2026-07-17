@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import logging
 import os
+import re
 from typing import Any
 
 from agent.nodes.llm_utils import default_chat_model, llm_api_key, llm_provider
@@ -13,9 +14,48 @@ logger = logging.getLogger(__name__)
 
 _TRANSCRIBE_PROMPT = (
     "Transcribe the user's spoken travel-planning request into plain English text. "
-    "Return ONLY the transcript — no quotes, labels, or commentary. "
+    "Return ONLY the exact words spoken — no quotes, labels, or commentary. "
+    "Never describe the task (do not say \"transcription\" or \"the audio contains\"). "
+    "If they said only \"yes\" or \"no\", return exactly that word. "
     "If the audio is empty or unintelligible, return an empty string."
 )
+
+
+def _normalize_transcript(text: str) -> str:
+    """Collapse Gemini meta-commentary into the actual spoken words when possible."""
+    raw = (text or "").strip()
+    if not raw:
+        return ""
+    lower = raw.lower()
+    if re.search(
+        r"transcription task|i will transcribe|audio contains the word|"
+        r"user'?s request is a transcription",
+        lower,
+    ):
+        quoted = re.findall(r'[\"“\'‘]([a-zA-Z][\w\'-]*)[\"”\'’]', raw)
+        if quoted:
+            for word in reversed(quoted):
+                if word.lower() in {
+                    "yes",
+                    "yeah",
+                    "yep",
+                    "yup",
+                    "no",
+                    "nope",
+                    "ok",
+                    "okay",
+                }:
+                    return "ok" if word.lower() == "okay" else word.lower()
+            return quoted[-1]
+        m = re.search(
+            r"\b(yes|yeah|yep|yup|no|nope|ok(?:ay)?|confirm)\b",
+            lower,
+        )
+        if m:
+            return m.group(1)
+        logger.warning("STT meta-commentary discarded: %r", raw[:160])
+        return ""
+    return raw
 
 
 def transcribe_audio(data: bytes, *, mime_type: str = "audio/webm") -> str:
@@ -38,8 +78,10 @@ def transcribe_audio(data: bytes, *, mime_type: str = "audio/webm") -> str:
 
     provider = llm_provider()
     if provider == "openai":
-        return _transcribe_openai(data, mime_type=mime, api_key=key)
-    return _transcribe_gemini(data, mime_type=mime, api_key=key)
+        text = _transcribe_openai(data, mime_type=mime, api_key=key)
+    else:
+        text = _transcribe_gemini(data, mime_type=mime, api_key=key)
+    return _normalize_transcript(text)
 
 
 def _transcribe_gemini(data: bytes, *, mime_type: str, api_key: str) -> str:

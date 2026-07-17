@@ -450,20 +450,43 @@ def itinerary_agent_node(state: GraphState) -> dict[str, Any]:
     }
 
 
+def _is_confirmish_utterance(message: str) -> bool:
+    """True for short confirm/ack turns that must never trigger RAG."""
+    lower = (message or "").lower().strip()
+    if not lower:
+        return False
+    # Pure confirm / yes (allow trailing punctuation).
+    if re.fullmatch(
+        r"(yes|yeah|yep|yup|ok(?:ay)?|confirm|sure|go ahead|sounds good)"
+        r"[\s.!?]*",
+        lower,
+    ):
+        return True
+    # Gemini STT sometimes wraps “yes” in meta-commentary.
+    if re.search(
+        r"transcription task|i will transcribe|audio contains the word",
+        lower,
+    ) and re.search(r"\b(yes|yeah|yep|yup|ok(?:ay)?|confirm)\b", lower):
+        return True
+    return False
+
+
 def knowledge_agent_node(state: GraphState) -> dict[str, Any]:
     intent = state.get("intent") or "plan"
+    msg = (state.get("user_message") or "").strip()
     # Hard gate: RAG is explain / place-Q&A only — never during itinerary build.
-    if intent not in {"explain"}:
+    if intent != "explain" or _is_confirmish_utterance(msg):
         logger.info(
-            "NODE knowledge_agent SKIP intent=%s (RAG is explain-only)",
+            "NODE knowledge_agent SKIP intent=%s confirmish=%s (RAG is explain-only)",
             intent,
+            _is_confirmish_utterance(msg),
         )
         return {
             "agent_trace": trace_delta(
                 {
                     "agent": "knowledge_agent",
                     "action": "skip",
-                    "detail": "RAG skipped during plan/edit — explain-only.",
+                    "detail": "RAG skipped during plan/edit/confirm — explain-only.",
                     "intent": intent,
                 }
             ),
@@ -471,7 +494,6 @@ def knowledge_agent_node(state: GraphState) -> dict[str, Any]:
 
     trip = as_trip(state.get("trip_constraints"))
     city = trip.city if trip else "Jaipur"
-    msg = (state.get("user_message") or "").strip()
     topics = ["tips", "doable"]
     lower = msg.lower()
     if "rain" in lower or "weather" in lower:
