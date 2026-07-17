@@ -1,7 +1,10 @@
 .shell {
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   background: var(--surface);
   color: var(--on-surface);
 }
@@ -12,6 +15,7 @@
   top: 0;
   z-index: 50;
   height: 5rem;
+  flex-shrink: 0;
   background: var(--surface-lowest);
   box-shadow: 0 1px 0 rgba(11, 28, 48, 0.06);
 }
@@ -157,16 +161,17 @@
   max-width: var(--max-width);
   width: 100%;
   margin: 0 auto;
-  padding: 1.5rem 1.25rem 2rem;
+  padding: 1.5rem 1.25rem 1.5rem;
   display: grid;
   grid-template-columns: 1fr;
   gap: 1.25rem;
-  min-height: calc(100vh - 5rem);
+  min-height: 0;
+  overflow: hidden;
 }
 
 @media (min-width: 768px) {
   .main {
-    padding: 1.5rem 2.5rem 2.5rem;
+    padding: 1.5rem 2.5rem 1.5rem;
   }
 }
 
@@ -174,9 +179,22 @@
   .main {
     grid-template-columns: minmax(320px, 5fr) minmax(0, 7fr);
     gap: 1.5rem;
-    height: calc(100vh - 5rem);
+    height: calc(100dvh - 5rem);
     min-height: 0;
     overflow: hidden;
+  }
+}
+
+@media (max-width: 1023px) {
+  .shell {
+    height: auto;
+    min-height: 100dvh;
+    overflow: auto;
+  }
+
+  .main {
+    overflow: visible;
+    height: auto;
   }
 }
 
@@ -184,7 +202,9 @@
 .chatColumn {
   display: flex;
   flex-direction: column;
-  min-height: 28rem;
+  height: min(70dvh, 36rem);
+  max-height: min(70dvh, 36rem);
+  min-height: 0;
   background: var(--surface-low);
   border: 1px solid color-mix(in srgb, var(--outline-variant) 45%, transparent);
   border-radius: var(--radius-lg);
@@ -194,8 +214,9 @@
 
 @media (min-width: 1024px) {
   .chatColumn {
-    min-height: 0;
     height: 100%;
+    max-height: none;
+    min-height: 0;
   }
 }
 
@@ -207,6 +228,7 @@
   padding: 1rem 1.1rem;
   background: var(--surface-lowest);
   border-bottom: 1px solid color-mix(in srgb, var(--outline-variant) 40%, transparent);
+  flex-shrink: 0;
 }
 
 .chatHeader h2 {
@@ -240,7 +262,9 @@
 
 .chatLog {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 1.1rem;
   display: flex;
   flex-direction: column;
@@ -356,6 +380,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  flex-shrink: 0;
 }
 
 .composerRow {
@@ -559,10 +584,17 @@
   flex-direction: column;
   gap: 1.25rem;
   min-height: 0;
+  max-height: min(85dvh, 48rem);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 0.15rem;
+  padding-bottom: 0.5rem;
 }
 
 @media (min-width: 1024px) {
   .planColumn {
+    height: 100%;
+    max-height: none;
     overflow-y: auto;
     padding-right: 0.25rem;
     padding-bottom: 1.5rem;

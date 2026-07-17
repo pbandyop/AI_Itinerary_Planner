@@ -371,6 +371,39 @@ def _reduce_day_travel(day: DayPlan) -> tuple[DayPlan, list[str]]:
     return day, notes
 
 
+def _apply_pace_day_reshape(
+    day: DayPlan,
+    *,
+    pace: str,
+    interests: list[str],
+    note_suffix: str,
+) -> tuple[DayPlan, list[str]]:
+    """Trim/reshape one day to the target pace layout (no invented POIs)."""
+    from agent.mcp.itinerary_builder import reassert_meal_pace_layout
+
+    pace_key = pace if pace in ("relaxed", "moderate", "packed") else "moderate"
+    fixed, re_notes = reassert_meal_pace_layout(
+        [day], pace=pace_key, interests=interests  # type: ignore[arg-type]
+    )
+    out = fixed[0] if fixed else day.model_copy(deep=True)
+    # Tag blocks so UI/debug shows the voice edit source.
+    for bname in ("morning", "afternoon", "evening"):
+        block = out.block(bname)  # type: ignore[arg-type]
+        tagged = (block.notes or "").strip()
+        if note_suffix and note_suffix not in tagged:
+            tagged = f"{tagged} {note_suffix}".strip() if tagged else note_suffix
+        out = _set_block(
+            out,
+            bname,  # type: ignore[arg-type]
+            TimeBlock(
+                time_of_day=bname,  # type: ignore[arg-type]
+                stops=list(block.stops),
+                notes=tagged or None,
+            ),
+        )
+    return out, list(re_notes)
+
+
 def apply_edit_patches(
     itinerary: Itinerary,
     patches: list[EditPatch],
@@ -437,39 +470,50 @@ def apply_edit_patch(
         touched = True
 
         if op == "relax_block":
-            # Whole-day relax: at most 1 stop per morning/afternoon (evening cleared).
-            # Block-scoped relax: trim only that block to 1 stop.
-            for bname, block in _get_block(new_day, target_block):
-                if not target_block and bname == "evening":
+            # Packed/busy → relaxed: trim toward ~2-1-1 meal layout (keep dinner).
+            # Clocks + flex notes are restamped in Synthesis using trip.pace=relaxed.
+            interests = (
+                list(itinerary.trip.interests or [])
+                if itinerary.trip
+                else []
+            )
+            if target_block:
+                # Block-scoped: keep a single softer stop in that block only.
+                for bname, block in _get_block(new_day, target_block):
+                    new_stops = _relax_stops(list(block.stops), keep=1)
                     new_day = _set_block(
                         new_day,
                         bname,
-                        TimeBlock(time_of_day=bname, stops=[], notes=block.notes),
+                        TimeBlock(
+                            time_of_day=bname,
+                            stops=new_stops,
+                            notes=(block.notes or "") + " Relaxed via voice edit.",
+                        ),
                     )
-                    continue
-                keep = 1
-                new_stops = _relax_stops(list(block.stops), keep=keep)
-                new_day = _set_block(
-                    new_day,
-                    bname,
-                    TimeBlock(
-                        time_of_day=bname,
-                        stops=new_stops,
-                        notes=(block.notes or "") + " Relaxed via voice edit.",
-                    ),
+                notes.append(
+                    f"Relaxed Day {target_day} {target_block} "
+                    "(fewer / slower stops)."
                 )
-            notes.append(
-                f"Relaxed Day {target_day}"
-                + (f" {target_block}" if target_block else "")
-                + " (fewer / slower stops)."
-            )
+            else:
+                before_n = len(new_day.all_stops)
+                new_day, re_notes = _apply_pace_day_reshape(
+                    new_day,
+                    pace="relaxed",
+                    interests=interests,
+                    note_suffix="Relaxed via voice edit.",
+                )
+                after_n = len(new_day.all_stops)
+                notes.append(
+                    f"Relaxed Day {target_day} "
+                    f"(relaxed pacing; {before_n}→{after_n} stops; "
+                    "schedule will use morning/afternoon anchors + free time)."
+                )
+                notes.extend(re_notes)
 
         elif op == "balance_block":
-            # Moderate / balanced day: densify toward ~2-2-1/2 using unused POIs.
-            from agent.mcp.itinerary_builder import (
-                STOPS_PER_DAY,
-                reassert_meal_pace_layout,
-            )
+            # Toward moderate/balanced (~2-2-2). From packed: trim first.
+            # From thin relaxed: may densify with unused interest POIs.
+            from agent.mcp.itinerary_builder import STOPS_PER_DAY
             from agent.preferences import categories_for_interests
 
             used = _existing_places(itinerary, new_day)
@@ -481,7 +525,19 @@ def apply_edit_patch(
             preferred_cats = categories_for_interests(interests) or {
                 (c or "").lower() for c in interests if c
             }
-            # Prefer interest-matched unused POIs, then anything unused.
+            cap = STOPS_PER_DAY.get("moderate", 6)
+            before_n = len(new_day.all_stops)
+
+            # Always reshape to moderate meal/block layout (trims when over-cap).
+            new_day, re_notes = _apply_pace_day_reshape(
+                new_day,
+                pace="moderate",
+                interests=interests,
+                note_suffix="Balanced via voice edit.",
+            )
+            notes.extend(re_notes)
+
+            flat = list(new_day.all_stops)
             ranked_pool = sorted(
                 [p for p in pois if not used.contains(p)],
                 key=lambda p: (
@@ -492,10 +548,8 @@ def apply_edit_patch(
                     p.name or "",
                 ),
             )
-            flat = list(new_day.all_stops)
-            cap = STOPS_PER_DAY.get("moderate", 6)
-            # Aim for a visibly denser day than a thin relaxed slice (at least 5).
-            target_n = max(5, min(cap, max(len(flat) + 3, 5)))
+            # Only densify when still thin for a balanced day.
+            target_n = max(5, min(cap, 6))
             added_names: list[str] = []
 
             def _take_from_pool(pred=None) -> bool:
@@ -518,7 +572,6 @@ def apply_edit_patch(
                     return True
                 return False
 
-            # Ensure at least one shopping/market soft stop when shopping is an interest.
             want_shop = bool(
                 preferred_cats & {"shopping", "market"}
                 or {"shopping", "market"} & {(i or "").lower() for i in interests}
@@ -529,7 +582,6 @@ def apply_edit_patch(
                 _take_from_pool(
                     lambda p: (p.category or "").lower() in {"market", "shopping"}
                 )
-            # Ensure a second museum/sight when museum/heritage is an interest.
             want_sight = bool(
                 preferred_cats & {"museum", "heritage", "temple", "attraction"}
             )
@@ -544,7 +596,6 @@ def apply_edit_patch(
                     in {"museum", "heritage", "temple", "attraction"}
                 )
             while len(flat) < target_n:
-                # Prefer interest-matched POIs; never inject shops without shopping interest.
                 def _fill_ok(p) -> bool:
                     cat = (p.category or "").lower()
                     if not want_shop and cat in {"market", "shopping"}:
@@ -554,7 +605,6 @@ def apply_edit_patch(
                     return True
 
                 if not _take_from_pool(_fill_ok):
-                    # Relax category filter but still respect shopping gate.
                     if not _take_from_pool(
                         (lambda p: (p.category or "").lower()
                          not in {"market", "shopping"})
@@ -563,18 +613,22 @@ def apply_edit_patch(
                     ):
                         break
 
-            temp = DayPlan(
-                day_index=new_day.day_index,
-                theme=new_day.theme,
-                morning=TimeBlock(time_of_day="morning", stops=flat),
-                afternoon=TimeBlock(time_of_day="afternoon", stops=[]),
-                evening=TimeBlock(time_of_day="evening", stops=[]),
-            )
-            fixed, re_notes = reassert_meal_pace_layout(
-                [temp], pace="moderate", interests=interests
-            )
-            new_day = fixed[0] if fixed else new_day
-            before_n = len(day.all_stops)
+            if added_names or len(flat) != len(new_day.all_stops):
+                temp = DayPlan(
+                    day_index=new_day.day_index,
+                    theme=new_day.theme,
+                    morning=TimeBlock(time_of_day="morning", stops=flat),
+                    afternoon=TimeBlock(time_of_day="afternoon", stops=[]),
+                    evening=TimeBlock(time_of_day="evening", stops=[]),
+                )
+                new_day, more_notes = _apply_pace_day_reshape(
+                    temp,
+                    pace="moderate",
+                    interests=interests,
+                    note_suffix="Balanced via voice edit.",
+                )
+                notes.extend(more_notes)
+
             after_n = len(new_day.all_stops)
             if added_names:
                 notes.append(
@@ -582,18 +636,12 @@ def apply_edit_patch(
                     f"(moderate pacing; {before_n}→{after_n} stops; "
                     f"added {', '.join(added_names)})."
                 )
-            elif after_n != before_n:
-                notes.append(
-                    f"Balanced Day {target_day} "
-                    f"(moderate pacing; reshaped to {after_n} stops)."
-                )
             else:
                 notes.append(
                     f"Balanced Day {target_day} "
-                    "(moderate pacing requested, but no unused places were "
-                    "available to add — day left denser only if pool allows)."
+                    f"(moderate pacing; {before_n}→{after_n} stops; "
+                    "schedule will use block anchors + free time)."
                 )
-            notes.extend(re_notes)
 
         elif op == "balance_categories":
             raw_cats = list((patch.payload or {}).get("categories") or [])
@@ -1052,9 +1100,30 @@ def apply_edit_patch(
     if not _patch_allows_repeat(patch):
         days_out, dedupe_notes = dedupe_day_plans(days_out)
         notes.extend(dedupe_notes)
+
+    # Pace-changing edits must update trip.pace so Synthesis restamps with
+    # soft block anchors + relax/free notes (not continuous packed clocks).
+    trip_update: dict[str, Any] = {}
+    if itinerary.trip is not None:
+        if op == "relax_block" and not target_block:
+            trip_update["pace"] = "relaxed"
+            trip_update["pace_known"] = True
+        elif op == "balance_block":
+            trip_update["pace"] = "moderate"
+            trip_update["pace_known"] = True
+        elif op == "pack_block" and not target_block:
+            trip_update["pace"] = "packed"
+            trip_update["pace_known"] = True
+
+    new_trip = (
+        itinerary.trip.model_copy(update=trip_update)
+        if itinerary.trip is not None and trip_update
+        else itinerary.trip
+    )
     updated = itinerary.model_copy(
         deep=True,
         update={
+            "trip": new_trip,
             "days": days_out,
             "summary": (
                 f"Updated Day {target_day} ({op}); other days unchanged."
@@ -1063,10 +1132,11 @@ def apply_edit_patch(
         },
     )
     logger.info(
-        "EDIT applied op=%s day=%s block=%s notes=%s",
+        "EDIT applied op=%s day=%s block=%s pace=%s notes=%s",
         op,
         target_day,
         target_block,
+        getattr(new_trip, "pace", None),
         notes,
     )
     return updated, notes

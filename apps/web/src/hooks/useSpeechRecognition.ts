@@ -290,7 +290,7 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
     wantListenRef.current = true;
     if (
       typeof navigator !== "undefined" &&
-      navigator.mediaDevices?.getUserMedia &&
+      typeof navigator.mediaDevices?.getUserMedia === "function" &&
       typeof MediaRecorder !== "undefined"
     ) {
       void startServerRecording();

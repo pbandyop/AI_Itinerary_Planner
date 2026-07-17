@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import logging
 import os
@@ -11,8 +12,9 @@ from pathlib import Path
 from typing import Any, Literal
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from agent.graph import invoke_graph
@@ -59,7 +61,8 @@ _cors_origins = [
 api.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
-    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
+    # Local UI + Vercel preview/production hostnames.
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?|https://([\w-]+\.)*vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -276,8 +279,8 @@ async def speech_to_text(
     }
 
 
-@api.post("/invoke", response_model=InvokeResponse)
-def invoke(body: InvokeRequest) -> InvokeResponse:
+def _run_invoke(body: InvokeRequest) -> InvokeResponse:
+    """Run the graph and update session memory (sync; may take several minutes)."""
     sid = (body.session_id or "").strip() or "default"
     sess = _SESSIONS.setdefault(
         sid, {"trip": None, "itinerary": None, "conversation": []}
@@ -410,6 +413,129 @@ def invoke(body: InvokeRequest) -> InvokeResponse:
         agent_trace=trace if isinstance(trace, list) else [],
         pipeline_log=pipeline,
         raw_state=_jsonable(dict(result)),
+    )
+
+
+@api.post("/invoke")
+async def invoke(request: Request, body: InvokeRequest):
+    """Run the agent.
+
+    Long Overpass/LLM/revise runs can exceed Railway's ~5 minute *silent*
+    HTTP limit. We always stream keepalives:
+
+    - ``Accept: application/x-ndjson`` → ping lines + final ``{type:result}``
+    - otherwise → whitespace chunks + a single JSON object (works with
+      browsers that call ``response.json()``)
+    """
+    accept = (request.headers.get("accept") or "").lower()
+    use_ndjson = "application/x-ndjson" in accept or request.query_params.get(
+        "stream"
+    ) == "1"
+    if request.query_params.get("stream") == "0":
+        return _run_invoke(body)
+
+    async def ndjson_stream():
+        task = asyncio.create_task(asyncio.to_thread(_run_invoke, body))
+        while not task.done():
+            try:
+                await asyncio.wait_for(asyncio.shield(task), timeout=15.0)
+            except asyncio.TimeoutError:
+                yield json.dumps({"type": "ping"}) + "\n"
+        try:
+            payload = task.result()
+            yield (
+                json.dumps(
+                    {
+                        "type": "result",
+                        "payload": payload.model_dump(mode="json"),
+                    }
+                )
+                + "\n"
+            )
+        except HTTPException as exc:
+            yield (
+                json.dumps(
+                    {
+                        "type": "error",
+                        "status": exc.status_code,
+                        "message": exc.detail,
+                    }
+                )
+                + "\n"
+            )
+        except Exception as exc:  # noqa: BLE001
+            logging.getLogger(__name__).exception("streamed invoke failed")
+            yield (
+                json.dumps(
+                    {
+                        "type": "error",
+                        "status": 500,
+                        "message": str(exc),
+                    }
+                )
+                + "\n"
+            )
+
+    async def json_keepalive_stream():
+        """Whitespace pings + final JSON body (compatible with response.json())."""
+        task = asyncio.create_task(asyncio.to_thread(_run_invoke, body))
+        while not task.done():
+            try:
+                await asyncio.wait_for(asyncio.shield(task), timeout=15.0)
+            except asyncio.TimeoutError:
+                yield "\n"
+        try:
+            payload = task.result()
+            yield json.dumps(payload.model_dump(mode="json"))
+        except HTTPException as exc:
+            # Emit a JSON error object; status still 200 on stream — clients
+            # that need HTTP codes should use ?stream=0.
+            yield json.dumps(
+                {
+                    "user_reply": f"Agent error: {exc.detail}",
+                    "intent": None,
+                    "safety_status": None,
+                    "revision_count": 0,
+                    "trip_constraints": None,
+                    "merged_itinerary": None,
+                    "sources": None,
+                    "error": exc.detail,
+                    "status": exc.status_code,
+                }
+            )
+        except Exception as exc:  # noqa: BLE001
+            logging.getLogger(__name__).exception("json keepalive invoke failed")
+            yield json.dumps(
+                {
+                    "user_reply": f"Agent error: {exc}",
+                    "intent": None,
+                    "safety_status": None,
+                    "revision_count": 0,
+                    "trip_constraints": None,
+                    "merged_itinerary": None,
+                    "sources": None,
+                    "error": str(exc),
+                    "status": 500,
+                }
+            )
+
+    if use_ndjson:
+        return StreamingResponse(
+            ndjson_stream(),
+            media_type="application/x-ndjson",
+            headers={
+                "Cache-Control": "no-cache, no-transform",
+                "X-Accel-Buffering": "no",
+            },
+        )
+
+    return StreamingResponse(
+        json_keepalive_stream(),
+        media_type="application/json",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
+        },
     )
 
 

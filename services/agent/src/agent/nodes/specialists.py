@@ -283,8 +283,10 @@ def itinerary_agent_node(state: GraphState) -> dict[str, Any]:
         updated, edit_notes = apply_edit_patches(
             prev, patches, candidate_pois=pois
         )
+        # Prefer pace written by relax/balance/pack edits on the itinerary trip.
         edit_pace = (
-            trip.pace
+            (updated.trip.pace if updated.trip else None)
+            or trip.pace
             or (prev.trip.pace if prev and prev.trip else None)
             or "moderate"
         )

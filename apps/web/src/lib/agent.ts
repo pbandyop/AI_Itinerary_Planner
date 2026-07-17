@@ -54,17 +54,26 @@ export interface PipelineLogStep {
 }
 
 /**
- * Prefer same-origin `/api/agent` (Next rewrite → agent) to avoid CORS.
- * Fall back to NEXT_PUBLIC_AGENT_BASE_URL for direct calls.
+ * Browser: prefer absolute NEXT_PUBLIC_AGENT_BASE_URL (Railway) so long
+ * /invoke calls are not killed by Vercel's ~120s external-rewrite timeout.
+ * Localhost keeps same-origin `/api/agent` rewrites.
  */
 export function agentBaseUrl(): string {
+  const publicBase =
+    process.env.NEXT_PUBLIC_AGENT_BASE_URL?.replace(/\/$/, "") || "";
+
   if (typeof window !== "undefined") {
+    if (
+      publicBase &&
+      /^https?:\/\//i.test(publicBase) &&
+      !/localhost|127\.0\.0\.1/i.test(publicBase)
+    ) {
+      return publicBase;
+    }
     return "/api/agent";
   }
-  return (
-    process.env.NEXT_PUBLIC_AGENT_BASE_URL?.replace(/\/$/, "") ||
-    "http://localhost:8000"
-  );
+
+  return publicBase || "http://localhost:8000";
 }
 
 export async function invokeAgent(
@@ -75,7 +84,11 @@ export async function invokeAgent(
   try {
     res = await fetch(`${agentBaseUrl()}/invoke`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        // NDJSON + keepalive pings — Railway drops silent HTTP after ~5 minutes.
+        Accept: "application/x-ndjson",
+      },
       body: JSON.stringify({
         user_message: body.user_message,
         session_id: body.session_id ?? undefined,
@@ -88,11 +101,12 @@ export async function invokeAgent(
       signal,
     });
   } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") throw err;
     const msg = err instanceof Error ? err.message : String(err);
     if (/failed to fetch|networkerror|load failed/i.test(msg)) {
       throw new Error(
-        "Could not reach the agent (network/CORS). Is it running on port 8000? " +
-          "Try refreshing after `python -m agent.main --serve`."
+        "Lost connection to the agent while planning (often a long Overpass/LLM run). " +
+          "Wait a moment and retry — CORS is usually fine if the mic/health check works."
       );
     }
     throw err;
@@ -103,5 +117,45 @@ export async function invokeAgent(
       `Agent error ${res.status}: ${text.slice(0, 200) || res.statusText}`
     );
   }
-  return (await res.json()) as InvokeResponse;
+  return parseInvokeBody(res);
+}
+
+async function parseInvokeBody(res: Response): Promise<InvokeResponse> {
+  const text = await res.text();
+  const trimmed = text.trim();
+  // NDJSON stream (pings + final result) — also handles older clients mistaking ctype.
+  if (
+    trimmed.includes('\n{"type"') ||
+    trimmed.startsWith('{"type": "ping"') ||
+    trimmed.startsWith('{"type":"ping"') ||
+    trimmed.startsWith('{"type": "result"') ||
+    trimmed.startsWith('{"type":"result"') ||
+    trimmed.startsWith('{"type": "error"') ||
+    trimmed.startsWith('{"type":"error"')
+  ) {
+    let lastError = "";
+    for (const raw of text.split("\n")) {
+      const line = raw.trim();
+      if (!line) continue;
+      let obj: { type?: string; payload?: InvokeResponse; message?: unknown };
+      try {
+        obj = JSON.parse(line) as typeof obj;
+      } catch {
+        continue;
+      }
+      if (obj.type === "ping") continue;
+      if (obj.type === "result" && obj.payload) {
+        return obj.payload;
+      }
+      if (obj.type === "error") {
+        lastError =
+          typeof obj.message === "string"
+            ? obj.message
+            : JSON.stringify(obj.message ?? "Agent stream error");
+      }
+    }
+    if (lastError) throw new Error(lastError);
+    throw new Error("Agent stream ended without a result. Please retry.");
+  }
+  return JSON.parse(trimmed) as InvokeResponse;
 }

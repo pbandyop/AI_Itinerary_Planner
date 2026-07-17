@@ -1,6 +1,9 @@
 "use client";
 
+import { useState } from "react";
+
 import type { Dataset, Itinerary, Source } from "@/types/itinerary";
+import SourceLink from "./SourceLink";
 import styles from "./sources-panel.module.css";
 
 const DATASET_LABEL: Record<Dataset, string> = {
@@ -49,54 +52,62 @@ export function collectSources(
 }
 
 export default function SourcesPanel({ sources }: { sources: Source[] }) {
+  const [expanded, setExpanded] = useState(false);
+
   if (!sources.length) return null;
 
   const shown = sources.slice(0, 14);
 
   return (
     <section className={styles.wrap} aria-label="References">
-      <header className={styles.header}>
-        <h2>References</h2>
-        <p className={styles.sub}>
-          Cited sources for tips and facts — Wikivoyage, OpenStreetMap, weather,
-          and related datasets. Voice reply stays short; full citations stay here.
-        </p>
-      </header>
-      <ol className={styles.list}>
-        {shown.map((s, i) => {
-          const label = DATASET_LABEL[s.dataset] || s.dataset;
-          const title = s.url ? (
-            <a
-              href={s.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={styles.link}
-            >
-              {s.title}
-            </a>
-          ) : (
-            <span className={styles.title}>{s.title}</span>
-          );
-          return (
-            <li key={`${sourceKey(s)}-${i}`} className={styles.item}>
-              <div className={styles.row}>
-                {title}
-                <span className={styles.badge} data-dataset={s.dataset}>
-                  {label}
-                </span>
-              </div>
-              {s.snippet ? (
-                <p className={styles.snippet}>{s.snippet}</p>
-              ) : null}
-            </li>
-          );
-        })}
-      </ol>
-      {sources.length > shown.length ? (
-        <p className={styles.more}>
-          +{sources.length - shown.length} more place citations from
-          OpenStreetMap
-        </p>
+      <button
+        type="button"
+        className={styles.toggle}
+        onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
+      >
+        <header className={styles.header}>
+          <h2>References</h2>
+          <p className={styles.sub}>
+            {expanded
+              ? "Cited sources for tips and facts — Wikivoyage, OpenStreetMap, weather, and related datasets."
+              : `${sources.length} source${sources.length === 1 ? "" : "s"} · click to expand`}
+          </p>
+        </header>
+        <span className={styles.panelChev} aria-hidden>
+          {expanded ? "▾" : "▸"}
+        </span>
+      </button>
+      {expanded ? (
+        <>
+          <ol className={styles.list}>
+            {shown.map((s, i) => {
+              const label = DATASET_LABEL[s.dataset] || s.dataset;
+              return (
+                <li key={`${sourceKey(s)}-${i}`} className={styles.item}>
+                  <div className={styles.row}>
+                    <span className={styles.title}>{s.title}</span>
+                    <span className={styles.meta}>
+                      <SourceLink url={s.url} datasetOrName={s.dataset} />
+                      <span className={styles.badge} data-dataset={s.dataset}>
+                        {label}
+                      </span>
+                    </span>
+                  </div>
+                  {s.snippet ? (
+                    <p className={styles.snippet}>{s.snippet}</p>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ol>
+          {sources.length > shown.length ? (
+            <p className={styles.more}>
+              +{sources.length - shown.length} more place citations from
+              OpenStreetMap
+            </p>
+          ) : null}
+        </>
       ) : null}
     </section>
   );

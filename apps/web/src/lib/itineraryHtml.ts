@@ -24,7 +24,7 @@ type DayLike = {
   evening?: BlockLike;
 };
 
-type ItineraryLike = {
+export type ItineraryLike = {
   trip?: {
     city?: string;
     num_days?: number | null;

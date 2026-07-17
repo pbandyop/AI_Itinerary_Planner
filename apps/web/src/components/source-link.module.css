@@ -1,0 +1,21 @@
+.link {
+  display: inline;
+  font-weight: 650;
+  font-size: 0.85rem;
+  color: var(--primary);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--primary) 40%, transparent);
+  text-underline-offset: 0.18em;
+  cursor: pointer;
+}
+
+.link:hover {
+  color: var(--primary-bright);
+  text-decoration-color: var(--primary);
+}
+
+.link:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 2px;
+}

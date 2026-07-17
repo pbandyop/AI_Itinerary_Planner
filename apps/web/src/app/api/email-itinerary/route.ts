@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
-import { buildItineraryHtml } from "@/lib/itineraryHtml";
+import {
+  buildItineraryHtml,
+  type ItineraryLike,
+} from "@/lib/itineraryHtml";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 type EmailBody = {
   email?: string;
-  itinerary?: unknown;
+  itinerary?: ItineraryLike | null;
   sources?: unknown;
   summary?: string | null;
 };
@@ -14,8 +17,21 @@ type EmailBody = {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function webhookUrl(): string | null {
-  const raw = (process.env.N8N_WEBHOOK_URL || "").trim();
-  return raw || null;
+  let raw = (process.env.N8N_WEBHOOK_URL || "").trim();
+  // Common Vercel mistake: paste "N8N_WEBHOOK_URL=https://..." as the value.
+  if (raw.toUpperCase().startsWith("N8N_WEBHOOK_URL=")) {
+    raw = raw.slice("N8N_WEBHOOK_URL=".length).trim();
+  }
+  raw = raw.replace(/^["']|["']$/g, "").trim();
+  if (!raw) return null;
+  try {
+    // Validate early so we fail with a clear message instead of fetch() TypeError.
+    // eslint-disable-next-line no-new
+    new URL(raw);
+  } catch {
+    return null;
+  }
+  return raw;
 }
 
 export async function POST(req: Request) {
@@ -25,7 +41,7 @@ export async function POST(req: Request) {
       {
         ok: false,
         error:
-          "N8N_WEBHOOK_URL is not configured on the web server. Set it in apps/web/.env.local.",
+          "N8N_WEBHOOK_URL is missing or invalid. In Vercel, set the value to only the https://…/webhook/… URL (do not include N8N_WEBHOOK_URL=).",
       },
       { status: 503 },
     );
@@ -51,19 +67,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const itinerary = body.itinerary as
-    | {
-        days?: unknown[];
-        trip?: {
-          city?: string;
-          num_days?: number;
-          pace?: string;
-          interests?: string[];
-        };
-        summary?: string;
-      }
-    | null
-    | undefined;
+  const itinerary = body.itinerary;
   if (!itinerary || !Array.isArray(itinerary.days) || itinerary.days.length < 1) {
     return NextResponse.json(
       { ok: false, error: "No itinerary to send. Generate a plan first." },

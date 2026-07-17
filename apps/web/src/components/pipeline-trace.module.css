@@ -3,11 +3,32 @@
   border: 1px solid color-mix(in srgb, var(--outline-variant) 40%, transparent);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-ambient);
-  padding: 1.25rem 1.15rem 1.35rem;
+  padding: 1rem 1.15rem;
+}
+
+.toggle {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+
+.toggle:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
 
 .head {
-  margin-bottom: 0.85rem;
+  min-width: 0;
 }
 
 .head h2 {
@@ -26,9 +47,16 @@
   line-height: 1.4;
 }
 
+.panelChev {
+  flex-shrink: 0;
+  color: var(--on-surface-variant);
+  font-size: 1rem;
+  padding-top: 0.15rem;
+}
+
 .list {
   list-style: none;
-  margin: 0;
+  margin: 0.85rem 0 0;
   padding: 0;
   display: grid;
   gap: 0.45rem;

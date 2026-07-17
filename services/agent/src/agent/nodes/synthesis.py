@@ -977,30 +977,51 @@ def synthesis_node(state: GraphState) -> dict[str, Any]:
         # Structural edit already applied by Itinerary Agent when routed there.
         # Presentation: compose narrative from latest draft if present, else prev.
         # Prefer merged days from draft so scoped stops stick even after revise.
+        merged_live = as_itinerary(state.get("merged_itinerary"))
+        trip_for_edit = (
+            (merged_live.trip if merged_live and merged_live.trip else None)
+            or (prev.trip if prev else None)
+        )
         source_itin = (
             Itinerary(
-                trip=prev.trip,
+                trip=trip_for_edit,
                 days=list(draft.days),
                 sources=[],
                 reasoning=list(getattr(draft, "optimization_reasoning", None) or []),
             )
             if draft and draft.days
-            else prev.model_copy(deep=True)
+            else (merged_live or prev).model_copy(deep=True)
         )
+        # Pace may have changed via relax/balance/pack voice edits.
+        edit_pace = (
+            getattr(draft, "pace", None)
+            or getattr(getattr(source_itin, "trip", None), "pace", None)
+            or getattr(prev.trip, "pace", None)
+            or "moderate"
+        )
+        if source_itin.trip and edit_pace in ("relaxed", "moderate", "packed"):
+            if source_itin.trip.pace != edit_pace:
+                source_itin = source_itin.model_copy(
+                    update={
+                        "trip": source_itin.trip.model_copy(
+                            update={"pace": edit_pace, "pace_known": True}
+                        )
+                    }
+                )
         days = _attach_knowledge_to_stops(list(source_itin.days), knowledge)
         mutate_days = {int(p.target.day) for p in patches}
         # Only restamp travel on edited day(s) — other days stay byte-identical.
         days, travel_stamped = _stamp_travel_via_mcp(
-            days, mutate_days=mutate_days, pace=getattr(prev.trip, "pace", None)
+            days, mutate_days=mutate_days, pace=edit_pace
         )
         if travel and getattr(travel, "legs", None) and not travel_stamped.legs:
             days = _apply_travel_times(days, travel)
             days = stamp_schedule_clocks(
-                days, pace=getattr(prev.trip, "pace", None) or "moderate"  # type: ignore[arg-type]
+                days, pace=edit_pace  # type: ignore[arg-type]
             )
             days, _ = annotate_block_flex_time(
                 days,
-                pace=getattr(prev.trip, "pace", None) or "moderate",  # type: ignore[arg-type]
+                pace=edit_pace,  # type: ignore[arg-type]
             )
             days = refresh_day_themes(days)
             travel_stamped = travel
@@ -1014,7 +1035,7 @@ def synthesis_node(state: GraphState) -> dict[str, Any]:
         ]
         # Rebuild travel summary legs from final days without mutating others.
         _, travel_stamped = _stamp_travel_via_mcp(
-            days, mutate_days=mutate_days, pace=getattr(prev.trip, "pace", None)
+            days, mutate_days=mutate_days, pace=edit_pace
         )
         ops = "+".join(p.operation for p in patches)
         days_label = ", ".join(f"Day {d}" for d in sorted(mutate_days))

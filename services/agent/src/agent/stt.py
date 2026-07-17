@@ -44,37 +44,33 @@ def transcribe_audio(data: bytes, *, mime_type: str = "audio/webm") -> str:
 
 def _transcribe_gemini(data: bytes, *, mime_type: str, api_key: str) -> str:
     model_name = os.getenv("STT_MODEL") or default_chat_model()
-    b64 = base64.b64encode(data).decode("ascii")
+    errors: list[str] = []
 
-    # Prefer LangChain multimodal (already a project dependency).
+    # 1) Official google-genai SDK (installed with langchain-google-genai).
     try:
-        from langchain_core.messages import HumanMessage
-        from langchain_google_genai import ChatGoogleGenerativeAI
-
-        llm = ChatGoogleGenerativeAI(
-            model=model_name,
-            google_api_key=api_key,
-            temperature=0,
-        )
-        msg = HumanMessage(
-            content=[
-                {"type": "text", "text": _TRANSCRIBE_PROMPT},
-                {
-                    "type": "media",
-                    "mime_type": mime_type,
-                    "data": b64,
-                },
-            ]
-        )
-        result = llm.invoke([msg])
-        text = _content_to_text(result.content).strip()
+        text = _transcribe_gemini_sdk(data, mime_type=mime_type, api_key=api_key, model_name=model_name)
         if text:
             return text
-    except Exception:
-        logger.exception("LangChain Gemini STT failed; trying google.generativeai")
+        errors.append("google.genai returned empty transcript")
+    except Exception as exc:
+        logger.exception("google.genai STT failed")
+        errors.append(f"google.genai: {exc}")
 
+    # 2) LangChain multimodal fallback.
     try:
-        import google.generativeai as genai
+        text = _transcribe_gemini_langchain(
+            data, mime_type=mime_type, api_key=api_key, model_name=model_name
+        )
+        if text:
+            return text
+        errors.append("LangChain Gemini returned empty transcript")
+    except Exception as exc:
+        logger.exception("LangChain Gemini STT failed")
+        errors.append(f"langchain: {exc}")
+
+    # 3) Legacy package name (optional if installed).
+    try:
+        import google.generativeai as genai  # type: ignore
 
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel(model_name)
@@ -84,10 +80,82 @@ def _transcribe_gemini(data: bytes, *, mime_type: str, api_key: str) -> str:
                 {"mime_type": mime_type, "data": data},
             ]
         )
-        return (getattr(response, "text", None) or "").strip()
+        text = (getattr(response, "text", None) or "").strip()
+        if text:
+            return text
+        errors.append("google.generativeai returned empty transcript")
+    except ImportError:
+        errors.append("google.generativeai not installed")
     except Exception as exc:
-        logger.exception("Gemini STT failed")
-        raise RuntimeError(f"Speech transcription failed: {exc}") from exc
+        logger.exception("Legacy google.generativeai STT failed")
+        errors.append(f"google.generativeai: {exc}")
+
+    raise RuntimeError(
+        "Speech transcription failed: " + " | ".join(errors[:3])
+    )
+
+
+def _transcribe_gemini_sdk(
+    data: bytes, *, mime_type: str, api_key: str, model_name: str
+) -> str:
+    from google import genai
+    from google.genai import types
+
+    client = genai.Client(api_key=api_key)
+    response = client.models.generate_content(
+        model=model_name,
+        contents=[
+            types.Content(
+                role="user",
+                parts=[
+                    types.Part.from_bytes(data=data, mime_type=mime_type),
+                    types.Part.from_text(text=_TRANSCRIBE_PROMPT),
+                ],
+            )
+        ],
+    )
+    text = getattr(response, "text", None)
+    if text:
+        return str(text).strip()
+    # Some SDK versions put text only on candidates.
+    try:
+        candidates = getattr(response, "candidates", None) or []
+        for cand in candidates:
+            content = getattr(cand, "content", None)
+            parts = getattr(content, "parts", None) or []
+            for part in parts:
+                part_text = getattr(part, "text", None)
+                if part_text:
+                    return str(part_text).strip()
+    except Exception:
+        pass
+    return ""
+
+
+def _transcribe_gemini_langchain(
+    data: bytes, *, mime_type: str, api_key: str, model_name: str
+) -> str:
+    from langchain_core.messages import HumanMessage
+    from langchain_google_genai import ChatGoogleGenerativeAI
+
+    b64 = base64.b64encode(data).decode("ascii")
+    llm = ChatGoogleGenerativeAI(
+        model=model_name,
+        google_api_key=api_key,
+        temperature=0,
+    )
+    msg = HumanMessage(
+        content=[
+            {"type": "text", "text": _TRANSCRIBE_PROMPT},
+            {
+                "type": "media",
+                "mime_type": mime_type,
+                "data": b64,
+            },
+        ]
+    )
+    result = llm.invoke([msg])
+    return _content_to_text(result.content).strip()
 
 
 def _transcribe_openai(data: bytes, *, mime_type: str, api_key: str) -> str:

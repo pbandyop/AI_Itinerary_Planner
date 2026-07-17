@@ -189,6 +189,11 @@ python -m evals
 
 ## Current phase
 
-**Phase 8 (app wiring done):** After a plan appears, use **Email this plan** to POST itinerary + email via `/api/email-itinerary` to n8n. Finish PDF + Gmail in n8n Cloud ([`docs/n8n.md`](docs/n8n.md)), then **Phase 9** — deploy + demo.
+**Phase 9 (deploy):** Agent on Railway · UI on Vercel.
+
+- Agent: [`docs/deploy-railway.md`](docs/deploy-railway.md) · live `https://agent-production-1675.up.railway.app`
+- Web: [`docs/deploy-vercel.md`](docs/deploy-vercel.md) · root directory `apps/web`
+
+**Phase 8:** Email plan via `/api/email-itinerary` → n8n ([`docs/n8n.md`](docs/n8n.md)).
 
 Sample voice transcripts: [`evals/fixtures/sample_transcripts.md`](evals/fixtures/sample_transcripts.md).

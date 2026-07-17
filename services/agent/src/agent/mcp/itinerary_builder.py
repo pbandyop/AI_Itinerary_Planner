@@ -39,12 +39,12 @@ DEFAULT_DURATION: dict[str, int] = {
     "other": 60,
 }
 
-# Max activity stops per day by pace (ideals: relaxed 2-1-1, balanced 2-2-2,
-# packed morning/afternoon 2–4 + evening up to 3 when POIs allow).
+# Soft day-size hints (relaxed/balanced). Packed has no hard stop cap —
+# blocks are filled by time windows (POIs first, then relax/rest notes).
 STOPS_PER_DAY: dict[Pace, int] = {
     "relaxed": 4,  # morning 2 · afternoon 1 · evening 1 (dinner)
     "moderate": 6,  # morning 2 · afternoon 2 · evening 2 (soft + dinner)
-    "packed": 11,  # morning 2–4 · afternoon 2–4 · evening ≤3 (2 soft + dinner)
+    "packed": 24,  # generous pool only; densify fills by clock windows
 }
 
 # Non-food evening extras allowed before dinner (dinner stays last).
@@ -59,7 +59,7 @@ def _ideal_block_targets(pace: Pace) -> tuple[int, int, int]:
     if pace == "relaxed":
         return (2, 1, 1)
     if pace == "packed":
-        return (2, 2, 3)  # stretch toward (4, 4, 3) when POIs allow
+        return (3, 3, 2)  # seed denser; densify grows further by time window
     return (2, 2, 2)  # moderate / balanced
 
 
@@ -70,7 +70,7 @@ def _adaptive_block_targets(pace: Pace, n: int) -> tuple[int, int, int]:
     (keep morning protected). Prefer keeping one evening slot when possible
     (e.g. 2-1-1 for four stops) rather than emptying evening (2-2-0).
     With exactly 3 POIs, prefer 1-1-1 so all three panels show rather than 2-1-0.
-    Packed grows morning/afternoon from 2 toward 4 when n allows (max 4+4+3=11).
+    Packed grows AM/PM/evening freely (no small hard cap); densify fills by time.
     """
     if n <= 0:
         return (0, 0, 0)
@@ -82,41 +82,42 @@ def _adaptive_block_targets(pace: Pace, n: int) -> tuple[int, int, int]:
         return (1, 1, 1)
 
     if pace == "packed":
-        # Base 2-2-3; stretch AM/PM up to 4 when the day pool is rich enough.
-        m, a, e = 2, 2, 3
-        cap_m, cap_a, cap_e = 4, 4, 3
+        # Start 2-2-2; stretch across blocks while POIs last (soft max 8/8/5).
+        m, a, e = 2, 2, 2
+        cap_m, cap_a, cap_e = 8, 8, 5
         use = min(n, cap_m + cap_a + cap_e)
         spare = use - (m + a + e)
-        grow_m = True
+        order = ["m", "a", "e"]
+        oi = 0
         while spare > 0:
-            if grow_m and m < cap_m:
+            slot = order[oi % 3]
+            oi += 1
+            if slot == "m" and m < cap_m:
                 m += 1
                 spare -= 1
-            elif not grow_m and a < cap_a:
+            elif slot == "a" and a < cap_a:
                 a += 1
                 spare -= 1
-            elif m < cap_m:
-                m += 1
+            elif slot == "e" and e < cap_e:
+                e += 1
                 spare -= 1
-            elif a < cap_a:
-                a += 1
-                spare -= 1
-            else:
+            elif m >= cap_m and a >= cap_a and e >= cap_e:
                 break
-            grow_m = not grow_m
+            else:
+                continue
         while m + a + e > use:
-            if e > 1:
+            if e > 2:
                 e -= 1
             elif a > 2:
                 a -= 1
             elif m > 2:
                 m -= 1
+            elif e > 1:
+                e -= 1
             elif a > 0:
                 a -= 1
             elif m > 1:
                 m -= 1
-            elif e > 0:
-                e -= 1
             else:
                 break
         return (m, a, e)
@@ -553,17 +554,21 @@ DAY_START_MIN: dict[Pace, int] = {
     "packed": 8 * 60 + 30,  # 08:30
 }
 
-# Soft paces: next block does not start before these anchors (relax buffer).
-# Packed stays fully continuous (no artificial gaps).
+# Soft paces + packed: next block does not start before these anchors so
+# Morning / Afternoon / Evening labels match real clock windows.
 BLOCK_START_MIN: dict[str, int] = {
     "afternoon": 13 * 60,  # 1:00 PM
     "evening": 17 * 60,  # 5:00 PM
 }
 
-# Semantic block ends for relax notes (= next block start for soft paces).
+# Soft end of evening window (for packed densify + flex notes).
+EVENING_FLEX_END_MIN = 21 * 60  # 9:00 PM
+
+# Semantic block ends for relax notes (= next block start).
 BLOCK_FLEX_END_MIN: dict[str, int] = {
     "morning": BLOCK_START_MIN["afternoon"],
     "afternoon": BLOCK_START_MIN["evening"],
+    "evening": EVENING_FLEX_END_MIN,
 }
 
 
@@ -616,12 +621,11 @@ def stamp_schedule_clocks(
 ) -> list[DayPlan]:
     """Stamp arrive/depart clocks.
 
-    Packed: one continuous timeline.
-    Relaxed/balanced: afternoon/evening do not start before block anchors, so
-    relax/free gaps are reflected in the next stop's arrive_time.
+    All paces: afternoon/evening do not start before block anchors (1:00 PM /
+    5:00 PM) so Morning / Afternoon / Evening labels match the clocks.
+    Leftover window time becomes relax/free notes via annotate_block_flex_time.
     """
     day_start = DAY_START_MIN.get(pace, DAY_START_MIN["moderate"])
-    soft_anchors = pace in ("relaxed", "moderate")
     out: list[DayPlan] = []
     for day in days:
         morning = list(day.morning.stops)
@@ -629,10 +633,10 @@ def stamp_schedule_clocks(
         evening = list(day.evening.stops)
 
         morning_s, cursor = _stamp_block_clocks(morning, start_min=day_start)
-        if soft_anchors and afternoon:
+        if afternoon:
             cursor = max(cursor, BLOCK_START_MIN["afternoon"])
         afternoon_s, cursor = _stamp_block_clocks(afternoon, start_min=cursor)
-        if soft_anchors and evening:
+        if evening:
             cursor = max(cursor, BLOCK_START_MIN["evening"])
         evening_s, _ = _stamp_block_clocks(evening, start_min=cursor)
 
@@ -689,15 +693,187 @@ def restamp_day_travel_and_clocks(
     return stamp_schedule_clocks([rebuilt], pace=pace)[0]
 
 
-# Packed floors: fill AM/PM with interest places when candidates exist.
+# Packed floors: prefer at least this many stops when POIs exist.
 PACKED_BLOCK_FLOOR: dict[str, int] = {
     "morning": 2,
     "afternoon": 2,
+    "evening": 1,
 }
+# Soft per-block safety (avoid runaway loops); not a product "cap".
 PACKED_BLOCK_SOFT_CAP: dict[str, int] = {
-    "morning": 4,
-    "afternoon": 4,
+    "morning": 8,
+    "afternoon": 8,
+    "evening": 5,
 }
+
+# Default travel guess when densifying before legs are stamped.
+_PACKED_DEFAULT_TRAVEL_MIN = 18
+
+
+def _packed_block_window(bname: str, pace: Pace) -> tuple[int, int]:
+    """Return (window_start, window_end) minutes for a packed block."""
+    day_start = DAY_START_MIN.get(pace, DAY_START_MIN["packed"])
+    if bname == "morning":
+        return day_start, BLOCK_START_MIN["afternoon"]
+    if bname == "afternoon":
+        return BLOCK_START_MIN["afternoon"], BLOCK_START_MIN["evening"]
+    return BLOCK_START_MIN["evening"], EVENING_FLEX_END_MIN
+
+
+def _estimate_block_fill_mins(stops: list[Stop]) -> int:
+    """Rough minutes consumed by stops (+ default travel between them)."""
+    if not stops:
+        return 0
+    total = 0
+    for i, s in enumerate(stops):
+        total += max(15, int(s.duration_min or 45))
+        if i < len(stops) - 1:
+            total += max(
+                0, int(s.travel_to_next_min or _PACKED_DEFAULT_TRAVEL_MIN)
+            )
+    return total
+
+
+def densify_packed_am_pm(
+    days: list[DayPlan],
+    *,
+    interests: list[str],
+    candidate_pois: list[POICandidate],
+    pace: Pace = "packed",
+) -> tuple[list[DayPlan], list[str]]:
+    """Packed only: fill morning/afternoon/evening by time window.
+
+    Adds interest-matching live POIs until the block's clock window is roughly
+    full (no day-level stop cap). Leftover time is labeled as relax/rest later
+    by annotate_block_flex_time after clocks are stamped.
+    """
+    notes: list[str] = []
+    if pace != "packed" or not days:
+        return days, notes
+
+    interest_keys = list(
+        dict.fromkeys(
+            (normalize_interest(i) or i).lower()
+            for i in (interests or [])
+            if (normalize_interest(i) or i)
+        )
+    )
+    working = [d.model_copy(deep=True) for d in days]
+    pool = sorted(
+        list(candidate_pois or []),
+        key=lambda p: (-(p.rank_score or 0.0), p.name or ""),
+    )
+
+    def _used() -> PlaceSeen:
+        seen = PlaceSeen()
+        for day in working:
+            for s in day.all_stops:
+                seen.add(s)
+        return seen
+
+    def _pick(used: PlaceSeen, *, block_stops: list[Stop]) -> POICandidate | None:
+        prefer_non_food = _has_non_food_interest(interest_keys or interests)
+        block_has_food = any(
+            (s.category or "").lower() in {"food", "cafe", "restaurant"}
+            for s in block_stops
+        )
+        require_non_food = prefer_non_food and block_has_food
+        non_food_keys = [k for k in interest_keys if k != "food"]
+
+        def _ok(p: POICandidate) -> bool:
+            cat = (p.category or "").lower()
+            is_food = cat in {"food", "cafe", "restaurant"} or _is_food(p)
+            if require_non_food and is_food:
+                return False
+            if require_non_food and non_food_keys:
+                return any(_stop_covers_interest(p, key) for key in non_food_keys)
+            if interest_keys and not any(
+                _stop_covers_interest(p, key) for key in interest_keys
+            ):
+                return not is_food
+            return True
+
+        for p in pool:
+            if used.contains(p):
+                continue
+            if _ok(p):
+                return p
+        if require_non_food:
+            for p in pool:
+                if used.contains(p):
+                    continue
+                cat = (p.category or "").lower()
+                if cat not in {"food", "cafe", "restaurant"} and not _is_food(p):
+                    return p
+        for p in pool:
+            if not used.contains(p):
+                return p
+        return None
+
+    for day in working:
+        for bname in ("morning", "afternoon", "evening"):
+            floor = PACKED_BLOCK_FLOOR[bname]
+            soft_cap = PACKED_BLOCK_SOFT_CAP[bname]
+            win_start, win_end = _packed_block_window(bname, pace)
+            window_mins = max(60, win_end - win_start)
+            # Leave a little slack so flex notes can still appear.
+            fill_target = max(45, window_mins - 25)
+
+            block: TimeBlock = getattr(day, bname)
+            stops = list(block.stops)
+
+            # Grow until floor met (if POIs exist) and/or window is roughly full.
+            while len(stops) < soft_cap:
+                used_mins = _estimate_block_fill_mins(stops)
+                need_floor = len(stops) < floor
+                need_time = used_mins < fill_target
+                if not need_floor and not need_time:
+                    break
+                # Next stop estimate (~dwell + travel)
+                next_cost = 45 + _PACKED_DEFAULT_TRAVEL_MIN
+                if not need_floor and used_mins + next_cost > window_mins + 10:
+                    break
+                used = _used()
+                pick = _pick(used, block_stops=stops)
+                if pick is None:
+                    notes.append(
+                        f"Day {day.day_index} {bname}: no more interest POIs — "
+                        f"leftover slot time will be relax/rest."
+                    )
+                    break
+                new_stop = _make_stop(
+                    pick, pace=pace, interests=interest_keys or interests
+                ).model_copy(
+                    update={
+                        "reason": (
+                            f"Packed {bname} fill for interests "
+                            f"{', '.join(interest_keys) or 'general'} "
+                            f"(live OSM place)."
+                        )
+                    }
+                )
+                stops.append(new_stop)
+                notes.append(
+                    f"Day {day.day_index} {bname}: added {new_stop.name} "
+                    f"to fill {_format_clock_ampm(win_start)}–"
+                    f"{_format_clock_ampm(win_end)} window."
+                )
+
+            setattr(
+                day,
+                bname,
+                TimeBlock(
+                    time_of_day=bname,  # type: ignore[arg-type]
+                    stops=stops,
+                    notes=block.notes,
+                ),
+            )
+
+    return working, notes
+
+
+def _cat_of_stop(stop: Stop) -> str:
+    return (stop.category or "").lower()
 
 
 def _parse_clock_min(hhmm: str | None) -> int | None:
@@ -766,50 +942,35 @@ def annotate_block_flex_time(
     *,
     pace: Pace = "moderate",
 ) -> tuple[list[DayPlan], list[str]]:
-    """For relaxed/balanced: label leftover AM/PM window as explicit relax time.
+    """Label leftover morning/afternoon/evening window as explicit relax time.
 
-    Does not invent POIs. Packed paces skip this (they densify places instead).
-    Remaining time is measured until the next block's first arrive (after
-    block-anchor stamping), so notes match the schedule clocks.
+    Does not invent POIs. Remaining time is measured until the next block's
+    first arrive (after block-anchor stamping). Applies to all paces — packed
+    uses rest/relax notes when interest POIs cannot fill the slot.
     """
     notes: list[str] = []
     if not days:
         return days, notes
-    if pace == "packed":
-        # Drop stale relax notes if the day was previously soft-paced.
-        cleaned: list[DayPlan] = []
-        for day in days:
-            d = day.model_copy(deep=True)
-            for bname in ("morning", "afternoon", "evening"):
-                block: TimeBlock = getattr(d, bname)
-                stripped = _strip_flex_note(block.notes)
-                if stripped != block.notes:
-                    setattr(
-                        d,
-                        bname,
-                        TimeBlock(
-                            time_of_day=bname,  # type: ignore[arg-type]
-                            stops=list(block.stops),
-                            notes=stripped,
-                        ),
-                    )
-            cleaned.append(d)
-        return cleaned, notes
 
-    next_block_name = {"morning": "afternoon", "afternoon": "evening"}
+    next_block_name = {
+        "morning": "afternoon",
+        "afternoon": "evening",
+        "evening": None,
+    }
     out: list[DayPlan] = []
     for day in days:
         d = day.model_copy(deep=True)
         for bname, until_label in (
             ("morning", "afternoon"),
             ("afternoon", "evening"),
+            ("evening", "end of evening"),
         ):
             block: TimeBlock = getattr(d, bname)
-            nxt: TimeBlock = getattr(d, next_block_name[bname])
-            # Prefer actual next-stop arrive so flex matches stamped clocks.
-            next_arrive = (
-                _parse_clock_min(nxt.stops[0].arrive_time) if nxt.stops else None
-            )
+            nxt_name = next_block_name[bname]
+            nxt: TimeBlock | None = getattr(d, nxt_name) if nxt_name else None
+            next_arrive = None
+            if nxt and nxt.stops:
+                next_arrive = _parse_clock_min(nxt.stops[0].arrive_time)
             window_end = (
                 next_arrive
                 if next_arrive is not None
@@ -838,17 +999,17 @@ def annotate_block_flex_time(
                 last.arrive_time
             )
             if depart is None:
-                # Clocks missing — estimate from durations only.
                 depart = DAY_START_MIN.get(pace, 9 * 60)
+                if bname == "afternoon":
+                    depart = BLOCK_START_MIN["afternoon"]
+                elif bname == "evening":
+                    depart = BLOCK_START_MIN["evening"]
                 for s in block.stops:
                     depart += max(15, int(s.duration_min or 15))
                     depart += int(s.travel_to_next_min or 0)
-                # Subtract last travel (already at end of block).
                 depart -= int(last.travel_to_next_min or 0)
 
             travel = max(0, int(last.travel_to_next_min or 0))
-            # Gap until next block's first arrive. Do not require gap-travel >= 40 —
-            # that hid real free windows after edits (e.g. 12:09 → 1:00 with 17 min travel).
             gap_until_next = int(window_end) - int(depart)
             if gap_until_next < 30:
                 cleaned = _strip_flex_note(block.notes)
@@ -869,7 +1030,7 @@ def annotate_block_flex_time(
                 if travel >= 10 and (gap_until_next - travel) >= 20
                 else gap_until_next
             )
-            if travel >= 10 and (gap_until_next - travel) >= 20:
+            if bname != "evening" and travel >= 10 and (gap_until_next - travel) >= 20:
                 flex = (
                     f"Relax / free time {_human_flex_duration(free_mins)} "
                     f"after {last.name}, then about {travel} min travel to "
@@ -902,128 +1063,6 @@ def refresh_day_themes(days: list[DayPlan]) -> list[DayPlan]:
         theme = ", ".join(dict.fromkeys(cats)) if cats else (day.theme or f"Day {day.day_index}")
         out.append(day.model_copy(update={"theme": theme[:80]}))
     return out
-
-
-def densify_packed_am_pm(
-    days: list[DayPlan],
-    *,
-    interests: list[str],
-    candidate_pois: list[POICandidate],
-    pace: Pace = "packed",
-) -> tuple[list[DayPlan], list[str]]:
-    """Packed only: fill thin morning/afternoon with interest-matching live POIs."""
-    notes: list[str] = []
-    if pace != "packed" or not days:
-        return days, notes
-
-    interest_keys = list(
-        dict.fromkeys(
-            (normalize_interest(i) or i).lower()
-            for i in (interests or [])
-            if (normalize_interest(i) or i)
-        )
-    )
-    cap = STOPS_PER_DAY.get(pace, 11)
-    working = [d.model_copy(deep=True) for d in days]
-    pool = sorted(
-        list(candidate_pois or []),
-        key=lambda p: (-(p.rank_score or 0.0), p.name or ""),
-    )
-
-    def _used() -> PlaceSeen:
-        seen = PlaceSeen()
-        for day in working:
-            for s in day.all_stops:
-                seen.add(s)
-        return seen
-
-    def _pick(used: PlaceSeen, *, block_stops: list[Stop]) -> POICandidate | None:
-        prefer_non_food = _has_non_food_interest(interest_keys or interests)
-        block_has_food = any(
-            (s.category or "").lower() in {"food", "cafe", "restaurant"}
-            for s in block_stops
-        )
-        require_non_food = prefer_non_food and block_has_food
-        non_food_keys = [k for k in interest_keys if k != "food"]
-
-        def _ok(p: POICandidate) -> bool:
-            cat = (p.category or "").lower()
-            is_food = cat in {"food", "cafe", "restaurant"} or _is_food(p)
-            if require_non_food and is_food:
-                return False
-            if require_non_food and non_food_keys:
-                return any(_stop_covers_interest(p, key) for key in non_food_keys)
-            if interest_keys and not any(
-                _stop_covers_interest(p, key) for key in interest_keys
-            ):
-                return not is_food
-            return True
-
-        for p in pool:
-            if used.contains(p):
-                continue
-            if _ok(p):
-                return p
-        if require_non_food:
-            for p in pool:
-                if used.contains(p):
-                    continue
-                cat = (p.category or "").lower()
-                if cat not in {"food", "cafe", "restaurant"} and not _is_food(p):
-                    return p
-        for p in pool:
-            if not used.contains(p):
-                return p
-        return None
-
-    for day in working:
-        day_n = len(day.all_stops)
-        for bname in ("morning", "afternoon"):
-            floor = PACKED_BLOCK_FLOOR[bname]
-            soft_cap = PACKED_BLOCK_SOFT_CAP[bname]
-            block: TimeBlock = getattr(day, bname)
-            stops = list(block.stops)
-            while len(stops) < floor and day_n < cap and len(stops) < soft_cap:
-                used = _used()
-                pick = _pick(used, block_stops=stops)
-                if pick is None:
-                    break
-                new_stop = _make_stop(
-                    pick, pace=pace, interests=interest_keys or interests
-                ).model_copy(
-                    update={
-                        "reason": (
-                            f"Packed {bname} fill for interests "
-                            f"{', '.join(interest_keys) or 'general'} "
-                            f"(live OSM place)."
-                        )
-                    }
-                )
-                stops.append(new_stop)
-                day_n += 1
-                notes.append(
-                    f"Day {day.day_index} {bname}: added {new_stop.name} "
-                    f"to reach packed floor ≥{floor}."
-                )
-            # Prefer non-food second+ stops after a leading food when possible.
-            if len(stops) >= 2 and _cat_of_stop(stops[0]) in {"food"}:
-                pass
-            setattr(
-                day,
-                bname,
-                TimeBlock(
-                    time_of_day=bname,  # type: ignore[arg-type]
-                    stops=stops,
-                    notes=block.notes,
-                ),
-            )
-
-    return working, notes
-
-
-def _cat_of_stop(stop: Stop) -> str:
-    return (stop.category or "").lower()
-
 
 
 _EVENING_CATEGORIES = frozenset({"food", "market", "shopping", "nightlife"})

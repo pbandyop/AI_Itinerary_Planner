@@ -2,6 +2,7 @@
 
 import type { Itinerary, Source, TimeBlock } from "@/types/itinerary";
 import type { DayWeather, TravelTimeResult, WeatherResult } from "@/types/mcp";
+import SourceLink from "./SourceLink";
 import EmailItineraryForm from "./EmailItineraryForm";
 import styles from "./itinerary-view.module.css";
 
@@ -109,8 +110,18 @@ function dayWeatherLabel(w?: DayWeather | null): string | null {
   if (w.temp_min_c != null && w.temp_max_c != null) {
     bits.push(`${Math.round(w.temp_min_c)}–${Math.round(w.temp_max_c)}°C`);
   }
-  if (!bits.length && w.calendar_date) bits.push(w.calendar_date);
   return bits.length ? bits.join(" · ") : null;
+}
+
+function formatWeatherDate(iso?: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso.includes("T") ? iso : `${iso}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 export default function ItineraryView({
@@ -167,15 +178,30 @@ export default function ItineraryView({
           const lastKey = flat.length
             ? `${flat[flat.length - 1].osm_type}/${flat[flat.length - 1].osm_id}`
             : null;
-          const predicted = dayWeatherLabel(weatherByDay.get(day.day_index));
+          const dayWx = weatherByDay.get(day.day_index);
+          const predicted = dayWeatherLabel(dayWx);
+          const weatherDate = formatWeatherDate(dayWx?.calendar_date);
           return (
             <article key={day.day_index} className={styles.day}>
               <div className={styles.dayHeading}>
                 <h3>Day {day.day_index}</h3>
-                {predicted ? (
-                  <p className={styles.dayWeather}>
-                    Predicted weather: {predicted}
-                  </p>
+                {predicted || weatherDate ? (
+                  <div className={styles.weatherBlock}>
+                    {predicted ? (
+                      <p className={styles.dayWeather}>
+                        Predicted weather: {predicted}
+                      </p>
+                    ) : null}
+                    {weatherDate ? (
+                      <p className={styles.weatherDate}>{weatherDate}</p>
+                    ) : null}
+                    <p className={styles.weatherSource}>
+                      <SourceLink
+                        url={weather?.source}
+                        datasetOrName={weather?.source || "open-meteo"}
+                      />
+                    </p>
+                  </div>
                 ) : null}
               </div>
               {BLOCKS.map(({ key, label }) => {
