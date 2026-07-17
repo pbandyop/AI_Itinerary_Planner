@@ -958,9 +958,25 @@ def apply_edit_patch(
                 if (p.category or "").lower() in INDOOR_CATEGORIES
                 and not used.contains(p)
             ]
+            rain_adjust = bool((patch.payload or {}).get("rain_adjust"))
+            # Rain swaps: prefer museums/heritage/temples over yet another cafe.
+            if rain_adjust:
+                preferred = {"museum", "heritage", "temple", "art", "market"}
+                indoor_pool = sorted(
+                    indoor_pool,
+                    key=lambda p: (
+                        0
+                        if (p.category or "").lower() in preferred
+                        else 1,
+                        -(p.rank_score or 0.0),
+                        p.name or "",
+                    ),
+                )
             utterance = (patch.user_utterance or "").lower()
             force_swap = bool(re.search(r"\b(swap|replace|change)\b", utterance))
-            for bname, block in _get_block(new_day, target_block or "evening"):
+            # block=None means whole day — do NOT default to evening only
+            # (that bug left morning/afternoon parks untouched on rain edits).
+            for bname, block in _get_block(new_day, target_block):
                 # Explicit "swap … indoors" replaces the whole block plan.
                 if force_swap:
                     if indoor_pool:

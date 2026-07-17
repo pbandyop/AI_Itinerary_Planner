@@ -56,6 +56,8 @@ LOW_QUALITY_PATTERNS: tuple[str, ...] = (
     r"^ground$",
     r"\bpark\s*[-#]?\s*\d+\b",
     r"^deer\s+park$",
+    r"\bbike\s*park\b",
+    r"\bchitrakoot\b",
     r"\bcollege\b",
     r"\bschool\b",
     r"state\s+bank",

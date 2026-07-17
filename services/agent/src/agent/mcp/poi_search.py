@@ -386,7 +386,8 @@ _LOW_SIGNAL_PARK_RE = re.compile(
     r"cricket|football|soccer|playground|apartment|apartments|society|colony|"
     r"housing|sector[-\s]?\d|nagar,\s*sector|block\s*[a-z0-9]|plot\s*no|"
     r"enclave|residency|township|college|school|university|campus|institute|"
-    r"hospital|hostel|housing\s+board"
+    r"hospital|hostel|housing\s+board|bike\s*park|bmx|skate\s*park|"
+    r"chitrakoot"
     r")\b|^ground$",
     re.I,
 )

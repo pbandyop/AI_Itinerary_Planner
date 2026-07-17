@@ -197,7 +197,7 @@ def itinerary_agent_node(state: GraphState) -> dict[str, Any]:
                         return ["shopping", "market"]
                     return [cat]
                 if p.operation == "make_indoor":
-                    return ["museum", "food"]
+                    return ["museum", "heritage", "temple", "food"]
                 if p.operation == "pack_block":
                     return list(trip.interests[:3]) or ["heritage", "food"]
                 if p.operation == "balance_block":
