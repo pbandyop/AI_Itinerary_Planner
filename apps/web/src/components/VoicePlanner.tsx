@@ -78,6 +78,10 @@ export default function VoicePlanner() {
   const [autoSend, setAutoSend] = useState(true);
   const [pending, setPending] = useState(false);
   const [samplesOpen, setSamplesOpen] = useState(false);
+  /** Capstone: user turns must be exact STT output (no typed bypass). */
+  const [voiceUnlocked, setVoiceUnlocked] = useState(false);
+  const [speakHint, setSpeakHint] = useState<string | null>(null);
+  const sttTextRef = useRef("");
   const abortRef = useRef<AbortController | null>(null);
   const itineraryRef = useRef<Itinerary | null>(null);
   const pendingTripRef = useRef<TripConstraints | null>(null);
@@ -93,14 +97,15 @@ export default function VoicePlanner() {
 
   const speech = useSpeechRecognition({
     lang: "en-US",
-    onFinal: (text) => setDraft(text),
+    onFinal: (text) => {
+      const clean = text.trim();
+      sttTextRef.current = clean;
+      setDraft(clean);
+      setVoiceUnlocked(Boolean(clean));
+      setSpeakHint(null);
+      setError(null);
+    },
   });
-
-  useEffect(() => {
-    if (speech.finalTranscript) {
-      setDraft(speech.finalTranscript);
-    }
-  }, [speech.finalTranscript]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -109,7 +114,10 @@ export default function VoicePlanner() {
   const resetSession = useCallback(() => {
     setDraft("");
     speech.resetTranscript();
+    sttTextRef.current = "";
     setError(null);
+    setVoiceUnlocked(false);
+    setSpeakHint(null);
     setPipelineLog([]);
     setReply("");
     setIntent(null);
@@ -127,6 +135,13 @@ export default function VoicePlanner() {
     async (message: string) => {
       const text = message.trim();
       if (!text || pending) return;
+      // Capstone: strictly STT — message must match the latest transcript.
+      if (!voiceUnlocked || text !== sttTextRef.current.trim()) {
+        setError(
+          "Voice input is required — tap the mic and speak. Typed messages are not accepted."
+        );
+        return;
+      }
 
       speech.stop();
       stopSpeaking();
@@ -140,7 +155,9 @@ export default function VoicePlanner() {
       lastAutoSentRef.current = text;
       setDraft("");
       speech.resetTranscript();
-
+      sttTextRef.current = "";
+      setVoiceUnlocked(false);
+      setSpeakHint(null);
       const prior = conversationRef.current;
       setConversation((c) => [...c, { role: "user", content: text }]);
 
@@ -209,7 +226,7 @@ export default function VoicePlanner() {
         setPending(false);
       }
     },
-    [pending, speech, tts]
+    [pending, speech, tts, voiceUnlocked]
   );
   submitRef.current = submit;
 
@@ -217,6 +234,7 @@ export default function VoicePlanner() {
     if (!autoSend || pending || speech.listening || speech.transcribing) return;
     const text = speech.finalTranscript.trim();
     if (!text || text === lastAutoSentRef.current) return;
+    if (!voiceUnlocked) return;
     const t = window.setTimeout(() => {
       void submitRef.current(text);
     }, 350);
@@ -227,6 +245,7 @@ export default function VoicePlanner() {
     speech.listening,
     speech.transcribing,
     speech.finalTranscript,
+    voiceUnlocked,
   ]);
 
   const toggleMic = () => {
@@ -237,8 +256,17 @@ export default function VoicePlanner() {
     }
     speech.resetTranscript();
     setDraft("");
+    sttTextRef.current = "";
+    setVoiceUnlocked(false);
     speech.start();
   };
+
+  const canSendVoice = Boolean(
+    draft.trim() &&
+      voiceUnlocked &&
+      draft.trim() === sttTextRef.current.trim() &&
+      !pending
+  );
 
   const slotsReady = Boolean(
     pendingTrip?.days_known &&
@@ -291,25 +319,14 @@ export default function VoicePlanner() {
             >
               Reset
             </button>
-            {awaitingConfirm && slotsReady ? (
-              <button
-                type="button"
-                className={styles.ctaNav}
-                disabled={pending}
-                onClick={() => void submit("yes, confirm")}
-              >
-                Confirm &amp; plan
-              </button>
-            ) : (
-              <button
-                type="button"
-                className={styles.ctaNav}
-                disabled={!draft.trim() || pending}
-                onClick={() => void submit(draft)}
-              >
-                {pending ? "Working…" : "Send"}
-              </button>
-            )}
+            <button
+              type="button"
+              className={styles.ctaNav}
+              disabled={!canSendVoice}
+              onClick={() => void submit(draft)}
+            >
+              {pending ? "Working…" : "Send"}
+            </button>
           </div>
         </div>
       </header>
@@ -329,8 +346,8 @@ export default function VoicePlanner() {
                   : clarifying
                     ? "Clarifying your trip…"
                     : awaitingConfirm
-                      ? "Ready when you confirm"
-                      : "Jaipur · 2–4 days · speak or type"}
+                      ? "Say “yes” or “confirm” into the mic"
+                      : "Jaipur · 2–4 days · STT required"}
               </p>
             </div>
             {clarifying ? (
@@ -345,8 +362,9 @@ export default function VoicePlanner() {
           <div className={styles.chatLog} aria-live="polite">
             {conversation.length === 0 && (
               <p className={styles.chatEmpty}>
-                Hi — I’m VocalVoyage. Say “Plan a trip to Jaipur.” I’ll ask for
-                days, pace, and interests before building anything.
+                Hi — I’m VocalVoyage. Tap the mic and say “Plan a trip to
+                Jaipur.” Voice input is required — I’ll ask for days, pace, and
+                interests before building anything.
               </p>
             )}
             {conversation.map((turn, i) => (
@@ -397,29 +415,37 @@ export default function VoicePlanner() {
             <div className={styles.composerRow}>
               <textarea
                 className={styles.transcript}
-                value={draft}
-                onChange={(e) => {
-                  setDraft(e.target.value);
-                  speech.setTranscript(e.target.value);
-                }}
+                value={
+                  speech.listening && speech.interim && !draft
+                    ? speech.interim
+                    : draft
+                }
+                readOnly
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
-                    void submit(draft);
+                    if (canSendVoice) void submit(draft);
                   }
                 }}
                 placeholder={
                   speech.listening && speech.interim
                     ? speech.interim
-                    : 'Try: “Plan a trip to Jaipur.” or “Make Day 2 more relaxed.”'
+                    : speakHint
+                      ? `Try saying: “${speakHint}”`
+                      : awaitingConfirm && slotsReady
+                        ? "Tap the mic and say “yes, confirm”"
+                        : voiceUnlocked
+                          ? "Speech transcript ready — Send or Auto-send"
+                          : "Tap the mic and speak — typed input is disabled"
                 }
                 rows={2}
+                aria-label="Speech transcript (read-only — voice input required)"
               />
               <button
                 type="button"
                 className={`${styles.mic} ${speech.listening ? styles.micLive : ""}`}
                 onClick={toggleMic}
-                disabled={speech.transcribing || pending}
+                disabled={speech.transcribing || pending || !speech.supported}
                 aria-pressed={speech.listening}
                 aria-label={
                   speech.listening ? "Stop listening" : "Start microphone"
@@ -435,12 +461,16 @@ export default function VoicePlanner() {
             <div className={styles.composerMeta}>
               <p className={styles.hint}>
                 {!speech.supported
-                  ? "Mic unavailable — type below"
+                  ? "Microphone required — use Chrome/Edge with mic access"
                   : speech.transcribing
                     ? "Transcribing…"
                     : speech.listening
                       ? "Listening… tap mic to finish"
-                      : "Tap mic to speak · Enter to send"}
+                      : voiceUnlocked
+                        ? "STT ready · Send or Auto-send (typing disabled)"
+                        : awaitingConfirm && slotsReady
+                          ? "Say “yes” or “confirm” — voice only"
+                          : "STT required · tap mic to speak"}
               </p>
               <div className={styles.toggles}>
                 <label className={styles.ttsToggle}>
@@ -470,7 +500,7 @@ export default function VoicePlanner() {
               <button
                 type="button"
                 className={styles.primary}
-                disabled={!draft.trim() || pending}
+                disabled={!canSendVoice}
                 onClick={() => void submit(draft)}
               >
                 {pending ? "Working…" : "Send"}
@@ -478,11 +508,19 @@ export default function VoicePlanner() {
               {awaitingConfirm && slotsReady && (
                 <button
                   type="button"
-                  className={styles.primary}
-                  disabled={pending}
-                  onClick={() => void submit("yes, confirm")}
+                  className={styles.ghost}
+                  disabled={pending || speech.listening || speech.transcribing}
+                  onClick={() => {
+                    setSpeakHint("yes, confirm");
+                    setError(null);
+                    speech.resetTranscript();
+                    setDraft("");
+                    sttTextRef.current = "";
+                    setVoiceUnlocked(false);
+                    speech.start();
+                  }}
                 >
-                  Confirm &amp; plan
+                  Mic: say yes
                 </button>
               )}
               <button
@@ -502,7 +540,7 @@ export default function VoicePlanner() {
                 onClick={() => setSamplesOpen((v) => !v)}
                 aria-expanded={samplesOpen}
               >
-                <span>Suggestions</span>
+                <span>Try saying</span>
                 <span className={styles.samplesHint}>
                   {samplesOpen
                     ? "Hide"
@@ -520,8 +558,14 @@ export default function VoicePlanner() {
                       type="button"
                       className={styles.chip}
                       onClick={() => {
-                        setDraft(p);
-                        speech.setTranscript(p);
+                        setSpeakHint(p);
+                        setError(null);
+                        if (!speech.listening && !speech.transcribing) {
+                          speech.resetTranscript();
+                          setDraft("");
+                          setVoiceUnlocked(false);
+                          speech.start();
+                        }
                       }}
                     >
                       {p}
@@ -545,7 +589,7 @@ export default function VoicePlanner() {
             <div className={styles.planEmpty}>
               <h2>Your itinerary appears here</h2>
               <p>
-                Confirm days, pace, and interests in the chat — then say “yes”
+                Confirm days, pace, and interests by voice — then say “yes”
                 to generate a grounded Jaipur plan with travel times and sources.
               </p>
             </div>

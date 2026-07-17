@@ -408,6 +408,17 @@
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 15%, transparent);
 }
 
+.transcript:read-only {
+  background: var(--surface-low);
+  color: var(--on-surface-variant);
+  cursor: default;
+}
+
+.transcript:read-only:focus {
+  border-color: var(--outline-variant);
+  box-shadow: none;
+}
+
 .mic {
   position: relative;
   width: 3.75rem;

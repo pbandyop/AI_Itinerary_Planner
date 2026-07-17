@@ -14,7 +14,7 @@ This plan is derived from `docs/problemStatement.md` and the design decisions ag
 ## Architecture snapshot
 
 ```
-Voice (STT: MediaRecorder → /stt Gemini/Whisper)  or  typed text
+Voice (STT required: MediaRecorder → /stt Gemini/Whisper, Web Speech fallback). Send accepts only STT output — no typed messages or confirm-button bypass.
     ↓
 ┌──────────────────────────────────────────────────────────────┐
 │  LangGraph multi-agent WORKFLOW (deterministic by default)   │
@@ -406,7 +406,7 @@ Build: `python -m agent.rag.build_corpus` → `ingest --force-chunks`. Retrieval
 ### Tasks
 - [x] Microphone + live transcript in UI
 - [x] Server STT: MediaRecorder → `POST /stt` (Gemini/Whisper) + Web Speech fallback
-- [x] Auto-send after speech (toggle) + typed fallback
+- [x] Auto-send after speech (toggle); transcript is read-only; typed-only Send and confirm bypass removed (strict Capstone STT)
 - [x] Confirm-before-plan gate + “Confirm & plan” control
 - [x] Session memory (`session_id`) for unconfirmed trip slots + finished itinerary follow-ups
 - [x] Scoped voice edits (`nodes/edit_apply.py`) — only target day/block changes; compound edits; ops: relax/pack/**balance_block**/balance_categories/add/remove/swap/trim/indoor/reduce_travel

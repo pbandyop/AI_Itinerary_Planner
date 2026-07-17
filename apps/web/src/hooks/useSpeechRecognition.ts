@@ -98,7 +98,7 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
   const applyTranscript = useCallback((text: string) => {
     const clean = text.replace(/\s+/g, " ").trim();
     if (!clean) {
-      setError("No speech detected. Try again, or type your request below.");
+      setError("No speech detected. Tap the mic and try speaking again.");
       return;
     }
     setFinalTranscript(clean);
@@ -134,7 +134,7 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         setError(
-          `Voice transcription failed (${msg}). You can type below, or retry the mic.`
+          `Voice transcription failed (${msg}). Tap the mic to try again — speech input is required.`
         );
       } finally {
         setTranscribing(false);
@@ -149,7 +149,7 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
     const Ctor = getSpeechRecognitionCtor();
     if (!Ctor) {
       setError(
-        "Speech recognition is not supported in this browser. Use Chrome/Edge, or type below."
+        "Speech recognition is not supported in this browser. Use Chrome or Edge with microphone access — voice input is required."
       );
       return;
     }
@@ -181,8 +181,8 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
       if (code === "aborted" || code === "no-speech") return;
       setError(
         code === "network"
-          ? "Browser speech network error. Retry the mic (server STT) or type below."
-          : `Speech unavailable (${code}). Type your request below.`
+          ? "Browser speech network error. Retry the mic (server STT)."
+          : `Speech unavailable (${code}). Voice input is required — retry the mic.`
       );
       wantListenRef.current = false;
       setListening(false);
@@ -224,7 +224,7 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
         if (ev.data.size > 0) chunksRef.current.push(ev.data);
       };
       recorder.onerror = () => {
-        setError("Microphone recording failed. Type your request below.");
+        setError("Microphone recording failed. Tap the mic to try again.");
         wantListenRef.current = false;
         setListening(false);
         stopMediaTracks();
@@ -249,9 +249,11 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
     } catch (err) {
       const name = err instanceof Error ? err.name : "";
       if (name === "NotAllowedError" || name === "PermissionDeniedError") {
-        setError("Microphone permission denied. Allow mic access, or type below.");
+        setError(
+          "Microphone permission denied. Allow mic access — voice input is required."
+        );
       } else if (name === "NotFoundError") {
-        setError("No microphone found. Plug one in, or type below.");
+        setError("No microphone found. Plug one in — voice input is required.");
       } else {
         // Fall back to browser Web Speech if MediaRecorder path fails.
         startBrowserSpeech();
@@ -305,6 +307,7 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
   }, []);
 
   const setTranscript = useCallback((text: string) => {
+    // Intentionally does not unlock Send — Capstone requires real STT via onFinal.
     setFinalTranscript(text);
     setInterim("");
   }, []);
