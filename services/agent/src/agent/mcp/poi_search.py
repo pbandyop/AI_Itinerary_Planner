@@ -67,12 +67,12 @@ INTEREST_FILTERS: dict[str, list[str]] = {
     ],
     "heritage": [
         # Named icons first so the out-limit cannot drop them for random attractions.
-        'node["name"~"Amber Fort|Amer Fort|City Palace|Hawa Mahal|Jantar Mantar|Nahargarh|Jaigarh|Albert Hall|Jal Mahal",i]',
-        'way["name"~"Amber Fort|Amer Fort|City Palace|Hawa Mahal|Jantar Mantar|Nahargarh|Jaigarh|Albert Hall|Jal Mahal",i]',
-        'relation["name"~"Amber Fort|Amer Fort|City Palace|Hawa Mahal|Jantar Mantar|Nahargarh|Jaigarh|Albert Hall",i]',
-        'node["historic"]',
-        'way["historic"]',
-        'relation["historic"]',
+        'node["name"~"Amber Fort|Amer Fort|City Palace|Hawa Mahal|Jantar Mantar|Nahargarh Fort|Jaigarh Fort|Albert Hall|Jal Mahal",i]',
+        'way["name"~"Amber Fort|Amer Fort|City Palace|Hawa Mahal|Jantar Mantar|Nahargarh Fort|Jaigarh Fort|Albert Hall|Jal Mahal",i]',
+        'relation["name"~"Amber Fort|Amer Fort|City Palace|Hawa Mahal|Jantar Mantar|Nahargarh Fort|Jaigarh|Albert Hall",i]',
+        'node["historic"~"castle|fort|palace|monument|memorial|ruins|archaeological_site|citywalls|city_gate"]',
+        'way["historic"~"castle|fort|palace|monument|memorial|ruins|archaeological_site|citywalls|city_gate"]',
+        'relation["historic"~"castle|fort|palace|monument|memorial|ruins|archaeological_site"]',
         'way["building"="castle"]',
         'node["tourism"="attraction"]["historic"]',
         'way["tourism"="attraction"]["historic"]',
@@ -326,35 +326,63 @@ def _category_from_tags(tags: dict[str, str]) -> str:
         return "garden"
     if shop or "bazaar" in name or "market" in name:
         return "market"
-    # Historic sites only — do not treat every tourism=attraction as heritage
-    # (elephant sanctuaries / theme stops were stealing heritage quotas).
-    if historic or tourism in {"castle", "monument"}:
+    # Never treat civic/commercial amenities as heritage even if OSM marks historic.
+    if amenity in {
+        "bank",
+        "atm",
+        "bureau_de_change",
+        "post_office",
+        "police",
+        "hospital",
+        "clinic",
+        "school",
+        "college",
+        "university",
+        "fuel",
+        "parking",
+        "toilets",
+        "embassy",
+        "townhall",
+        "courthouse",
+    }:
+        return "other"
+    # Tourist-grade historic only — not every historic=yes building.
+    historic_ok = historic in {
+        "castle",
+        "fort",
+        "palace",
+        "monument",
+        "memorial",
+        "ruins",
+        "archaeological_site",
+        "citywalls",
+        "city_gate",
+        "tower",
+        "manor",
+        "yes",  # kept only if name also looks tourist (checked below)
+    }
+    if tourism in {"castle", "monument"}:
         return "heritage"
-    if tourism == "attraction" and any(
-        t in name
-        for t in (
-            "fort",
-            "palace",
-            "mahal",
-            "mandir",
-            "temple",
-            "haveli",
-            "museum",
-            "jantar",
-        )
-    ):
+    if historic and historic_ok:
+        if historic == "yes" and not _looks_like_heritage_name(name):
+            return "other"
+        if _is_low_signal_heritage_name(name):
+            return "other"
+        return "heritage"
+    if tourism == "attraction" and _looks_like_heritage_name(name):
         return "heritage"
     if tourism:
         return "attraction"
     return "other"
 
 
-# Neighborhood / sports noise — not tourist parks & gardens.
+# Neighborhood / sports / campus noise — not tourist parks & gardens.
 _LOW_SIGNAL_PARK_RE = re.compile(
     r"\b("
     r"cricket|football|soccer|playground|apartment|apartments|society|colony|"
     r"housing|sector[-\s]?\d|nagar,\s*sector|block\s*[a-z0-9]|plot\s*no|"
-    r"enclave|residency|township"
+    r"enclave|residency|township|college|school|university|campus|institute|"
+    r"hospital|hostel|housing\s+board"
     r")\b|^ground$",
     re.I,
 )
@@ -367,18 +395,58 @@ _TOURIST_PARK_RE = re.compile(
     re.I,
 )
 
+_LOW_SIGNAL_HERITAGE_RE = re.compile(
+    r"\b("
+    r"state\s+bank|bank\s+of|sbi\b|hdfc|icici|axis\s+bank|atm|"
+    r"post\s+office|police|hospital|clinic|school|college|university|"
+    r"petrol|fuel|parking|toilet|embassy|court|office|warehouse|"
+    r"godown|factory|workshop|showroom|branch"
+    r")\b",
+    re.I,
+)
+
+_HERITAGE_NAME_RE = re.compile(
+    r"\b("
+    r"fort|palace|mahal|haveli|mandir|temple|jantar|observatory|"
+    r"gate|pol\b|chabutra|cenotaph|tomb|mosque|masjid|museum|"
+    r"qila|garh|bagh|stepwell|baori|baoli"
+    r")\b",
+    re.I,
+)
+
+_MUST_SEE_NAME_RE = re.compile(
+    r"\b("
+    r"hawa\s*mahal|city\s*palace|(?:amber|amer)\s*(?:fort|palace)|"
+    r"jantar\s*mantar|nahargarh(?:\s+fort)?|jaigarh|jal\s*mahal|albert\s*hall|"
+    r"johari|bapu\s*bazaar|tripolia|nehru\s*bazaar|sisodia|vidyadhar|"
+    r"ram\s*niwas|kanak\s*vrindavan"
+    r")\b",
+    re.I,
+)
+
+
+def _looks_like_heritage_name(name: str) -> bool:
+    return bool(_HERITAGE_NAME_RE.search(name) or _MUST_SEE_NAME_RE.search(name))
+
+
+def _is_low_signal_heritage_name(name: str) -> bool:
+    return bool(_LOW_SIGNAL_HERITAGE_RE.search(name or ""))
+
 
 def _is_low_signal_park(name: str, tags: dict[str, str], category: str) -> bool:
-    """Drop cricket grounds / apartment parks unless they look tourist-grade."""
+    """Drop cricket grounds / apartment / campus parks unless tourist-grade."""
     if category not in {"park", "garden"}:
         return False
-    if tags.get("wikidata") or tags.get("wikipedia"):
+    if _TOURIST_PARK_RE.search(name):
         return False
-    if tags.get("leisure") == "garden" or category == "garden":
-        if _LOW_SIGNAL_PARK_RE.search(name) and not _TOURIST_PARK_RE.search(name):
+    if tags.get("wikidata") or tags.get("wikipedia"):
+        # Still drop obvious campus/sports parks even with wiki links.
+        if _LOW_SIGNAL_PARK_RE.search(name):
             return True
         return False
-    if _TOURIST_PARK_RE.search(name):
+    if tags.get("leisure") == "garden" or category == "garden":
+        if _LOW_SIGNAL_PARK_RE.search(name):
+            return True
         return False
     if _LOW_SIGNAL_PARK_RE.search(name):
         return True
@@ -386,19 +454,24 @@ def _is_low_signal_park(name: str, tags: dict[str, str], category: str) -> bool:
     stripped = name.strip()
     if len(stripped) < 5 or stripped.lower() in {"ground", "park", "the park"}:
         return True
-    if re.search(r"sector|nagar|colony|apartment", stripped, re.I):
+    if re.search(r"sector|nagar|colony|apartment|college|school", stripped, re.I):
         return True
     return False
 
 
-_MUST_SEE_NAME_RE = re.compile(
-    r"\b("
-    r"hawa\s*mahal|city\s*palace|(?:amber|amer)\s*(?:fort|palace)|"
-    r"jantar\s*mantar|nahargarh|jaigarh|jal\s*mahal|albert\s*hall|"
-    r"johari|bapu\s*bazaar|tripolia|nehru\s*bazaar"
-    r")\b",
-    re.I,
-)
+def _is_low_signal_poi(name: str, tags: dict[str, str], category: str) -> bool:
+    if _is_low_signal_park(name, tags, category):
+        return True
+    if category == "heritage" and (
+        _is_low_signal_heritage_name(name)
+        or (
+            not _looks_like_heritage_name(name)
+            and not (tags.get("wikidata") or tags.get("wikipedia"))
+            and (tags.get("historic") or "") == "yes"
+        )
+    ):
+        return True
+    return False
 
 
 def build_overpass_query(
@@ -520,7 +593,7 @@ def _rank_score(tags: dict[str, str], interests: list[str], category: str) -> fl
     if tags.get("historic"):
         score += 2.5
     if _MUST_SEE_NAME_RE.search(name):
-        score += 12.0
+        score += 25.0
     interest_set = {i.lower() for i in interests}
     if category in interest_set:
         score += 6.0
@@ -737,7 +810,7 @@ def _parse_elements(
         seen.add(key)
         lat, lon = _element_coords(el)
         category = _category_from_tags(tags)
-        if _is_low_signal_park(name, tags, category):
+        if _is_low_signal_poi(name, tags, category):
             continue
         score = _rank_score(tags, interests, category)
         if score <= 0:
@@ -901,7 +974,9 @@ def poi_search(
             ref = f"{p.osm_type}/{p.osm_id}"
             if ref in existing:
                 continue
-            if _is_low_signal_park(p.name or "", p.tags or {}, (p.category or "").lower()):
+            if _is_low_signal_poi(
+                p.name or "", p.tags or {}, (p.category or "").lower()
+            ):
                 continue
             pois.append(p)
             existing.add(ref)

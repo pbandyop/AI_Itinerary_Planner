@@ -51,6 +51,11 @@ LOW_QUALITY_PATTERNS: tuple[str, ...] = (
     r"\bapartment",
     r"sector[-\s]?\d",
     r"^ground$",
+    r"\bcollege\b",
+    r"\bschool\b",
+    r"state\s+bank",
+    r"\bbank\s+of\b",
+    r"\bsbi\b",
 )
 
 

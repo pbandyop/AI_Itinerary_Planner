@@ -240,6 +240,8 @@ def _diversify_for_interests(
     max_total: int,
 ) -> tuple[list[POICandidate], list[str]]:
     """Reserve fair stops per interest (best match first), then round-robin fill."""
+    from agent.mcp.poi_search import _MUST_SEE_NAME_RE, _is_low_signal_poi
+
     notes: list[str] = []
     if not ranked or max_total <= 0:
         return [], notes
@@ -257,18 +259,27 @@ def _diversify_for_interests(
     covered: list[str] = []
     missing_interests: list[str] = []
 
-    # Seed ≥1 best-scoring POI per interest.
+    def _pick_score(p: POICandidate) -> tuple[int, float, str]:
+        name = p.name or ""
+        must = 1 if _MUST_SEE_NAME_RE.search(name) else 0
+        return (must, float(p.rank_score or 0), name)
+
+    # Seed ≥1 best-scoring POI per interest (must-sees win ties).
     for key in keys:
         cats = categories_for_interest(key)
         candidates = [
             p
             for p in ranked
-            if _poi_key(p) not in used and (p.category or "").lower() in cats
+            if _poi_key(p) not in used
+            and (p.category or "").lower() in cats
+            and not _is_low_signal_poi(
+                p.name or "", p.tags or {}, (p.category or "").lower()
+            )
         ]
         if not candidates:
             missing_interests.append(key)
             continue
-        chosen = max(candidates, key=lambda p: (float(p.rank_score or 0), p.name or ""))
+        chosen = max(candidates, key=_pick_score)
         picks.append(chosen)
         used.add(_poi_key(chosen))
         covered.append(key)
@@ -280,6 +291,8 @@ def _diversify_for_interests(
         ref = _poi_key(p)
         if ref in used:
             continue
+        if _is_low_signal_poi(p.name or "", p.tags or {}, (p.category or "").lower()):
+            continue
         cat = (p.category or "").lower()
         matched: str | None = None
         for key in keys:
@@ -290,6 +303,10 @@ def _diversify_for_interests(
             buckets[matched].append(p)
         else:
             other.append(p)
+
+    # Within each interest bucket, must-sees first.
+    for key in keys:
+        buckets[key] = sorted(buckets.get(key) or [], key=_pick_score, reverse=True)
 
     while len(picks) < max_total:
         took = False
