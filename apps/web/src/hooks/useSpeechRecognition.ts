@@ -56,9 +56,15 @@ export interface UseSpeechRecognitionOptions {
   onFinal?: (transcript: string) => void;
 }
 
+export interface SpeakHandlers {
+  onStart?: () => void;
+  onEnd?: () => void;
+}
+
 /**
  * Voice capture: MediaRecorder → server STT (Gemini/Whisper) by default.
  * Falls back to browser Web Speech API if recording/STT is unavailable.
+ * Exposes ``audioLevel`` (0–1) from a live AnalyserNode while the mic is open.
  */
 export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) {
   const { lang = "en-US", onFinal } = options;
@@ -69,6 +75,7 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
   const [finalTranscript, setFinalTranscript] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<"server" | "browser" | "none">("none");
+  const [audioLevel, setAudioLevel] = useState(0);
 
   const onFinalRef = useRef(onFinal);
   onFinalRef.current = onFinal;
@@ -78,6 +85,68 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
   const chunksRef = useRef<Blob[]>([]);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const wantListenRef = useRef(false);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const analyserRafRef = useRef(0);
+  const levelSmoothRef = useRef(0);
+
+  const stopAnalyser = useCallback(() => {
+    if (analyserRafRef.current) {
+      cancelAnimationFrame(analyserRafRef.current);
+      analyserRafRef.current = 0;
+    }
+    const ctx = audioCtxRef.current;
+    audioCtxRef.current = null;
+    if (ctx) {
+      void ctx.close().catch(() => undefined);
+    }
+    levelSmoothRef.current = 0;
+    setAudioLevel(0);
+  }, []);
+
+  const startAnalyser = useCallback(
+    (stream: MediaStream) => {
+      stopAnalyser();
+      try {
+        const AC =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext?: typeof AudioContext })
+            .webkitAudioContext;
+        if (!AC) return;
+        const ctx = new AC();
+        audioCtxRef.current = ctx;
+        const source = ctx.createMediaStreamSource(stream);
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 512;
+        analyser.smoothingTimeConstant = 0.75;
+        source.connect(analyser);
+        const data = new Uint8Array(analyser.fftSize);
+
+        const tick = () => {
+          analyser.getByteTimeDomainData(data);
+          let sum = 0;
+          for (let i = 0; i < data.length; i++) {
+            const v = (data[i]! - 128) / 128;
+            sum += v * v;
+          }
+          const rms = Math.sqrt(sum / data.length);
+          // Gate ambient noise; boost speech peaks into a visible 0–1 range.
+          const gated = Math.max(0, rms - 0.02);
+          const boosted = Math.min(1, gated * 6.5);
+          levelSmoothRef.current =
+            levelSmoothRef.current * 0.55 + boosted * 0.45;
+          setAudioLevel(levelSmoothRef.current);
+          analyserRafRef.current = requestAnimationFrame(tick);
+        };
+        if (ctx.state === "suspended") {
+          void ctx.resume();
+        }
+        tick();
+      } catch {
+        /* analyser is decorative — never block STT */
+      }
+    },
+    [stopAnalyser]
+  );
 
   useEffect(() => {
     const hasMedia =
@@ -90,10 +159,11 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
   }, []);
 
   const stopMediaTracks = useCallback(() => {
+    stopAnalyser();
     mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
     mediaStreamRef.current = null;
     mediaRecorderRef.current = null;
-  }, []);
+  }, [stopAnalyser]);
 
   const applyTranscript = useCallback((text: string) => {
     const clean = text.replace(/\s+/g, " ").trim();
@@ -145,13 +215,25 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
     [applyTranscript]
   );
 
-  const startBrowserSpeech = useCallback(() => {
+  const startBrowserSpeech = useCallback(async () => {
     const Ctor = getSpeechRecognitionCtor();
     if (!Ctor) {
       setError(
         "Speech recognition is not supported in this browser. Use Chrome or Edge with microphone access — voice input is required."
       );
       return;
+    }
+    // Optional analyser stream so the orb can vibrate in browser-STT mode too.
+    try {
+      if (navigator.mediaDevices?.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true },
+        });
+        mediaStreamRef.current = stream;
+        startAnalyser(stream);
+      }
+    } catch {
+      /* recognition can still work without visual levels */
     }
     try {
       recognitionRef.current?.abort();
@@ -186,11 +268,13 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
       );
       wantListenRef.current = false;
       setListening(false);
+      stopMediaTracks();
     };
     recognition.onend = () => {
       setListening(false);
       setInterim("");
       wantListenRef.current = false;
+      stopMediaTracks();
     };
     recognitionRef.current = recognition;
     try {
@@ -201,8 +285,15 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
       setError(err instanceof Error ? err.message : "Could not start microphone");
       wantListenRef.current = false;
       setListening(false);
+      stopMediaTracks();
     }
-  }, [applyTranscript, finalTranscript, lang]);
+  }, [
+    applyTranscript,
+    finalTranscript,
+    lang,
+    startAnalyser,
+    stopMediaTracks,
+  ]);
 
   const startServerRecording = useCallback(async () => {
     try {
@@ -213,6 +304,7 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
         },
       });
       mediaStreamRef.current = stream;
+      startAnalyser(stream);
       chunksRef.current = [];
       const mime = pickRecorderMime();
       const recorder = mime
@@ -245,7 +337,7 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
       recorder.start(250);
       setListening(true);
       setMode("server");
-      setInterim("Recording… click mic again when finished speaking");
+      setInterim("Listening… tap the orb when you’re done");
     } catch (err) {
       const name = err instanceof Error ? err.name : "";
       if (name === "NotAllowedError" || name === "PermissionDeniedError") {
@@ -256,13 +348,13 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
         setError("No microphone found. Plug one in — voice input is required.");
       } else {
         // Fall back to browser Web Speech if MediaRecorder path fails.
-        startBrowserSpeech();
+        void startBrowserSpeech();
         return;
       }
       wantListenRef.current = false;
       setListening(false);
     }
-  }, [startBrowserSpeech, stopMediaTracks, transcribeBlob]);
+  }, [startAnalyser, startBrowserSpeech, stopMediaTracks, transcribeBlob]);
 
   const stop = useCallback(() => {
     wantListenRef.current = false;
@@ -297,7 +389,7 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
     ) {
       void startServerRecording();
     } else {
-      startBrowserSpeech();
+      void startBrowserSpeech();
     }
   }, [startBrowserSpeech, startServerRecording]);
 
@@ -333,6 +425,7 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
     interim,
     finalTranscript,
     transcript: `${finalTranscript}${interim ? ` ${interim}` : ""}`.trim(),
+    audioLevel,
     error,
     mode,
     start,
@@ -344,8 +437,15 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
 }
 
 /** Optional short TTS for confirmations / explanations. */
-export function speakText(text: string, enabled: boolean): void {
-  if (!enabled || typeof window === "undefined" || !window.speechSynthesis) return;
+export function speakText(
+  text: string,
+  enabled: boolean,
+  handlers?: SpeakHandlers
+): void {
+  if (!enabled || typeof window === "undefined" || !window.speechSynthesis) {
+    handlers?.onEnd?.();
+    return;
+  }
   // Never read raw URLs or markdown emphasis aloud.
   const clean = text
     .replace(/\*\*/g, "")
@@ -353,11 +453,17 @@ export function speakText(text: string, enabled: boolean): void {
     .replace(/\s*\(Source:\s*[^)]*\)/gi, "")
     .replace(/\s{2,}/g, " ")
     .trim();
-  if (!clean) return;
+  if (!clean) {
+    handlers?.onEnd?.();
+    return;
+  }
   window.speechSynthesis.cancel();
   const utter = new SpeechSynthesisUtterance(clean.slice(0, 600));
   utter.lang = "en-IN";
   utter.rate = 1.02;
+  utter.onstart = () => handlers?.onStart?.();
+  utter.onend = () => handlers?.onEnd?.();
+  utter.onerror = () => handlers?.onEnd?.();
   window.speechSynthesis.speak(utter);
 }
 

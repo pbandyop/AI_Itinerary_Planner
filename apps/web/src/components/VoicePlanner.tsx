@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { invokeAgent, type ConversationTurn } from "@/lib/agent";
 import {
@@ -15,6 +15,7 @@ import AssistantReply, { speakableReply } from "./AssistantReply";
 import PipelineTrace from "./PipelineTrace";
 import ItineraryView from "./ItineraryView";
 import SourcesPanel, { collectSources } from "./SourcesPanel";
+import VoiceOrb, { type VoiceOrbMode } from "./VoiceOrb";
 import styles from "./voice-planner.module.css";
 
 const SAMPLE_PROMPTS = [
@@ -35,6 +36,12 @@ function newSessionId(): string {
   return `sess-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+function truncateCaption(text: string, max = 140): string {
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (clean.length <= max) return clean;
+  return `${clean.slice(0, max - 1).trimEnd()}…`;
+}
+
 export default function VoicePlanner() {
   const [draft, setDraft] = useState("");
   const [reply, setReply] = useState("");
@@ -53,9 +60,12 @@ export default function VoicePlanner() {
   const [autoSend, setAutoSend] = useState(true);
   const [pending, setPending] = useState(false);
   const [samplesOpen, setSamplesOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   /** Capstone: user turns must be exact STT output (no typed bypass). */
   const [voiceUnlocked, setVoiceUnlocked] = useState(false);
   const [speakHint, setSpeakHint] = useState<string | null>(null);
+  const [aiSpeaking, setAiSpeaking] = useState(false);
+  const [aiLevel, setAiLevel] = useState(0);
   const sttTextRef = useRef("");
   const abortRef = useRef<AbortController | null>(null);
   const itineraryRef = useRef<Itinerary | null>(null);
@@ -63,8 +73,8 @@ export default function VoicePlanner() {
   const conversationRef = useRef<ConversationTurn[]>([]);
   const sessionIdRef = useRef(sessionId);
   const lastAutoSentRef = useRef<string>("");
-  const chatEndRef = useRef<HTMLDivElement | null>(null);
   const submitRef = useRef<(message: string) => Promise<void>>(async () => {});
+  const aiLevelRafRef = useRef(0);
   itineraryRef.current = itinerary;
   pendingTripRef.current = pendingTrip;
   conversationRef.current = conversation;
@@ -83,8 +93,30 @@ export default function VoicePlanner() {
   });
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }, [conversation, pending]);
+    if (!aiSpeaking) {
+      setAiLevel(0);
+      if (aiLevelRafRef.current) {
+        cancelAnimationFrame(aiLevelRafRef.current);
+        aiLevelRafRef.current = 0;
+      }
+      return;
+    }
+    let t0 = performance.now();
+    const tick = (now: number) => {
+      const t = (now - t0) / 1000;
+      // Soft synthetic envelope — browser TTS has no audio analyser.
+      const wave =
+        0.35 +
+        0.35 * Math.abs(Math.sin(t * 5.2)) +
+        0.2 * Math.abs(Math.sin(t * 11.7));
+      setAiLevel(Math.min(1, wave));
+      aiLevelRafRef.current = requestAnimationFrame(tick);
+    };
+    aiLevelRafRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (aiLevelRafRef.current) cancelAnimationFrame(aiLevelRafRef.current);
+    };
+  }, [aiSpeaking]);
 
   const resetSession = useCallback(() => {
     setDraft("");
@@ -104,6 +136,8 @@ export default function VoicePlanner() {
     setSources([]);
     setConversation([]);
     setSessionId(newSessionId());
+    setAiSpeaking(false);
+    stopSpeaking();
   }, [speech]);
 
   const submit = useCallback(
@@ -113,13 +147,14 @@ export default function VoicePlanner() {
       // Capstone: strictly STT — message must match the latest transcript.
       if (!voiceUnlocked || text !== sttTextRef.current.trim()) {
         setError(
-          "Voice input is required — tap the mic and speak. Typed messages are not accepted."
+          "Voice input is required — tap the orb and speak. Typed messages are not accepted."
         );
         return;
       }
 
       speech.stop();
       stopSpeaking();
+      setAiSpeaking(false);
       setError(null);
       setReply("");
       setIntent(null);
@@ -186,7 +221,10 @@ export default function VoicePlanner() {
           ...c,
           { role: "assistant", content: result.user_reply || "" },
         ]);
-        speakText(speakableReply(result.user_reply || ""), tts);
+        speakText(speakableReply(result.user_reply || ""), tts, {
+          onStart: () => setAiSpeaking(true),
+          onEnd: () => setAiSpeaking(false),
+        });
       } catch (err) {
         if ((err as Error).name === "AbortError") return;
         setError(
@@ -229,6 +267,8 @@ export default function VoicePlanner() {
       speech.stop();
       return;
     }
+    stopSpeaking();
+    setAiSpeaking(false);
     speech.resetTranscript();
     setDraft("");
     sttTextRef.current = "";
@@ -259,6 +299,71 @@ export default function VoicePlanner() {
   const clarifying =
     safety === "needs_clarify" &&
     Boolean(pendingTrip && !pendingTrip.confirmed && !slotsReady);
+
+  const userSpeaking = speech.listening && speech.audioLevel > 0.08;
+
+  const orbMode: VoiceOrbMode = pending
+    ? "thinking"
+    : speech.transcribing
+      ? "transcribing"
+      : aiSpeaking
+        ? "aiSpeaking"
+        : userSpeaking
+          ? "userSpeaking"
+          : speech.listening
+            ? "listening"
+            : "idle";
+
+  const statusLabel = !speech.supported
+    ? "Microphone required"
+    : pending
+      ? "Planning…"
+      : speech.transcribing
+        ? "Transcribing…"
+        : aiSpeaking
+          ? "Speaking…"
+          : speech.listening
+            ? userSpeaking
+              ? "Hearing you…"
+              : "Listening…"
+            : voiceUnlocked
+              ? "Ready to send"
+              : awaitingConfirm && slotsReady
+                ? "Say yes to confirm"
+                : clarifying
+                  ? "Clarifying your trip"
+                  : "Tap to speak";
+
+  const liveCaption = useMemo(() => {
+    if (speech.listening && speech.interim) {
+      return truncateCaption(speech.interim);
+    }
+    if (draft.trim()) return truncateCaption(draft);
+    if (speakHint) return `Try saying: “${speakHint}”`;
+    if (aiSpeaking && reply) return truncateCaption(speakableReply(reply));
+    const lastAssistant = [...conversation]
+      .reverse()
+      .find((t) => t.role === "assistant");
+    if (lastAssistant?.content) {
+      return truncateCaption(speakableReply(lastAssistant.content));
+    }
+    return "Tap the orb and say “Plan a trip to Jaipur.” Voice input is required.";
+  }, [
+    speech.listening,
+    speech.interim,
+    draft,
+    speakHint,
+    aiSpeaking,
+    reply,
+    conversation,
+  ]);
+
+  const captionWho =
+    speech.listening || draft.trim()
+      ? "You"
+      : aiSpeaking || conversation.some((t) => t.role === "assistant")
+        ? "VocalVoyage"
+        : "Hint";
 
   void reply;
 
@@ -307,8 +412,8 @@ export default function VoicePlanner() {
       </header>
 
       <div className={styles.main}>
-        <section className={styles.chatColumn} aria-label="Voice conversation">
-          <div className={styles.chatHeader}>
+        <section className={styles.voiceStage} aria-label="Voice conversation">
+          <div className={styles.stageHeader}>
             <div>
               <h2>Travel AI</h2>
               <p className={styles.chatSub}>
@@ -334,122 +439,35 @@ export default function VoicePlanner() {
             ) : null}
           </div>
 
-          <div className={styles.chatLog} aria-live="polite">
-            {conversation.length === 0 && (
-              <p className={styles.chatEmpty}>
-                Hi — I’m VocalVoyage. Tap the mic and say “Plan a trip to
-                Jaipur.” Voice input is required — I’ll ask for days, pace, and
-                interests before building anything.
-              </p>
-            )}
-            {conversation.map((turn, i) => (
-              <div
-                key={`${turn.role}-${i}`}
-                className={`${styles.bubbleRow} ${
-                  turn.role === "user" ? styles.bubbleRowUser : ""
-                }`}
-              >
-                <div
-                  className={`${styles.avatar} ${
-                    turn.role === "user" ? styles.avatarUser : styles.avatarAi
-                  }`}
-                  aria-hidden
-                >
-                  {turn.role === "user" ? "You" : "AI"}
-                </div>
-                <div
-                  className={
-                    turn.role === "user" ? styles.bubbleUser : styles.bubbleAi
-                  }
-                >
-                  {turn.role === "assistant" ? (
-                    <AssistantReply text={turn.content} />
-                  ) : (
-                    turn.content
-                  )}
-                </div>
-              </div>
-            ))}
-            {pending && (
-              <div className={styles.bubbleRow}>
-                <div
-                  className={`${styles.avatar} ${styles.avatarAi}`}
-                  aria-hidden
-                >
-                  AI
-                </div>
-                <div className={styles.bubbleAi}>
-                  <span className={styles.typing} aria-label="Working">
-                    <span className={styles.typingDot} />
-                    <span className={styles.typingDot} />
-                    <span className={styles.typingDot} />
-                  </span>
-                </div>
-              </div>
-            )}
-            <div ref={chatEndRef} />
-          </div>
+          <div className={styles.stageBody}>
+            <p className={styles.stageStatus} aria-live="polite">
+              {statusLabel}
+            </p>
 
-          <div className={styles.composer}>
-            <div className={styles.composerRow}>
-              <textarea
-                className={styles.transcript}
-                value={
-                  speech.listening && speech.interim && !draft
-                    ? speech.interim
-                    : draft
-                }
-                readOnly
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    if (canSendVoice) void submit(draft);
-                  }
-                }}
-                placeholder={
-                  speech.listening && speech.interim
-                    ? speech.interim
-                    : speakHint
-                      ? `Try saying: “${speakHint}”`
-                      : awaitingConfirm && slotsReady
-                        ? "Tap the mic and say “yes, confirm”"
-                        : voiceUnlocked
-                          ? "Speech transcript ready — Send or Auto-send"
-                          : "Tap the mic and speak — typed input is disabled"
-                }
-                rows={2}
-                aria-label="Speech transcript (read-only — voice input required)"
-              />
-              <button
-                type="button"
-                className={`${styles.mic} ${speech.listening ? styles.micLive : ""}`}
-                onClick={toggleMic}
-                disabled={speech.transcribing || pending || !speech.supported}
-                aria-pressed={speech.listening}
-                aria-label={
-                  speech.listening ? "Stop listening" : "Start microphone"
-                }
-              >
-                <span className={styles.micPulse} aria-hidden />
-                <span className={styles.micIcon} aria-hidden>
-                  {speech.listening ? "●" : "🎤"}
-                </span>
-              </button>
+            <VoiceOrb
+              mode={orbMode}
+              audioLevel={speech.audioLevel}
+              aiLevel={aiLevel}
+              disabled={speech.transcribing || pending || !speech.supported}
+              pressed={speech.listening}
+              onClick={toggleMic}
+              label={
+                speech.listening ? "Stop listening" : "Start microphone"
+              }
+            />
+
+            <div className={styles.caption} aria-live="polite">
+              <span className={styles.captionWho}>{captionWho}</span>
+              <p className={styles.captionText}>{liveCaption}</p>
             </div>
 
             <div className={styles.composerMeta}>
               <p className={styles.hint}>
                 {!speech.supported
-                  ? "Microphone required — use Chrome/Edge with mic access"
-                  : speech.transcribing
-                    ? "Transcribing…"
-                    : speech.listening
-                      ? "Listening… tap mic to finish"
-                      : voiceUnlocked
-                        ? "STT ready · Send or Auto-send (typing disabled)"
-                        : awaitingConfirm && slotsReady
-                          ? "Say “yes” or “confirm” — voice only"
-                          : "STT required · tap mic to speak"}
+                  ? "Use Chrome/Edge with mic access"
+                  : speech.mode === "server"
+                    ? "STT · tap orb to finish"
+                    : "STT · browser speech"}
               </p>
               <div className={styles.toggles}>
                 <label className={styles.ttsToggle}>
@@ -476,14 +494,16 @@ export default function VoicePlanner() {
             )}
 
             <div className={styles.actions}>
-              <button
-                type="button"
-                className={styles.primary}
-                disabled={!canSendVoice}
-                onClick={() => void submit(draft)}
-              >
-                {pending ? "Working…" : "Send"}
-              </button>
+              {!autoSend && (
+                <button
+                  type="button"
+                  className={styles.primary}
+                  disabled={!canSendVoice}
+                  onClick={() => void submit(draft)}
+                >
+                  {pending ? "Working…" : "Send"}
+                </button>
+              )}
               {awaitingConfirm && slotsReady && (
                 <button
                   type="button"
@@ -550,6 +570,54 @@ export default function VoicePlanner() {
                       {p}
                     </button>
                   ))}
+                </div>
+              ) : null}
+            </div>
+
+            <div className={styles.historyWrap}>
+              <button
+                type="button"
+                className={styles.samplesToggle}
+                onClick={() => setHistoryOpen((v) => !v)}
+                aria-expanded={historyOpen}
+              >
+                <span>Conversation</span>
+                <span className={styles.samplesHint}>
+                  {historyOpen
+                    ? "Hide"
+                    : `${conversation.length || 0} turns · show`}
+                </span>
+                <span className={styles.samplesChev} aria-hidden>
+                  {historyOpen ? "▾" : "▸"}
+                </span>
+              </button>
+              {historyOpen ? (
+                <div className={styles.historyLog} aria-live="polite">
+                  {conversation.length === 0 ? (
+                    <p className={styles.chatEmpty}>
+                      No turns yet — speak to start planning.
+                    </p>
+                  ) : (
+                    conversation.map((turn, i) => (
+                      <div
+                        key={`${turn.role}-${i}`}
+                        className={`${styles.historyRow} ${
+                          turn.role === "user" ? styles.historyRowUser : ""
+                        }`}
+                      >
+                        <span className={styles.historyRole}>
+                          {turn.role === "user" ? "You" : "AI"}
+                        </span>
+                        <div className={styles.historyText}>
+                          {turn.role === "assistant" ? (
+                            <AssistantReply text={turn.content} />
+                          ) : (
+                            turn.content
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               ) : null}
             </div>

@@ -1,0 +1,219 @@
+.orb {
+  --orb-scale: 1;
+  --ring-opacity: 0.2;
+  --ring-scale: 1;
+  --level: 0;
+  position: relative;
+  width: 9.5rem;
+  height: 9.5rem;
+  border: none;
+  padding: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  isolation: isolate;
+  flex-shrink: 0;
+  transition: transform 120ms ease;
+}
+
+.orb:hover:not(:disabled) {
+  transform: scale(1.03);
+}
+
+.orb:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.orb:focus-visible {
+  outline: 3px solid var(--primary-fixed);
+  outline-offset: 6px;
+}
+
+.ring {
+  position: absolute;
+  inset: 8%;
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, var(--primary) 55%, transparent);
+  opacity: calc(var(--ring-opacity) * 0.85);
+  transform: scale(var(--ring-scale));
+  pointer-events: none;
+  transition: transform 80ms linear, opacity 80ms linear;
+}
+
+.ringMid {
+  inset: 0%;
+  border-color: color-mix(in srgb, var(--secondary) 45%, var(--primary));
+  opacity: calc(var(--ring-opacity) * 0.55);
+  transform: scale(calc(var(--ring-scale) * 0.92));
+}
+
+.ringInner {
+  inset: 16%;
+  border-width: 1px;
+  opacity: calc(var(--ring-opacity) * 0.4);
+  transform: scale(calc(var(--ring-scale) * 0.78));
+}
+
+.ringOuter {
+  inset: -6%;
+}
+
+.core {
+  position: relative;
+  z-index: 2;
+  width: 5.25rem;
+  height: 5.25rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  transform: scale(var(--orb-scale));
+  transition: transform 70ms linear;
+  background:
+    radial-gradient(
+      circle at 32% 28%,
+      color-mix(in srgb, #ffffff 55%, var(--primary-bright)),
+      var(--primary) 48%,
+      color-mix(in srgb, var(--primary) 70%, #00306e) 100%
+    );
+  box-shadow:
+    0 10px 28px color-mix(in srgb, var(--primary) 35%, transparent),
+    inset 0 1px 0 color-mix(in srgb, #ffffff 35%, transparent);
+}
+
+.coreGlow {
+  position: absolute;
+  inset: -18%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--secondary-container) 45%, transparent),
+    transparent 68%
+  );
+  opacity: calc(0.35 + var(--level) * 0.65);
+  pointer-events: none;
+}
+
+.bars {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0.28rem;
+  height: 1.6rem;
+}
+
+.bar {
+  width: 0.28rem;
+  border-radius: 999px;
+  background: var(--on-primary);
+  height: calc(0.35rem + var(--level) * 1.15rem);
+  transition: height 70ms linear;
+  opacity: 0.92;
+}
+
+.bar:nth-child(1),
+.bar:nth-child(5) {
+  height: calc(0.28rem + var(--level) * 0.7rem);
+}
+
+.bar:nth-child(2),
+.bar:nth-child(4) {
+  height: calc(0.4rem + var(--level) * 1rem);
+}
+
+/* Mode accents */
+.mode_idle .core {
+  filter: saturate(0.92);
+}
+
+.mode_listening .ring {
+  animation: breathe 2.4s ease-in-out infinite;
+}
+
+.mode_userSpeaking .core {
+  background:
+    radial-gradient(
+      circle at 32% 28%,
+      color-mix(in srgb, #ffffff 50%, var(--secondary-container)),
+      var(--primary-bright) 50%,
+      var(--primary) 100%
+    );
+}
+
+.mode_aiSpeaking .core {
+  background:
+    radial-gradient(
+      circle at 32% 28%,
+      color-mix(in srgb, #ffffff 45%, var(--secondary-container)),
+      var(--secondary) 52%,
+      color-mix(in srgb, var(--secondary) 75%, #003836) 100%
+    );
+  box-shadow:
+    0 10px 28px color-mix(in srgb, var(--secondary) 40%, transparent),
+    inset 0 1px 0 color-mix(in srgb, #ffffff 30%, transparent);
+}
+
+.mode_aiSpeaking .ring {
+  border-color: color-mix(in srgb, var(--secondary) 60%, transparent);
+}
+
+.mode_thinking .bars .bar,
+.mode_transcribing .bars .bar {
+  animation: thinkBar 0.9s ease-in-out infinite alternate;
+}
+
+.mode_thinking .bars .bar:nth-child(2),
+.mode_transcribing .bars .bar:nth-child(2) {
+  animation-delay: 0.12s;
+}
+
+.mode_thinking .bars .bar:nth-child(3),
+.mode_transcribing .bars .bar:nth-child(3) {
+  animation-delay: 0.24s;
+}
+
+.mode_thinking .bars .bar:nth-child(4),
+.mode_transcribing .bars .bar:nth-child(4) {
+  animation-delay: 0.36s;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scale(0.96);
+    opacity: 0.25;
+  }
+  50% {
+    transform: scale(1.12);
+    opacity: 0.55;
+  }
+}
+
+@keyframes thinkBar {
+  from {
+    height: 0.35rem;
+    opacity: 0.55;
+  }
+  to {
+    height: 1.15rem;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mode_listening .ring,
+  .mode_thinking .bars .bar,
+  .mode_transcribing .bars .bar {
+    animation: none;
+  }
+
+  .ring,
+  .core,
+  .bar {
+    transition: none;
+  }
+}
