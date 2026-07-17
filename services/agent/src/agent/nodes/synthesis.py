@@ -820,38 +820,29 @@ def synthesis_node(state: GraphState) -> dict[str, Any]:
         reply_parts: list[str] = []
         used_rag_llm = False
 
-        def _place_match(stop_name: str, haystack: str) -> bool:
-            name = (stop_name or "").lower().strip()
-            if not name:
-                return False
-            if name in haystack:
-                return True
-            # "albert hall" matches "Albert Hall Museum"
-            tokens = [t for t in re.split(r"\W+", name) if len(t) >= 4]
-            return bool(tokens) and all(t in haystack for t in tokens)
-
-        # “Why did you pick X?” — plan-first, optional place-matched RAG color.
+        # “Why did you pick X?” — fuzzy-match itinerary stops (same helper as hours Q&A).
         if base and re.search(r"\bwhy\b", msg):
-            named = None
-            for day in base.days:
-                for s in day.all_stops:
-                    if s.name and _place_match(s.name, msg):
-                        named = s
-                        break
-                if named:
-                    break
-            if named is None:
+            from agent.rag.itinerary_place import match_itinerary_place
+
+            named: Stop | None = None
+            itin_match = match_itinerary_place(msg, base, city=city)
+            if itin_match and not itin_match.needs_confirm:
                 for day in base.days:
                     for s in day.all_stops:
-                        if s.name and _place_match(msg, s.name.lower()):
+                        if (s.name or "").strip().lower() == itin_match.stop_name.lower():
                             named = s
                             break
                     if named:
                         break
+            elif itin_match and itin_match.needs_confirm:
+                reply_parts.append(
+                    f"Did you mean **{itin_match.stop_name}** on this itinerary? "
+                    "Say yes and I’ll explain why it was included."
+                )
             if named:
                 # Plan-first only — no RAG paste on “why did you pick …”.
                 reply_parts.append(_planner_why_for_stop(named, base))
-            elif re.search(
+            elif not reply_parts and re.search(
                 r"\bwhy (did you |do you )?(pick|choose|include)\b", msg
             ):
                 reply_parts.append(

@@ -154,15 +154,19 @@ def extract_place_terms(query: str, city: str = "Jaipur") -> list[str]:
     for name in list(_load_place_names(city)) + list(extras):
         if name in lower and name not in found:
             found.append(name)
-    # Free-form: "tell me more about X", "opening hours for X"
+    # Free-form: "tell me more about X", "opening hours for X",
+    # "why did you pick X", "why choose X"
     for m in re.finditer(
-        r"(?:about|for|of|near)\s+(?:the\s+)?"
+        r"(?:about|for|of|near|pick|choose|include|selected|recommend(?:ed)?)\s+(?:the\s+)?"
         r"([a-z0-9][\w'’.-]*(?:\s+[a-z0-9][\w'’.-]*){0,5})"
         r"(?:\s*[?.!,]|$)",
         lower,
     ):
         cand = re.sub(r"\s+", " ", m.group(1)).strip(" .,?!")
         if not cand or cand in _PLACE_QUERY_SKIP or len(cand) < 4:
+            continue
+        # Drop trailing filler after pick/choose ("pick that place" → skip).
+        if cand in {"that place", "this place", "this stop", "that stop"}:
             continue
         if cand not in found:
             found.append(cand)

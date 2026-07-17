@@ -78,7 +78,7 @@ def match_itinerary_place(
     city: str = "Jaipur",
 ) -> ItineraryPlaceMatch | None:
     """
-    Pick the best itinerary stop for a knowledge/hours question.
+    Pick the best itinerary stop for a knowledge/hours/why-pick question.
 
     High-confidence matches proceed without confirmation; fuzzy or ambiguous
     matches set ``needs_confirm=True``.
@@ -86,9 +86,27 @@ def match_itinerary_place(
     if itinerary is None or not itinerary.days:
         return None
 
-    query_terms = extract_place_terms(message, city)
+    query_terms = list(extract_place_terms(message, city))
+    # Fallback: strip question chrome and treat the remainder as a place phrase
+    # (covers typos like "elephantastic" vs "Elefantastic").
+    stripped = _normalize(message)
+    stripped = re.sub(
+        r"\b("
+        r"why|did|do|you|pick|choose|include|selected|recommend(?:ed)?|"
+        r"tell|me|more|about|opening|hours?|for|of|the|a|an|please|"
+        r"what|when|where|is|are|was|were"
+        r")\b",
+        " ",
+        stripped,
+        flags=re.I,
+    )
+    stripped = re.sub(r"\s+", " ", stripped).strip(" .,?!")
+    if stripped and len(stripped) >= 4 and stripped not in query_terms:
+        query_terms.append(stripped)
+
     if not query_terms:
-        return None
+        # Last resort: score every stop against the full message.
+        query_terms = [_normalize(message)]
 
     best_by_name: dict[str, ItineraryPlaceMatch] = {}
     for stop, day_index, tod in iter_itinerary_stops(itinerary):
