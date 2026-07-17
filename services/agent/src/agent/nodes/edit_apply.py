@@ -14,7 +14,7 @@ from agent.schemas.specialists import POICandidate
 logger = logging.getLogger(__name__)
 
 INDOOR_CATEGORIES = {"museum", "food", "market", "temple", "heritage", "art"}
-OUTDOOR_CATEGORIES = {"park", "viewpoint", "nature", "adventure"}
+OUTDOOR_CATEGORIES = {"park", "garden", "viewpoint", "nature", "adventure"}
 
 CATEGORY_ALIASES: dict[str, set[str]] = {
     "food": {"food"},

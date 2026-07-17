@@ -37,6 +37,19 @@ _SHOPPING_FILTERS = [
     'way["name"~"Johari Bazaar|Bapu Bazaar|Tripolia Bazaar|Nehru Bazaar|Kishanpol Bazaar",i]',
 ]
 
+# Parks & gardens share one interest (like shopping & bazaars).
+_PARK_GARDEN_FILTERS = [
+    'node["leisure"~"park|playground|garden"]',
+    'way["leisure"~"park|playground|garden"]',
+    'relation["leisure"="garden"]',
+    'node["leisure"="park"]["garden"="yes"]',
+    'way["leisure"="park"]["garden"="yes"]',
+    'node["name"~"[Gg]arden|[Bb]agh"]["leisure"~"park|garden"]',
+    'way["name"~"[Gg]arden|[Bb]agh"]["leisure"~"park|garden"]',
+    'node["tourism"="zoo"]',
+    'way["tourism"="zoo"]',
+]
+
 INTEREST_FILTERS: dict[str, list[str]] = {
     "food": [
         'node["amenity"~"restaurant|cafe|fast_food|food_court"]',
@@ -71,11 +84,12 @@ INTEREST_FILTERS: dict[str, list[str]] = {
         'way["leisure"~"park|garden"]',
         'node["tourism"="viewpoint"]',
     ],
-    "park": [
+    "park": list(_PARK_GARDEN_FILTERS),
+    "garden": list(_PARK_GARDEN_FILTERS),
+    "outdoor": [
         'node["leisure"~"park|garden|playground"]',
         'way["leisure"~"park|garden|playground"]',
-        'node["tourism"="zoo"]',
-        'way["tourism"="zoo"]',
+        'node["tourism"="viewpoint"]',
     ],
     "museum": [
         'node["tourism"~"museum|gallery"]',
@@ -150,6 +164,7 @@ _NOMINATIM_QUERIES: dict[str, list[str]] = {
     "shopping": ["marketplace", "clothes"],
     "market": ["marketplace"],
     "park": ["park"],
+    "garden": ["garden", "park"],
     "heritage": ["attraction"],
     "nightlife": ["bar", "pub"],
 }
@@ -243,6 +258,7 @@ def nominatim_category_search(
                     "marketplace": "market",
                     "clothes": "market",
                     "park": "park",
+                    "garden": "garden",
                     "attraction": "heritage",
                     "bar": "nightlife",
                     "pub": "nightlife",
@@ -281,9 +297,15 @@ def _category_from_tags(tags: dict[str, str]) -> str:
         return "museum"
     if tourism == "viewpoint":
         return "viewpoint"
-    if leisure in {"park", "garden"}:
-        return "park"
+    if leisure == "garden":
+        return "garden"
     name = (tags.get("name") or "").lower()
+    if leisure in {"park", "playground"}:
+        if "garden" in name or "bagh" in name:
+            return "garden"
+        return "park"
+    if leisure and ("garden" in name or "bagh" in name):
+        return "garden"
     if shop or "bazaar" in name or "market" in name:
         return "market"
     if historic or tourism == "attraction":
@@ -358,7 +380,13 @@ def _rank_score(tags: dict[str, str], interests: list[str], category: str) -> fl
         score += 4.0
     if {"museum"} & interest_set and category == "museum":
         score += 4.0
-    if {"park", "nature"} & interest_set and category in {"park", "viewpoint"}:
+    if {"park", "nature", "outdoor"} & interest_set and category in {
+        "park",
+        "garden",
+        "viewpoint",
+    }:
+        score += 3.5
+    if {"garden"} & interest_set and category in {"garden", "park"}:
         score += 3.5
     if {"shopping", "market"} & interest_set and category in {"shopping", "market"}:
         score += 4.0
@@ -391,8 +419,10 @@ def _boost_by_stated_interests(
         "market": {"market", "shopping"},
         "nightlife": {"nightlife", "food"},
         "adventure": {"adventure", "attraction", "viewpoint"},
-        "nature": {"park", "viewpoint", "nature"},
-        "park": {"park", "viewpoint"},
+        "nature": {"park", "garden", "viewpoint", "nature"},
+        "park": {"park", "garden", "viewpoint"},
+        "garden": {"garden", "park"},
+        "outdoor": {"park", "garden", "viewpoint", "nature"},
         "temple": {"temple"},
         "museum": {"museum"},
     }

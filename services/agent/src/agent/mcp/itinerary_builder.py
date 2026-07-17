@@ -1069,7 +1069,7 @@ _EVENING_CATEGORIES = frozenset({"food", "market", "shopping", "nightlife"})
 _FOOD_CATEGORIES = frozenset({"food"})
 _SHOP_CATEGORIES = frozenset({"market", "shopping"})
 _SIGHT_CATEGORIES = frozenset(
-    {"heritage", "museum", "temple", "attraction", "viewpoint", "park", "art"}
+    {"heritage", "museum", "temple", "attraction", "viewpoint", "park", "garden", "art"}
 )
 
 
@@ -1107,13 +1107,15 @@ def _evening_soft_categories(interests: list[str] | None) -> frozenset[str]:
             cats.update({"market", "shopping"})
         if key == "nightlife":
             cats.add("nightlife")
-        # Explicit park / nature / viewpoint interests unlock sunset-style soft stops.
-        if key in {"park", "nature", "viewpoint"}:
-            cats.update({"park", "viewpoint"})
+        # Explicit park / nature / garden / viewpoint interests unlock sunset-style soft stops.
+        if key in {"park", "garden", "nature", "viewpoint", "outdoor"}:
+            cats.update({"park", "garden", "viewpoint"})
         for c in categories_for_interest(key):
-            if c in {"park", "viewpoint"} and key in {
+            if c in {"park", "garden", "viewpoint"} and key in {
                 "park",
+                "garden",
                 "nature",
+                "outdoor",
                 "viewpoint",
                 "adventure",
             }:
@@ -1274,7 +1276,7 @@ def _pack_meal_template(
         interest_keys = {
             (normalize_interest(i) or i).lower() for i in (interests or []) if i
         }
-        prefer_sunset = bool(interest_keys & {"park", "nature", "viewpoint"})
+        prefer_sunset = bool(interest_keys & {"park", "garden", "nature", "viewpoint", "outdoor"})
         seen: set[str] = set()
         preferred: list[POICandidate] = []
         rest: list[POICandidate] = []
@@ -1283,7 +1285,7 @@ def _pack_meal_template(
             if key in seen or not _is_evening_soft(p, interests):
                 continue
             seen.add(key)
-            if prefer_sunset and _cat(p) in {"park", "viewpoint"}:
+            if prefer_sunset and _cat(p) in {"park", "garden", "viewpoint"}:
                 preferred.append(p)
             else:
                 rest.append(p)
@@ -1304,12 +1306,12 @@ def _pack_meal_template(
                 for i in (interests or [])
                 if i
             }
-            & {"park", "nature", "viewpoint"}
+            & {"park", "garden", "nature", "viewpoint", "outdoor"}
         )
         while len(evening) < extras_budget:
             soft_pool = _evening_soft_pool()
             if prefer_sunset:
-                sunset = [p for p in soft_pool if _cat(p) in {"park", "viewpoint"}]
+                sunset = [p for p in soft_pool if _cat(p) in {"park", "garden", "viewpoint"}]
                 extra = _take(sunset, anchor=anchor, allow_food=False)
                 if extra is None:
                     extra = _take(soft_pool, anchor=anchor, allow_food=False)
@@ -1496,7 +1498,9 @@ def _ensure_meal_candidate_floor(
         (normalize_interest(i) or i).lower() for i in interests if i
     }
     want_shop = bool(interest_keys & {"shopping", "market"})
-    want_park_eve = bool(interest_keys & {"park", "nature", "viewpoint"})
+    want_park_eve = bool(
+        interest_keys & {"park", "garden", "nature", "viewpoint", "outdoor"}
+    )
     # Soft evening extras (balanced 1 / packed 2). Prefer park/viewpoint when chosen;
     # otherwise fall back to markets/shops.
     if per_day >= 8:
@@ -1518,7 +1522,7 @@ def _ensure_meal_candidate_floor(
     used = {_poi_key(p) for p in selected}
 
     def _is_park_soft(p: POICandidate) -> bool:
-        return _cat(p) in {"park", "viewpoint"}
+        return _cat(p) in {"park", "garden", "viewpoint"}
 
     def _evict_for(
         incoming_is_food: bool,

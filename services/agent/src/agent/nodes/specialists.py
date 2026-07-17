@@ -191,8 +191,8 @@ def itinerary_agent_node(state: GraphState) -> dict[str, Any]:
             for p in patches:
                 if p.operation == "add_stop":
                     cat = str((p.payload or {}).get("category") or "food").lower()
-                    if cat in {"outdoor", "outdoors", "park", "nature"}:
-                        return ["park", "nature"]
+                    if cat in {"outdoor", "outdoors", "park", "garden", "nature"}:
+                        return ["park"]
                     if cat in {"shopping", "market"}:
                         return ["shopping", "market"]
                     return [cat]
@@ -222,16 +222,17 @@ def itinerary_agent_node(state: GraphState) -> dict[str, Any]:
                 if p.operation == "add_stop":
                     cat = str((p.payload or {}).get("category") or "food").lower()
                     wanted = {
-                        "outdoor": {"park", "viewpoint", "nature", "adventure"},
-                        "outdoors": {"park", "viewpoint", "nature", "adventure"},
-                        "park": {"park", "nature", "viewpoint"},
+                        "outdoor": {"park", "garden", "viewpoint", "nature", "adventure"},
+                        "outdoors": {"park", "garden", "viewpoint", "nature", "adventure"},
+                        "park": {"park", "garden", "nature", "viewpoint"},
+                        "garden": {"garden", "park"},
                         "food": {"food"},
                         "shopping": {"shopping", "market"},
                         "market": {"market", "shopping"},
                     }.get(cat, {cat})
                     if cats_have.isdisjoint(wanted):
                         return True
-                if p.operation == "make_indoor" and cats_have.isdisjoint(
+                    if p.operation == "make_indoor" and cats_have.isdisjoint(
                     {"museum", "food", "market", "temple", "heritage", "art"}
                 ):
                     return True

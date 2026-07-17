@@ -445,9 +445,17 @@ def _out_of_scope_tip_place(message: str) -> str | None:
 
 
 def _answer_knowledge_query(
-    state: GraphState, message: str, existing_trip: TripConstraints | None
+    state: GraphState,
+    message: str,
+    existing_trip: TripConstraints | None,
+    *,
+    itinerary_place: str | None = None,
+    itinerary_day: int | None = None,
+    itinerary_time: str | None = None,
+    skip_itinerary_resolve: bool = False,
 ) -> dict[str, Any]:
     """Answer tip / POI questions from Knowledge RAG only — never invent."""
+    from agent.rag.itinerary_place import match_itinerary_place
     from agent.rag.retrieve import (
         excerpt_place_from_snippet,
         extract_place_terms,
@@ -455,6 +463,18 @@ def _answer_knowledge_query(
         knowledge_search,
         sources_from_knowledge,
     )
+
+    def _itinerary_miss_reply(*, place_label: str, city_name: str, hours: bool) -> str:
+        day_bit = f" (Day {itinerary_day})" if itinerary_day else ""
+        if hours:
+            return (
+                f"**{place_label}**{day_bit} is on your itinerary, but I don't have cited "
+                f"opening hours for it in the {city_name} guide corpus — I won't invent them."
+            )
+        return (
+            f"**{place_label}**{day_bit} is on your itinerary, but I don't have cited "
+            f"guide tips for it in the {city_name} corpus yet — I won't invent details."
+        )
 
     oos = _out_of_scope_tip_place(message)
     if oos:
@@ -486,6 +506,56 @@ def _answer_knowledge_query(
         }
     city = _find_city(message)
     city = city if city and is_city_allowed(city) else default_city()
+
+    if not skip_itinerary_resolve and not itinerary_place:
+        itin = as_itinerary(
+            state.get("merged_itinerary") or state.get("previous_itinerary")
+        )
+        itin_match = match_itinerary_place(message, itin, city=city)
+        if itin_match is not None:
+            if itin_match.needs_confirm:
+                day_bit = (
+                    f" on Day {itin_match.day_index}" if itin_match.day_index else ""
+                )
+                tod_bit = (
+                    f" ({itin_match.time_of_day})" if itin_match.time_of_day else ""
+                )
+                return {
+                    "safety_status": "ok",
+                    "intent": "explain",
+                    "ready_for_merger": False,
+                    "ready_for_synthesis": False,
+                    "next_agent": None,
+                    "orchestration_started": False,
+                    "trip_constraints": dump(existing_trip) if existing_trip else None,
+                    "user_reply": (
+                        f"Did you mean **{itin_match.stop_name}**{day_bit}{tod_bit} "
+                        f"on your itinerary? Say **yes** and I'll look up cited guide info."
+                    ),
+                    "sources": [],
+                    "dispatch_plan": _dispatch_from_waves([]),
+                    "pending_dialog": {
+                        "type": "knowledge_place_confirm",
+                        "stop_name": itin_match.stop_name,
+                        "query": message,
+                        "day_index": itin_match.day_index,
+                        "time_of_day": itin_match.time_of_day,
+                    },
+                    "agent_trace": _trace_append(
+                        state,
+                        {
+                            "agent": "orchestrator",
+                            "action": "knowledge_qa",
+                            "detail": "itinerary_place_confirm",
+                            "place": itin_match.stop_name,
+                            "score": round(itin_match.score, 3),
+                        },
+                    ),
+                }
+            itinerary_place = itin_match.stop_name
+            itinerary_day = itin_match.day_index
+            itinerary_time = itin_match.time_of_day
+
     topics = _knowledge_topics_for_message(message)
     rag_query = message
     if re.search(r"\b(hours?|timing|opening|open(?:ing)?\s+time)\b", message.lower()):
@@ -494,6 +564,8 @@ def _answer_knowledge_query(
             topics = ["timing", "tips", "highlights"] + [
                 t for t in topics if t not in {"timing", "tips", "highlights"}
             ]
+    if itinerary_place:
+        rag_query = f"{itinerary_place} {rag_query}"
     hours_q = bool(
         re.search(
             r"\b(hours?|timing|opening|open(?:ing)?\s+time)\b",
@@ -505,14 +577,25 @@ def _answer_knowledge_query(
         city=city, query=rag_query, topics=topics, k=8 if hours_q else 4
     )
     places = extract_place_terms(message, city)
+    if itinerary_place:
+        canon = itinerary_place.lower().strip()
+        if canon and canon not in places:
+            places.insert(0, canon)
     sources = sources_from_knowledge(result)
 
     if result.missing_data or not result.snippets:
         note = (result.notes or "").strip()
-        reply = (
-            f"I don’t have cited guide tips for that in the {city} corpus yet."
-            + (f" ({note})" if note else "")
-        )
+        if itinerary_place:
+            reply = _itinerary_miss_reply(
+                place_label=itinerary_place,
+                city_name=city,
+                hours=hours_q,
+            )
+        else:
+            reply = (
+                f"I don’t have cited guide tips for that in the {city} corpus yet."
+                + (f" ({note})" if note else "")
+            )
     else:
         hours_q = bool(
             re.search(
@@ -551,12 +634,19 @@ def _answer_knowledge_query(
                 place_matched = True
             elif hours_q:
                 # Hours for a named place with no place-matched chunk — refuse.
-                place_label = places[0].title()
-                reply = (
-                    f"I don’t have cited opening hours for {place_label} "
-                    f"in the {city} guide corpus — I won’t invent them or "
-                    f"borrow hours from other places."
-                )
+                place_label = itinerary_place or places[0].title()
+                if itinerary_place:
+                    reply = _itinerary_miss_reply(
+                        place_label=place_label,
+                        city_name=city,
+                        hours=True,
+                    )
+                else:
+                    reply = (
+                        f"I don’t have cited opening hours for {place_label} "
+                        f"in the {city} guide corpus — I won’t invent them or "
+                        f"borrow hours from other places."
+                    )
                 return {
                     "safety_status": "ok",
                     "intent": "explain",
@@ -569,6 +659,7 @@ def _answer_knowledge_query(
                     "user_reply": reply,
                     "sources": [],
                     "dispatch_plan": _dispatch_from_waves([]),
+                    "pending_dialog": None,
                     "agent_trace": _trace_append(
                         state,
                         {
@@ -582,11 +673,18 @@ def _answer_knowledge_query(
                 }
             else:
                 # Named place with no corpus hit — refuse without inventing from noise.
-                place_label = places[0].title()
-                reply = (
-                    f"I don’t have a cited guide tip about {place_label} "
-                    f"in the {city} corpus — I won’t invent details."
-                )
+                place_label = itinerary_place or places[0].title()
+                if itinerary_place:
+                    reply = _itinerary_miss_reply(
+                        place_label=place_label,
+                        city_name=city,
+                        hours=False,
+                    )
+                else:
+                    reply = (
+                        f"I don’t have a cited guide tip about {place_label} "
+                        f"in the {city} corpus — I won’t invent details."
+                    )
                 return {
                     "safety_status": "ok",
                     "intent": "explain",
@@ -599,6 +697,7 @@ def _answer_knowledge_query(
                     "user_reply": reply,
                     "sources": [],
                     "dispatch_plan": _dispatch_from_waves([]),
+                    "pending_dialog": None,
                     "agent_trace": _trace_append(
                         state,
                         {
@@ -620,11 +719,18 @@ def _answer_knowledge_query(
                 and _HOUR_CLOCK_RE.search(s.text or "")
             ]
             if not timed:
-                place_label = places[0].title()
-                reply = (
-                    f"The {city} guide mentions {place_label}, but it does not "
-                    f"list opening hours for it — I won’t invent hours."
-                )
+                place_label = itinerary_place or places[0].title()
+                if itinerary_place:
+                    reply = _itinerary_miss_reply(
+                        place_label=place_label,
+                        city_name=city,
+                        hours=True,
+                    )
+                else:
+                    reply = (
+                        f"The {city} guide mentions {place_label}, but it does not "
+                        f"list opening hours for it — I won’t invent hours."
+                    )
                 return {
                     "safety_status": "ok",
                     "intent": "explain",
@@ -637,6 +743,7 @@ def _answer_knowledge_query(
                     "user_reply": reply,
                     "sources": [dump(s) for s in sources_from_knowledge(result)][:2],
                     "dispatch_plan": _dispatch_from_waves([]),
+                    "pending_dialog": None,
                     "agent_trace": _trace_append(
                         state,
                         {
@@ -1005,6 +1112,7 @@ def _answer_knowledge_query(
         "sources": [dump(s) for s in sources],
         "user_reply": reply,
         "dispatch_plan": _dispatch_from_waves([]),
+        "pending_dialog": None,
         "agent_trace": _trace_append(
             state,
             {
@@ -1014,6 +1122,7 @@ def _answer_knowledge_query(
                 "city": city,
                 "topics": topics,
                 "places": places,
+                "itinerary_place": itinerary_place,
                 "missing_data": bool(result.missing_data),
                 "hit_count": len(result.snippets or []),
             },
@@ -1328,7 +1437,7 @@ def _clause_block(clause: str) -> str | None:
 
 _EDIT_CATEGORIES = (
     r"food|restaurant|cafe|eatery|heritage|museum|market|shopping|"
-    r"temple|park|outdoor|outdoors|nature|culture|art"
+    r"temple|park|garden|outdoor|outdoors|nature|culture|art"
 )
 
 
@@ -1339,6 +1448,8 @@ def _normalize_edit_category(raw: str) -> str:
         return "food"
     if cat in {"outdoors"}:
         return "outdoor"
+    if cat in {"gardens", "garden"}:
+        return "park"  # parks ↔ gardens (one user-facing interest)
     if cat == "shopping":
         return "market"  # shopping ↔ market in itinerary categories
     return cat
@@ -1360,7 +1471,10 @@ def _parse_balance_categories(
     for raw in cats:
         cat = _normalize_edit_category(raw)
         if cat in {"outdoor", "outdoors"}:
-            cat = "park"
+            if "park" not in seen:
+                seen.add("park")
+                normalized.append("park")
+            continue
         if cat not in seen:
             seen.add(cat)
             normalized.append(cat)
@@ -2568,6 +2682,36 @@ def _continue_pending_dialog(
         " Would you like me to look up the Weather MCP forecast for a "
         "particular date? If yes, tell me the date (YYYY-MM-DD)."
     )
+
+    if kind == "knowledge_place_confirm":
+        yn = _yes_no(message)
+        stop_name = str(pending.get("stop_name") or "").strip()
+        pending_query = str(pending.get("query") or message)
+        if yn is True and stop_name:
+            out = _answer_knowledge_query(
+                state,
+                pending_query,
+                existing_trip,
+                itinerary_place=stop_name,
+                itinerary_day=pending.get("day_index"),
+                itinerary_time=pending.get("time_of_day"),
+                skip_itinerary_resolve=True,
+            )
+            return {**out, "pending_dialog": None}
+        if yn is False:
+            return _base(
+                user_reply=(
+                    "Okay — ask about another stop on your itinerary or rephrase the place name."
+                ),
+                pending_dialog=None,
+            )
+        return _base(
+            user_reply=(
+                f"Please say **yes** to look up cited info for **{stop_name}**, "
+                f"or **no** to cancel."
+            ),
+            pending_dialog=pending,
+        )
 
     if kind == "rain_day_ask":
         day_m, parsed = _parse_target_day(message)

@@ -42,8 +42,9 @@ INTEREST_ALIASES: dict[str, str] = {
     "pilgrimage": "temple",
     "religious": "temple",
     "parks": "park",
-    "garden": "nature",
-    "gardens": "nature",
+    "garden": "park",
+    "gardens": "park",
+    "outdoors": "outdoor",
     "zoo": "park",
     "aquarium": "museum",
     "street food": "food",
@@ -69,6 +70,8 @@ INTEREST_CATALOG = [
     "market",
     "nature",
     "park",
+    "garden",
+    "outdoor",
     "nightlife",
     "shopping",
     "adventure",
@@ -93,7 +96,8 @@ PRIMARY_INTEREST_LABELS: dict[str, str] = {
     "food": "food",
     "shopping": "shopping & bazaars",
     "museum": "museums",
-    "park": "parks",
+    "park": "parks & gardens",
+    "garden": "parks & gardens",
     "nature": "nature",
     "culture": "culture",
     "market": "markets",
@@ -112,13 +116,18 @@ INTEREST_CATEGORY_MAP: dict[str, set[str]] = {
     "museum": {"museum"},
     "market": {"market", "shopping"},
     "shopping": {"shopping", "market"},
-    "park": {"park", "viewpoint"},
-    "nature": {"park", "viewpoint", "nature"},
+    "park": {"park", "garden", "viewpoint"},
+    "garden": {"garden", "park"},
+    "outdoor": {"park", "garden", "viewpoint", "nature"},
+    "nature": {"park", "garden", "viewpoint", "nature"},
     "nightlife": {"nightlife"},
     "adventure": {"adventure", "attraction", "viewpoint"},
     "art": {"art", "museum"},
     "architecture": {"heritage", "attraction"},
 }
+
+# "outdoor" expands to the parks & gardens interest (shared Overpass coverage).
+_OUTDOOR_BUNDLE = ("park",)
 
 # Profile → default interests / pace / soft constraints / POI category bias
 PROFILE_PRESETS: dict[str, dict[str, Any]] = {
@@ -132,7 +141,7 @@ PROFILE_PRESETS: dict[str, dict[str, Any]] = {
             "Avoid nightlife, bars, pubs, and nightclubs",
             "Keep days shorter with fewer stops",
         ],
-        "boost_categories": {"park", "museum", "attraction", "food", "market", "viewpoint"},
+        "boost_categories": {"park", "garden", "museum", "attraction", "food", "market", "viewpoint"},
         "avoid_categories": {"nightlife"},
     },
     "senior_friendly": {
@@ -145,11 +154,11 @@ PROFILE_PRESETS: dict[str, dict[str, Any]] = {
             "Avoid nightlife, packed hiking, and adventure sports",
             "Fewer stops with more rest time between places",
         ],
-        "boost_categories": {"temple", "museum", "heritage", "park", "viewpoint"},
+        "boost_categories": {"temple", "museum", "heritage", "park", "garden", "viewpoint"},
         "avoid_categories": {"nightlife"},
     },
     "couple_friendly": {
-        "interests": ["heritage", "culture", "food", "nature", "art"],
+        "interests": ["heritage", "culture", "food", "nature", "art", "park"],
         "pace": "moderate",
         "daily_time_window_min": 540,
         "constraints": [
@@ -157,7 +166,7 @@ PROFILE_PRESETS: dict[str, dict[str, Any]] = {
             "Prefer scenic heritage, cafes, viewpoints, and calmer evenings",
             "Avoid rowdy nightlife unless explicitly requested",
         ],
-        "boost_categories": {"heritage", "viewpoint", "food", "museum", "park", "art"},
+        "boost_categories": {"heritage", "viewpoint", "food", "museum", "park", "garden", "art"},
         "avoid_categories": set(),
     },
     "friends_friendly": {
@@ -201,13 +210,20 @@ def normalize_interest(token: str) -> str:
 
 
 def normalize_interests(values: list[str]) -> list[str]:
+    """Normalize tokens and expand bundles (e.g. outdoor → park)."""
     out: list[str] = []
     seen: set[str] = set()
     for raw in values:
         n = normalize_interest(raw)
-        if n and n not in seen:
-            seen.add(n)
-            out.append(n)
+        if not n:
+            continue
+        bundle = _OUTDOOR_BUNDLE if n == "outdoor" else (n,)
+        for item in bundle:
+            # Re-alias bundle members (garden → park) so lists stay canonical.
+            item = normalize_interest(item) or item
+            if item and item not in seen:
+                seen.add(item)
+                out.append(item)
     return out
 
 
@@ -361,7 +377,8 @@ def extract_interests(message: str) -> list[str]:
         (r"\b(night[\s-]?life)\b", "nightlife"),
         (r"\b(forts?|palaces?|monuments?)\b", "heritage"),
         (r"\b(zoos?|aquariums?)\b", "park"),
-        (r"\b(gardens?)\b", "nature"),
+        (r"\b(gardens?)\b", "park"),
+        (r"\b(outdoors?|open[\s-]?air)\b", "outdoor"),
     ]
     for pat, interest in alias_patterns:
         if re.search(pat, lower):

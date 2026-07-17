@@ -196,6 +196,7 @@ def load_place_aliases(directory: Path | None = None) -> dict[str, list[str]]:
         "moon gate": ["Moon Gate"],
         "amarnath cafe": ["Amarnath Cafe"],
         "amarnath café": ["Amarnath Cafe"],
+        "anoki museum": ["Anokhi Museum"],
     }
     for k, vals in builtins.items():
         alias_map.setdefault(k, [])

@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 _OUTDOOR = {
     "heritage",
     "park",
+    "garden",
     "viewpoint",
     "attraction",
     "temple",
