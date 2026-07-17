@@ -128,6 +128,24 @@ INTEREST_CATEGORY_MAP: dict[str, set[str]] = {
     "architecture": {"heritage"},
 }
 
+# Culture-tier interests outrank soft leisure when both are present.
+CULTURE_TIER_INTERESTS = frozenset(
+    {"heritage", "temple", "museum", "culture", "history", "art", "architecture"}
+)
+SOFT_TIER_INTERESTS = frozenset(
+    {
+        "shopping",
+        "market",
+        "park",
+        "garden",
+        "food",
+        "outdoor",
+        "nature",
+        "nightlife",
+        "adventure",
+    }
+)
+
 # "outdoor" expands to the parks & gardens interest (shared Overpass coverage).
 _OUTDOOR_BUNDLE = ("park",)
 
@@ -209,6 +227,38 @@ def normalize_interest(token: str) -> str:
     if not t:
         return ""
     return INTEREST_ALIASES.get(t, t)
+
+
+def interest_priority(token: str) -> int:
+    """Lower = higher priority. Culture beats soft leisure by default."""
+    key = normalize_interest(token) or token.strip().lower()
+    if key in CULTURE_TIER_INTERESTS:
+        return 0
+    if key in SOFT_TIER_INTERESTS:
+        return 2
+    return 1
+
+
+def order_interests_by_priority(values: list[str]) -> list[str]:
+    """Stable order: culture-tier first, then other, then soft leisure."""
+    keys = list(
+        dict.fromkeys(
+            (normalize_interest(v) or v.strip().lower())
+            for v in values
+            if v and str(v).strip()
+        )
+    )
+    return sorted(keys, key=lambda k: (interest_priority(k), keys.index(k)))
+
+
+def culture_soft_mix_active(interests: list[str]) -> bool:
+    """True when the traveler asked for both culture and soft leisure interests."""
+    keys = {
+        normalize_interest(i) or i.strip().lower()
+        for i in interests
+        if i and str(i).strip()
+    }
+    return bool(keys & CULTURE_TIER_INTERESTS) and bool(keys & SOFT_TIER_INTERESTS)
 
 
 def normalize_interests(values: list[str]) -> list[str]:

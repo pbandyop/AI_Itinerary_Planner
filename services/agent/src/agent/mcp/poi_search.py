@@ -98,10 +98,14 @@ INTEREST_FILTERS: dict[str, list[str]] = {
         'node["tourism"="viewpoint"]',
     ],
     "museum": [
+        'node["name"~"Albert Hall|Anokhi Museum|City Palace Museum|Dolls Museum|Museum of Legacies|Jawahar Kala Kendra",i]',
+        'way["name"~"Albert Hall|Anokhi Museum|City Palace Museum|Dolls Museum|Museum of Legacies|Jawahar Kala Kendra",i]',
         'node["tourism"~"museum|gallery"]',
         'way["tourism"~"museum|gallery"]',
     ],
     "temple": [
+        'node["name"~"Govind Dev|Govindji|Birla Mandir|Laxmi Narayan|Galta Ji|Galtaji|Digamber Jain|Akshardham|Motiwalas|Shila Devi",i]',
+        'way["name"~"Govind Dev|Govindji|Birla Mandir|Laxmi Narayan|Galta Ji|Galtaji|Digamber Jain|Akshardham|Motiwalas|Shila Devi",i]',
         'node["amenity"="place_of_worship"]',
         'way["amenity"="place_of_worship"]',
     ],
@@ -414,13 +418,65 @@ _HERITAGE_NAME_RE = re.compile(
     re.I,
 )
 
+_LOW_SIGNAL_FOOD_RE = re.compile(
+    r"\b("
+    r"canteen|mess\b|tiffin|dhaba\s*no|hotel\s*and\s*restaurant|"
+    r"cafe\s*coffee\s*day|\bccd\b|domino|mcdonald|kfc\b|subway|"
+    r"pizza\s*hut|starbucks|burger\s*king|haldiram'?s?\s*express"
+    r")\b",
+    re.I,
+)
+_LOW_SIGNAL_MARKET_RE = re.compile(
+    r"\b("
+    r"jewels?\b|jewelers?|jewellers?|showroom|emporium\s*pvt|"
+    r"private\s+limited|\bpvt\b|\bltd\b|wholesale|godown|"
+    r"mobile\s+shop|electronics|repair"
+    r")\b",
+    re.I,
+)
+_LOW_SIGNAL_TEMPLE_RE = re.compile(
+    r"\b("
+    r"hospital|clinic|school|college|university|campus|hostel|"
+    r"police|office|factory|unknown|unnamed"
+    r")\b",
+    re.I,
+)
+_LOW_SIGNAL_MUSEUM_RE = re.compile(
+    r"\b("
+    r"hospital|school|college|university|private|home\s+museum|"
+    r"unknown|unnamed"
+    r")\b",
+    re.I,
+)
+
 _MUST_SEE_NAME_RE = re.compile(
     r"\b("
+    # Heritage
     r"hawa\s*mahal|city\s*palace|(?:amber|amer)\s*(?:fort|palace)|"
     r"jantar\s*mantar|nahargarh(?:\s+fort)?|jaigarh|jal\s*mahal|albert\s*hall|"
-    r"johari|bapu\s*bazaar|tripolia|nehru\s*bazaar|sisodia|vidyadhar|"
-    r"ram\s*niwas|kanak\s*vrindavan"
+    # Temples
+    r"govind\s*dev|govindji|birla\s*mandir|laxmi\s*narayan|"
+    r"galta\s*ji|galtaji|digamber\s*jain|shila\s*devi|"
+    # Museums / culture
+    r"anokhi(?:\s+museum)?|jawahar\s*kala|dolls?\s*museum|museum\s+of\s+legacies|"
+    # Markets
+    r"johari|bapu\s*bazaar|tripolia|nehru\s*bazaar|kishanpol|"
+    # Parks / gardens
+    r"sisodia|vidyadhar|ram\s*niwas|kanak\s*vrindavan|"
+    r"central\s+park|statue\s+circle|nahargarh\s+biological|"
+    # Food icons (when food is requested)
+    r"laxmi\s*misthan|rawat\s*misthan|handi(?:\s+restaurant)?|"
+    r"niros?\b|chokhi\s*dhani|tapri\s+central"
     r")\b",
+    re.I,
+)
+
+_TOURIST_MARKET_RE = re.compile(
+    r"\b(bazaar|bazar|market|mela|haat|chaupar|bapu|johari|tripolia|nehru)\b",
+    re.I,
+)
+_TOURIST_FOOD_RE = re.compile(
+    r"\b(restaurant|cafe|misthan|bhojanalaya|rasoi|kitchen|dhaba)\b",
     re.I,
 )
 
@@ -460,17 +516,46 @@ def _is_low_signal_park(name: str, tags: dict[str, str], category: str) -> bool:
 
 
 def _is_low_signal_poi(name: str, tags: dict[str, str], category: str) -> bool:
-    if _is_low_signal_park(name, tags, category):
+    cat = (category or "").lower()
+    n = name or ""
+    if _is_low_signal_park(n, tags, cat):
         return True
-    if category == "heritage" and (
-        _is_low_signal_heritage_name(name)
+    if cat == "heritage" and (
+        _is_low_signal_heritage_name(n)
         or (
-            not _looks_like_heritage_name(name)
+            not _looks_like_heritage_name(n)
             and not (tags.get("wikidata") or tags.get("wikipedia"))
             and (tags.get("historic") or "") == "yes"
         )
     ):
         return True
+    if cat == "temple":
+        if _LOW_SIGNAL_TEMPLE_RE.search(n):
+            return True
+        if len(n.strip()) < 4:
+            return True
+    if cat == "museum":
+        if _LOW_SIGNAL_MUSEUM_RE.search(n):
+            return True
+        if len(n.strip()) < 4:
+            return True
+    if cat == "food":
+        if _LOW_SIGNAL_FOOD_RE.search(n):
+            return True
+    if cat in {"market", "shopping"}:
+        # Prefer bazaars; drop random jewelry/brand showrooms unless must-see.
+        if _MUST_SEE_NAME_RE.search(n) or _TOURIST_MARKET_RE.search(n):
+            return False
+        if _LOW_SIGNAL_MARKET_RE.search(n):
+            return True
+        if tags.get("shop") and tags.get("shop") not in {
+            "mall",
+            "marketplace",
+            "department_store",
+        }:
+            # Keep named malls; drop generic single shops when no bazaar cue.
+            if not (tags.get("wikidata") or tags.get("wikipedia")):
+                return True
     return False
 
 
@@ -597,8 +682,13 @@ def _rank_score(tags: dict[str, str], interests: list[str], category: str) -> fl
     interest_set = {i.lower() for i in interests}
     if category in interest_set:
         score += 6.0
-    if "food" in interest_set and category == "food":
+    # Culture categories get a standing boost whenever requested alongside soft leisure.
+    if category in {"heritage", "temple", "museum"} and (
+        {"heritage", "temple", "museum", "culture", "history"} & interest_set
+    ):
         score += 4.0
+    if "food" in interest_set and category == "food":
+        score += 3.0
     if {"culture", "heritage", "history", "architecture"} & interest_set and category in {
         "heritage",
         "museum",
@@ -606,27 +696,27 @@ def _rank_score(tags: dict[str, str], interests: list[str], category: str) -> fl
     }:
         score += 5.0
     if {"temple"} & interest_set and category == "temple":
-        score += 4.0
+        score += 5.0
     if {"museum"} & interest_set and category == "museum":
-        score += 4.0
+        score += 5.0
     if {"park", "nature", "outdoor"} & interest_set and category in {
         "park",
         "garden",
         "viewpoint",
     }:
-        score += 3.5
+        score += 2.5
     if category == "garden" and {"park", "garden", "nature", "outdoor"} & interest_set:
         score += 2.0
     if {"shopping", "market"} & interest_set and category in {"shopping", "market"}:
-        score += 4.0
+        score += 2.5
     if {"nightlife"} & interest_set and category == "nightlife":
-        score += 4.0
+        score += 3.0
     if {"adventure"} & interest_set and category in {
         "adventure",
         "attraction",
         "viewpoint",
     }:
-        score += 3.5
+        score += 3.0
     if name.isascii():
         score += 0.3
     return score
@@ -685,10 +775,17 @@ def _balance_by_interests(
     if not interests or len(pois) <= limit:
         return pois[:limit]
 
-    from agent.preferences import categories_for_interest, normalize_interest
+    from agent.preferences import (
+        CULTURE_TIER_INTERESTS,
+        SOFT_TIER_INTERESTS,
+        categories_for_interest,
+        culture_soft_mix_active,
+        normalize_interest,
+        order_interests_by_priority,
+    )
 
-    keys = list(
-        dict.fromkeys(normalize_interest(i) or i for i in interests if i.strip())
+    keys = order_interests_by_priority(
+        list(dict.fromkeys(normalize_interest(i) or i for i in interests if i.strip()))
     )
     buckets: dict[str, list[POICandidate]] = {k: [] for k in keys}
     other: list[POICandidate] = []
@@ -712,22 +809,51 @@ def _balance_by_interests(
 
     out: list[POICandidate] = []
     used: set[str] = set()
-    # Round-robin across interests so food cannot crowd out shopping/temples.
+    mixed = culture_soft_mix_active(keys)
+
+    def _take(key: str) -> bool:
+        bucket = buckets.get(key) or []
+        while bucket:
+            p = bucket.pop(0)
+            ref = f"{p.osm_type}/{p.osm_id}"
+            if ref in used:
+                continue
+            out.append(p)
+            used.add(ref)
+            return True
+        return False
+
     while len(out) < limit:
         took = False
-        for key in keys:
-            if len(out) >= limit:
-                break
-            bucket = buckets.get(key) or []
-            while bucket:
-                p = bucket.pop(0)
-                ref = f"{p.osm_type}/{p.osm_id}"
-                if ref in used:
-                    continue
-                out.append(p)
-                used.add(ref)
-                took = True
-                break
+        if mixed:
+            for _ in range(2):
+                if len(out) >= limit:
+                    break
+                for key in keys:
+                    if key in CULTURE_TIER_INTERESTS and _take(key):
+                        took = True
+                        break
+            if len(out) < limit:
+                for key in keys:
+                    if key in SOFT_TIER_INTERESTS and _take(key):
+                        took = True
+                        break
+            if len(out) < limit:
+                for key in keys:
+                    if (
+                        key not in CULTURE_TIER_INTERESTS
+                        and key not in SOFT_TIER_INTERESTS
+                        and _take(key)
+                    ):
+                        took = True
+                        break
+        else:
+            for key in keys:
+                if len(out) >= limit:
+                    break
+                if _take(key):
+                    took = True
+                    break
         if not took:
             break
 

@@ -239,8 +239,14 @@ def _diversify_for_interests(
     *,
     max_total: int,
 ) -> tuple[list[POICandidate], list[str]]:
-    """Reserve fair stops per interest (best match first), then round-robin fill."""
+    """Reserve fair stops per interest; culture-tier gets more weight when mixed."""
     from agent.mcp.poi_search import _MUST_SEE_NAME_RE, _is_low_signal_poi
+    from agent.preferences import (
+        CULTURE_TIER_INTERESTS,
+        SOFT_TIER_INTERESTS,
+        culture_soft_mix_active,
+        order_interests_by_priority,
+    )
 
     notes: list[str] = []
     if not ranked or max_total <= 0:
@@ -248,16 +254,12 @@ def _diversify_for_interests(
     if not interests:
         return ranked[:max_total], notes
 
-    keys = [
-        k
-        for k in (normalize_interest(raw) or raw.strip().lower() for raw in interests)
-        if k
-    ]
-    keys = list(dict.fromkeys(keys))
+    keys = order_interests_by_priority(list(interests))
     used: set[str] = set()
     picks: list[POICandidate] = []
     covered: list[str] = []
     missing_interests: list[str] = []
+    mixed = culture_soft_mix_active(keys)
 
     def _pick_score(p: POICandidate) -> tuple[int, float, str]:
         name = p.name or ""
@@ -284,7 +286,6 @@ def _diversify_for_interests(
         used.add(_poi_key(chosen))
         covered.append(key)
 
-    # Fill remaining slots by round-robin so parks cannot dominate heritage/shopping.
     buckets: dict[str, list[POICandidate]] = {k: [] for k in keys}
     other: list[POICandidate] = []
     for p in ranked:
@@ -304,25 +305,56 @@ def _diversify_for_interests(
         else:
             other.append(p)
 
-    # Within each interest bucket, must-sees first.
     for key in keys:
         buckets[key] = sorted(buckets.get(key) or [], key=_pick_score, reverse=True)
 
+    def _take_from(key: str) -> bool:
+        bucket = buckets.get(key) or []
+        while bucket:
+            p = bucket.pop(0)
+            ref = _poi_key(p)
+            if ref in used:
+                continue
+            picks.append(p)
+            used.add(ref)
+            return True
+        return False
+
+    # When culture + soft are both requested, prefer ~2 culture : 1 soft while filling.
     while len(picks) < max_total:
         took = False
-        for key in keys:
-            if len(picks) >= max_total:
-                break
-            bucket = buckets.get(key) or []
-            while bucket:
-                p = bucket.pop(0)
-                ref = _poi_key(p)
-                if ref in used:
-                    continue
-                picks.append(p)
-                used.add(ref)
-                took = True
-                break
+        if mixed:
+            culture_keys = [k for k in keys if k in CULTURE_TIER_INTERESTS]
+            soft_keys = [k for k in keys if k in SOFT_TIER_INTERESTS]
+            other_keys = [
+                k
+                for k in keys
+                if k not in CULTURE_TIER_INTERESTS and k not in SOFT_TIER_INTERESTS
+            ]
+            for _ in range(2):
+                if len(picks) >= max_total:
+                    break
+                for key in culture_keys:
+                    if _take_from(key):
+                        took = True
+                        break
+            if len(picks) < max_total:
+                for key in soft_keys:
+                    if _take_from(key):
+                        took = True
+                        break
+            if len(picks) < max_total:
+                for key in other_keys:
+                    if _take_from(key):
+                        took = True
+                        break
+        else:
+            for key in keys:
+                if len(picks) >= max_total:
+                    break
+                if _take_from(key):
+                    took = True
+                    break
         if not took:
             break
 
@@ -332,14 +364,33 @@ def _diversify_for_interests(
         ref = _poi_key(p)
         if ref in used:
             continue
+        # Prefer culture categories when padding.
+        if mixed and (p.category or "").lower() in SOFT_TIER_INTERESTS:
+            continue
         picks.append(p)
         used.add(ref)
+
+    # If still short after skipping soft padding, allow soft again.
+    if len(picks) < max_total:
+        for p in other:
+            if len(picks) >= max_total:
+                break
+            ref = _poi_key(p)
+            if ref in used:
+                continue
+            picks.append(p)
+            used.add(ref)
 
     if covered:
         notes.append(
             "Diversity rule: ensured ≥1 stop for interests "
             f"{', '.join(covered)} when live MCP candidates existed."
         )
+        if mixed:
+            notes.append(
+                "Culture-tier interests (heritage/temple/museum) weighted above "
+                "shopping/park/food unless those were the only requests."
+            )
     if missing_interests:
         notes.append(
             "No live POI candidate matched interest(s): "

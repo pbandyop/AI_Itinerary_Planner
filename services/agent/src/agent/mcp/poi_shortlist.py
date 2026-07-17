@@ -20,17 +20,20 @@ from agent.trip_limits import clamp_trip_days
 
 logger = logging.getLogger(__name__)
 
-# Soft must-see priors for Jaipur heritage / bazaars (boost when present in pool).
+# Soft must-see priors for Jaipur (boost when present in pool).
 MUST_SEE_PATTERNS: tuple[tuple[str, float], ...] = (
-    (r"\bhawa\s*mahal\b", 20.0),
-    (r"\bcity\s*palace\b", 18.0),
-    (r"\b(?:amber|amer)\s*(?:fort|palace)\b", 18.0),
-    (r"\bjantar\s*mantar\b", 16.0),
-    (r"\bjohari\b", 12.0),
-    (r"\bbapu\s*bazaar\b", 12.0),
-    (r"\bnahargarh\b", 10.0),
-    (r"\bjal\s*mahal\b", 8.0),
-    (r"\banokhi\b", 6.0),
+    (r"\bhawa\s*mahal\b", 22.0),
+    (r"\bcity\s*palace\b", 20.0),
+    (r"\b(?:amber|amer)\s*(?:fort|palace)\b", 20.0),
+    (r"\bjantar\s*mantar\b", 18.0),
+    (r"\balbert\s*hall\b", 16.0),
+    (r"\bgovind\s*dev|\bbirla\s*mandir\b|\bgalta\s*ji\b", 16.0),
+    (r"\banokhi\b", 14.0),
+    (r"\bjohari\b", 14.0),
+    (r"\bbapu\s*bazaar\b", 14.0),
+    (r"\bnahargarh\b", 12.0),
+    (r"\bjal\s*mahal\b", 10.0),
+    (r"\bram\s*niwas\b|\bsisodia\b|\bvidyadhar\b", 10.0),
 )
 
 # Demote chains / low-signal Nominatim noise unless shopping/food pool is thin.
@@ -56,6 +59,10 @@ LOW_QUALITY_PATTERNS: tuple[str, ...] = (
     r"state\s+bank",
     r"\bbank\s+of\b",
     r"\bsbi\b",
+    r"\bjewels?\b",
+    r"\bshowroom\b",
+    r"\bcanteen\b",
+    r"\bmess\b",
 )
 
 
@@ -120,10 +127,19 @@ def selection_score(p: POICandidate, interests: list[str]) -> float:
 def _quota_slots(shortlist_size: int, interest_keys: list[str]) -> dict[str, int]:
     if not interest_keys:
         return {}
-    n = len(interest_keys)
+    from agent.preferences import CULTURE_TIER_INTERESTS, order_interests_by_priority
+
+    keys = order_interests_by_priority(interest_keys)
+    n = len(keys)
     base, rem = divmod(shortlist_size, n)
-    # Prefer giving remainder to earlier (user-stated order) interests.
-    return {k: base + (1 if i < rem else 0) for i, k in enumerate(interest_keys)}
+    # Prefer giving remainder to culture-tier / earlier (priority) interests.
+    quotas = {k: base for k in keys}
+    culture = [k for k in keys if k in CULTURE_TIER_INTERESTS]
+    rest = [k for k in keys if k not in CULTURE_TIER_INTERESTS]
+    for i in range(rem):
+        target = culture[i % len(culture)] if culture else rest[i % len(rest)]
+        quotas[target] = quotas.get(target, 0) + 1
+    return quotas
 
 
 def shortlist_pois(
