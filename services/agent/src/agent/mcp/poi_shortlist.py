@@ -47,6 +47,10 @@ LOW_QUALITY_PATTERNS: tuple[str, ...] = (
     r"गुलाबी\s*नगरी",
     r"pink\s*city",
     r"rooftop\s*view\s*metal",
+    r"\bcricket\b",
+    r"\bapartment",
+    r"sector[-\s]?\d",
+    r"^ground$",
 )
 
 

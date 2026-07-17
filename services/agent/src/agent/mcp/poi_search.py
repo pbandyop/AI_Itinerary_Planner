@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
@@ -65,12 +66,16 @@ INTEREST_FILTERS: dict[str, list[str]] = {
         'relation["historic"]',
     ],
     "heritage": [
+        # Named icons first so the out-limit cannot drop them for random attractions.
+        'node["name"~"Amber Fort|Amer Fort|City Palace|Hawa Mahal|Jantar Mantar|Nahargarh|Jaigarh|Albert Hall|Jal Mahal",i]',
+        'way["name"~"Amber Fort|Amer Fort|City Palace|Hawa Mahal|Jantar Mantar|Nahargarh|Jaigarh|Albert Hall|Jal Mahal",i]',
+        'relation["name"~"Amber Fort|Amer Fort|City Palace|Hawa Mahal|Jantar Mantar|Nahargarh|Jaigarh|Albert Hall",i]',
         'node["historic"]',
         'way["historic"]',
         'relation["historic"]',
-        'node["tourism"="attraction"]',
-        'way["tourism"="attraction"]',
         'way["building"="castle"]',
+        'node["tourism"="attraction"]["historic"]',
+        'way["tourism"="attraction"]["historic"]',
     ],
     "history": [
         'node["historic"]',
@@ -169,9 +174,9 @@ _NOMINATIM_QUERIES: dict[str, list[str]] = {
     "museum": ["museum"],
     "shopping": ["marketplace", "clothes"],
     "market": ["marketplace"],
-    "park": ["park"],
+    "park": ["park", "garden"],
     "garden": ["garden", "park"],
-    "heritage": ["attraction"],
+    "heritage": ["fort", "palace", "historic"],
     "nightlife": ["bar", "pub"],
 }
 
@@ -265,10 +270,15 @@ def nominatim_category_search(
                     "clothes": "market",
                     "park": "park",
                     "garden": "garden",
-                    "attraction": "heritage",
+                    "fort": "heritage",
+                    "palace": "heritage",
+                    "historic": "heritage",
+                    "attraction": "attraction",
                     "bar": "nightlife",
                     "pub": "nightlife",
                 }.get(amenity, interest.lower())
+                if interest.lower() == "heritage" and category == "attraction":
+                    category = "heritage"
                 pois.append(
                     POICandidate(
                         name=name,
@@ -293,6 +303,7 @@ def _category_from_tags(tags: dict[str, str]) -> str:
     historic = tags.get("historic")
     leisure = tags.get("leisure", "")
     shop = tags.get("shop")
+    name = (tags.get("name:en") or tags.get("name") or "").lower()
     if amenity in {"restaurant", "cafe", "fast_food", "food_court"} or shop == "bakery":
         return "food"
     if amenity in {"bar", "pub", "nightclub", "biergarten"} or leisure == "dance":
@@ -303,9 +314,10 @@ def _category_from_tags(tags: dict[str, str]) -> str:
         return "museum"
     if tourism == "viewpoint":
         return "viewpoint"
+    if tourism == "zoo":
+        return "park"
     if leisure == "garden":
         return "garden"
-    name = (tags.get("name") or "").lower()
     if leisure in {"park", "playground"}:
         if "garden" in name or "bagh" in name:
             return "garden"
@@ -314,11 +326,79 @@ def _category_from_tags(tags: dict[str, str]) -> str:
         return "garden"
     if shop or "bazaar" in name or "market" in name:
         return "market"
-    if historic or tourism == "attraction":
+    # Historic sites only — do not treat every tourism=attraction as heritage
+    # (elephant sanctuaries / theme stops were stealing heritage quotas).
+    if historic or tourism in {"castle", "monument"}:
+        return "heritage"
+    if tourism == "attraction" and any(
+        t in name
+        for t in (
+            "fort",
+            "palace",
+            "mahal",
+            "mandir",
+            "temple",
+            "haveli",
+            "museum",
+            "jantar",
+        )
+    ):
         return "heritage"
     if tourism:
         return "attraction"
     return "other"
+
+
+# Neighborhood / sports noise — not tourist parks & gardens.
+_LOW_SIGNAL_PARK_RE = re.compile(
+    r"\b("
+    r"cricket|football|soccer|playground|apartment|apartments|society|colony|"
+    r"housing|sector[-\s]?\d|nagar,\s*sector|block\s*[a-z0-9]|plot\s*no|"
+    r"enclave|residency|township"
+    r")\b|^ground$",
+    re.I,
+)
+_TOURIST_PARK_RE = re.compile(
+    r"\b("
+    r"garden|bagh|central\s+park|jawahar|ram\s*niwas|sisodia|vidyadhar|"
+    r"biological|zoological|\bzoo\b|rose\s+garden|statue\s+circle|"
+    r"kanak|vrindavan|smriti|peace\s+park|nehru"
+    r")\b",
+    re.I,
+)
+
+
+def _is_low_signal_park(name: str, tags: dict[str, str], category: str) -> bool:
+    """Drop cricket grounds / apartment parks unless they look tourist-grade."""
+    if category not in {"park", "garden"}:
+        return False
+    if tags.get("wikidata") or tags.get("wikipedia"):
+        return False
+    if tags.get("leisure") == "garden" or category == "garden":
+        if _LOW_SIGNAL_PARK_RE.search(name) and not _TOURIST_PARK_RE.search(name):
+            return True
+        return False
+    if _TOURIST_PARK_RE.search(name):
+        return False
+    if _LOW_SIGNAL_PARK_RE.search(name):
+        return True
+    # Bare / tiny names ("Ground") or generic sector parks without tourist cues.
+    stripped = name.strip()
+    if len(stripped) < 5 or stripped.lower() in {"ground", "park", "the park"}:
+        return True
+    if re.search(r"sector|nagar|colony|apartment", stripped, re.I):
+        return True
+    return False
+
+
+_MUST_SEE_NAME_RE = re.compile(
+    r"\b("
+    r"hawa\s*mahal|city\s*palace|(?:amber|amer)\s*(?:fort|palace)|"
+    r"jantar\s*mantar|nahargarh|jaigarh|jal\s*mahal|albert\s*hall|"
+    r"johari|bapu\s*bazaar|tripolia|nehru\s*bazaar"
+    r")\b",
+    re.I,
+)
 
 
 def build_overpass_query(
@@ -438,7 +518,9 @@ def _rank_score(tags: dict[str, str], interests: list[str], category: str) -> fl
     if tags.get("tourism") == "attraction":
         score += 1.5
     if tags.get("historic"):
-        score += 1.5
+        score += 2.5
+    if _MUST_SEE_NAME_RE.search(name):
+        score += 12.0
     interest_set = {i.lower() for i in interests}
     if category in interest_set:
         score += 6.0
@@ -447,10 +529,9 @@ def _rank_score(tags: dict[str, str], interests: list[str], category: str) -> fl
     if {"culture", "heritage", "history", "architecture"} & interest_set and category in {
         "heritage",
         "museum",
-        "attraction",
         "temple",
     }:
-        score += 4.0
+        score += 5.0
     if {"temple"} & interest_set and category == "temple":
         score += 4.0
     if {"museum"} & interest_set and category == "museum":
@@ -461,8 +542,8 @@ def _rank_score(tags: dict[str, str], interests: list[str], category: str) -> fl
         "viewpoint",
     }:
         score += 3.5
-    if {"garden"} & interest_set and category in {"garden", "park"}:
-        score += 3.5
+    if category == "garden" and {"park", "garden", "nature", "outdoor"} & interest_set:
+        score += 2.0
     if {"shopping", "market"} & interest_set and category in {"shopping", "market"}:
         score += 4.0
     if {"nightlife"} & interest_set and category == "nightlife":
@@ -486,18 +567,18 @@ def _boost_by_stated_interests(
     if not interest_set or not pois:
         return pois
     related = {
-        "history": {"heritage", "museum", "temple", "attraction"},
-        "heritage": {"heritage", "museum", "temple", "attraction"},
-        "culture": {"heritage", "museum", "temple", "art", "attraction"},
+        "history": {"heritage", "museum", "temple"},
+        "heritage": {"heritage", "museum", "temple"},
+        "culture": {"heritage", "museum", "temple", "art"},
         "food": {"food", "market"},
         "shopping": {"shopping", "market"},
         "market": {"market", "shopping"},
         "nightlife": {"nightlife", "food"},
         "adventure": {"adventure", "attraction", "viewpoint"},
         "nature": {"park", "garden", "viewpoint", "nature"},
-        "park": {"park", "garden", "viewpoint"},
+        "park": {"park", "garden"},
         "garden": {"garden", "park"},
-        "outdoor": {"park", "garden", "viewpoint", "nature"},
+        "outdoor": {"park", "garden", "viewpoint"},
         "temple": {"temple"},
         "museum": {"museum"},
     }
@@ -513,6 +594,9 @@ def _boost_by_stated_interests(
             score += 8.0
         elif cat in preferred:
             score += 4.0
+        # Soft: attractions only help adventure/culture, not heritage quotas.
+        if cat == "attraction" and "heritage" in interest_set:
+            score -= 2.0
         p.rank_score = score
     return sorted(pois, key=lambda x: (-(x.rank_score or 0), x.name))
 
@@ -653,20 +737,27 @@ def _parse_elements(
         seen.add(key)
         lat, lon = _element_coords(el)
         category = _category_from_tags(tags)
+        if _is_low_signal_park(name, tags, category):
+            continue
         score = _rank_score(tags, interests, category)
         if score <= 0:
             continue
         matched = [
             i
             for i in interests
-            if i.lower() in {category, "culture", "heritage", "food"}
+            if i.lower() == category
             or (
                 i.lower() == "culture"
-                and category in {"heritage", "museum", "attraction", "temple"}
+                and category in {"heritage", "museum", "temple", "art"}
             )
             or (i.lower() == "heritage" and category in {"heritage", "museum"})
             or (i.lower() == "food" and category == "food")
             or (i.lower() == "temple" and category == "temple")
+            or (i.lower() == "museum" and category == "museum")
+            or (
+                i.lower() in {"park", "garden", "outdoor", "nature"}
+                and category in {"park", "garden", "viewpoint"}
+            )
             or (
                 i.lower() in {"shopping", "market"}
                 and category in {"shopping", "market"}
@@ -689,6 +780,7 @@ def _parse_elements(
                         "historic",
                         "amenity",
                         "cuisine",
+                        "leisure",
                         "wikipedia",
                         "wikidata",
                     }
@@ -780,12 +872,15 @@ def poi_search(
         logger.exception("Overpass POI search failed for %s", canonical)
 
     # Live Nominatim backup per interest that Overpass missed (still OSM ids).
-    from agent.preferences import categories_for_interest
+    from agent.preferences import INTEREST_CATEGORY_MAP, normalize_interest
 
     have_cats = {(p.category or "").lower() for p in pois}
     for interest in interests:
-        wanted = categories_for_interest(interest)
-        if wanted & have_cats:
+        key = normalize_interest(interest) or interest.lower().strip()
+        # Require a *primary* category hit — e.g. heritage needs historic sites,
+        # not a leftover tourism=attraction from the park/zoo query.
+        primary = {key} | INTEREST_CATEGORY_MAP.get(key, set())
+        if primary & have_cats:
             continue
         try:
             extra = nominatim_category_search(
@@ -805,6 +900,8 @@ def poi_search(
         for p in extra:
             ref = f"{p.osm_type}/{p.osm_id}"
             if ref in existing:
+                continue
+            if _is_low_signal_park(p.name or "", p.tags or {}, (p.category or "").lower()):
                 continue
             pois.append(p)
             existing.add(ref)

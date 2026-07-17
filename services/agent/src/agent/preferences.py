@@ -107,23 +107,25 @@ PRIMARY_INTEREST_LABELS: dict[str, str] = {
 }
 
 # Category aliases used when ranking POIs against stated interests.
+# Hard quota matching uses these sets — keep heritage tight so random
+# tourism=attraction (elephant rides, etc.) cannot steal the heritage slot.
 INTEREST_CATEGORY_MAP: dict[str, set[str]] = {
     "food": {"food"},
-    "heritage": {"heritage", "attraction"},
-    "culture": {"heritage", "museum", "temple", "attraction", "art"},
+    "heritage": {"heritage"},
+    "culture": {"heritage", "museum", "temple", "art"},
     "history": {"heritage", "museum"},
     "temple": {"temple"},
     "museum": {"museum"},
     "market": {"market", "shopping"},
     "shopping": {"shopping", "market"},
-    "park": {"park", "garden", "viewpoint"},
+    "park": {"park", "garden"},
     "garden": {"garden", "park"},
-    "outdoor": {"park", "garden", "viewpoint", "nature"},
+    "outdoor": {"park", "garden", "viewpoint"},
     "nature": {"park", "garden", "viewpoint", "nature"},
     "nightlife": {"nightlife"},
     "adventure": {"adventure", "attraction", "viewpoint"},
     "art": {"art", "museum"},
-    "architecture": {"heritage", "attraction"},
+    "architecture": {"heritage"},
 }
 
 # "outdoor" expands to the parks & gardens interest (shared Overpass coverage).

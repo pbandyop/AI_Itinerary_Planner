@@ -239,40 +239,77 @@ def _diversify_for_interests(
     *,
     max_total: int,
 ) -> tuple[list[POICandidate], list[str]]:
-    """Legacy rule: reserve ≥1 stop per interest, then fill by score order."""
+    """Reserve fair stops per interest (best match first), then round-robin fill."""
     notes: list[str] = []
     if not ranked or max_total <= 0:
         return [], notes
     if not interests:
         return ranked[:max_total], notes
 
+    keys = [
+        k
+        for k in (normalize_interest(raw) or raw.strip().lower() for raw in interests)
+        if k
+    ]
+    keys = list(dict.fromkeys(keys))
     used: set[str] = set()
     picks: list[POICandidate] = []
     covered: list[str] = []
     missing_interests: list[str] = []
 
-    for raw in interests:
-        key = normalize_interest(raw)
-        if not key:
-            continue
+    # Seed ≥1 best-scoring POI per interest.
+    for key in keys:
         cats = categories_for_interest(key)
-        chosen: POICandidate | None = None
-        for p in ranked:
-            ref = _poi_key(p)
-            if ref in used:
-                continue
-            cat = (p.category or "").lower()
-            if cat in cats:
-                chosen = p
-                break
-        if chosen is None:
+        candidates = [
+            p
+            for p in ranked
+            if _poi_key(p) not in used and (p.category or "").lower() in cats
+        ]
+        if not candidates:
             missing_interests.append(key)
             continue
+        chosen = max(candidates, key=lambda p: (float(p.rank_score or 0), p.name or ""))
         picks.append(chosen)
         used.add(_poi_key(chosen))
         covered.append(key)
 
+    # Fill remaining slots by round-robin so parks cannot dominate heritage/shopping.
+    buckets: dict[str, list[POICandidate]] = {k: [] for k in keys}
+    other: list[POICandidate] = []
     for p in ranked:
+        ref = _poi_key(p)
+        if ref in used:
+            continue
+        cat = (p.category or "").lower()
+        matched: str | None = None
+        for key in keys:
+            if cat in categories_for_interest(key):
+                matched = key
+                break
+        if matched is not None:
+            buckets[matched].append(p)
+        else:
+            other.append(p)
+
+    while len(picks) < max_total:
+        took = False
+        for key in keys:
+            if len(picks) >= max_total:
+                break
+            bucket = buckets.get(key) or []
+            while bucket:
+                p = bucket.pop(0)
+                ref = _poi_key(p)
+                if ref in used:
+                    continue
+                picks.append(p)
+                used.add(ref)
+                took = True
+                break
+        if not took:
+            break
+
+    for p in other:
         if len(picks) >= max_total:
             break
         ref = _poi_key(p)

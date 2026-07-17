@@ -224,8 +224,9 @@ def itinerary_agent_node(state: GraphState) -> dict[str, Any]:
                     wanted = {
                         "outdoor": {"park", "garden", "viewpoint", "nature", "adventure"},
                         "outdoors": {"park", "garden", "viewpoint", "nature", "adventure"},
-                        "park": {"park", "garden", "nature", "viewpoint"},
+                        "park": {"park", "garden"},
                         "garden": {"garden", "park"},
+                        "heritage": {"heritage"},
                         "food": {"food"},
                         "shopping": {"shopping", "market"},
                         "market": {"market", "shopping"},
