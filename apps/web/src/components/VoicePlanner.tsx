@@ -351,7 +351,7 @@ export default function VoicePlanner() {
     if (lastAssistant?.content) {
       return truncateCaption(speakableReply(lastAssistant.content));
     }
-    return "Tap the orb and say “Plan a trip to Jaipur.” Voice input is required.";
+    return "";
   }, [
     speech.listening,
     speech.interim,
@@ -361,13 +361,6 @@ export default function VoicePlanner() {
     reply,
     conversation,
   ]);
-
-  const captionWho =
-    speech.listening || draft.trim()
-      ? "You"
-      : aiSpeaking || conversation.some((t) => t.role === "assistant")
-        ? "VocalVoyage"
-        : "Hint";
 
   void reply;
 
@@ -501,11 +494,10 @@ export default function VoicePlanner() {
 
           <div className={styles.composer}>
             <div className={styles.composerRow}>
-              <div className={styles.liveCaption} aria-live="polite">
-                <span className={styles.captionWho}>{captionWho}</span>
-                <p className={styles.captionText}>{liveCaption}</p>
-                <p className={styles.stageStatus}>{statusLabel}</p>
-              </div>
+              <span className={styles.srOnly} aria-live="polite">
+                {statusLabel}
+                {liveCaption ? `. ${liveCaption}` : ""}
+              </span>
               <VoiceOrb
                 mode={orbMode}
                 audioLevel={speech.audioLevel}
@@ -520,19 +512,6 @@ export default function VoicePlanner() {
             </div>
 
             <div className={styles.composerMeta}>
-              <p className={styles.hint}>
-                {!speech.supported
-                  ? "Microphone required — use Chrome/Edge with mic access"
-                  : speech.transcribing
-                    ? "Transcribing…"
-                    : speech.listening
-                      ? "Listening… tap mic to finish"
-                      : voiceUnlocked
-                        ? "STT ready · Send or Auto-send"
-                        : awaitingConfirm && slotsReady
-                          ? "Say “yes” or “confirm” — voice only"
-                          : "STT required · tap mic to speak"}
-              </p>
               <div className={styles.toggles}>
                 <label className={styles.ttsToggle}>
                   <input
