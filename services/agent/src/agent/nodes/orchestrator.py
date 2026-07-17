@@ -2072,9 +2072,47 @@ def _start_agent_loop(
 
     first = list(waves[0])
     rest = [list(w) for w in waves[1:]]
+    # Belt-and-suspenders: strip knowledge_agent from plan/edit dispatch.
+    if intent != "explain":
+        first = [a for a in first if a != "knowledge_agent"]
+        rest = [[a for a in w if a != "knowledge_agent"] for w in rest]
+        rest = [w for w in rest if w]
+        if not first and rest:
+            first = list(rest[0])
+            rest = rest[1:]
+        criteria = [c for c in criteria if c != "citations_present"]
+    if not first:
+        return {
+            "safety_status": "ok",
+            "intent": intent,
+            "ready_for_synthesis": True,
+            "ready_for_merger": True,
+            "next_agent": None,
+            "next_agents": [],
+            "pending_agents": [],
+            "pending_waves": [],
+            "orchestration_started": True,
+            "user_reply": user_reply,
+            "trip_constraints": dump(trip) if trip else state.get("trip_constraints"),
+            "dispatch_plan": _dispatch_from_waves(
+                [], success_criteria=criteria, plan_reason=plan_reason
+            ),
+            "knowledge_results": None if intent != "explain" else state.get("knowledge_results"),
+            "agent_trace": _trace_append(
+                state,
+                {
+                    "agent": "orchestrator",
+                    "planner": planner,
+                    "waves": [],
+                    "success_criteria": criteria,
+                    "action": "finalize",
+                },
+            ),
+        }
     plan_kwargs: dict[str, Any] = {}
     if primary is not None:
         plan_kwargs["edit_patch"] = dump(primary)
+    cleaned_waves = [first, *rest] if first else []
     out: dict[str, Any] = {
         "safety_status": "ok",
         "intent": intent,
@@ -2088,7 +2126,7 @@ def _start_agent_loop(
         "orchestrator_steps": int(state.get("orchestrator_steps") or 0) + 1,
         "trip_constraints": dump(trip) if trip else state.get("trip_constraints"),
         "dispatch_plan": _dispatch_from_waves(
-            waves,
+            cleaned_waves,
             success_criteria=criteria,
             plan_reason=plan_reason or f"planner={planner}",
             **plan_kwargs,
@@ -2099,12 +2137,12 @@ def _start_agent_loop(
             {
                 "agent": "orchestrator",
                 "planner": planner,
-                "waves": waves,
+                "waves": cleaned_waves,
                 "success_criteria": criteria,
                 "action": f"dispatch_wave:{','.join(first)}",
                 "execution_plan": {
-                    "wave1": waves[0] if waves else [],
-                    **{f"wave{i+1}": w for i, w in enumerate(waves)},
+                    "wave1": cleaned_waves[0] if cleaned_waves else [],
+                    **{f"wave{i+1}": w for i, w in enumerate(cleaned_waves)},
                     "success_criteria": criteria,
                 },
             },
@@ -2211,42 +2249,27 @@ def _continue_agent_loop(state: GraphState) -> dict[str, Any]:
     if pending_waves:
         nxt = list(pending_waves[0])
         rest = [list(w) for w in pending_waves[1:]]
-        logger.info(
-            "NODE orchestrator NEXT wave=%s remaining_waves=%s", nxt, rest
-        )
-        return {
-            "ready_for_synthesis": False,
-            "ready_for_merger": False,
-            "next_agent": nxt[0] if len(nxt) == 1 else None,
-            "next_agents": nxt,
-            "pending_agents": _flatten_remaining(rest),
-            "pending_waves": rest,
-            "orchestrator_steps": steps,
-            "agent_trace": trace
-            + [
-                {
-                    "agent": "orchestrator",
-                    "action": f"dispatch_wave:{','.join(nxt)}",
-                }
-            ],
-        }
-
-    # Waves done — completion check (not a bare flag)
-    ok, missing = artifacts_complete(dict(state), criteria)
-    if not ok:
-        refill = agents_for_missing_criteria(missing)
-        logger.info(
-            "NODE orchestrator artifacts incomplete missing=%s → redispatch %s",
-            missing,
-            refill,
-        )
-        if refill and steps < MAX_ORCHESTRATOR_STEPS:
-            nxt = [refill[0]]
-            rest = [[a] for a in refill[1:]]
+        intent_now = state.get("intent") or "plan"
+        if intent_now != "explain":
+            nxt = [a for a in nxt if a != "knowledge_agent"]
+            rest = [[a for a in w if a != "knowledge_agent"] for w in rest]
+            rest = [w for w in rest if w]
+            while not nxt and rest:
+                nxt = list(rest[0])
+                rest = rest[1:]
+            if not nxt:
+                # No more non-RAG waves — fall through to completion check.
+                pending_waves = []
+            else:
+                pending_waves = [nxt, *rest]
+        if nxt:
+            logger.info(
+                "NODE orchestrator NEXT wave=%s remaining_waves=%s", nxt, rest
+            )
             return {
                 "ready_for_synthesis": False,
                 "ready_for_merger": False,
-                "next_agent": nxt[0],
+                "next_agent": nxt[0] if len(nxt) == 1 else None,
                 "next_agents": nxt,
                 "pending_agents": _flatten_remaining(rest),
                 "pending_waves": rest,
@@ -2255,26 +2278,61 @@ def _continue_agent_loop(state: GraphState) -> dict[str, Any]:
                 + [
                     {
                         "agent": "orchestrator",
-                        "action": "fill_missing_artifacts",
-                        "missing": missing,
-                        "dispatch": refill,
+                        "action": f"dispatch_wave:{','.join(nxt)}",
                     }
                 ],
             }
-        # Cap / cannot fill — proceed anyway and let Reviewer catch issues
-        return {
-            **_finalize_to_synthesis(
-                state, steps, reason=f"incomplete:{','.join(missing)}"
-            ),
-            "agent_trace": trace
-            + [
-                {
-                    "agent": "orchestrator",
-                    "action": "artifacts_incomplete_proceed",
-                    "missing": missing,
+
+    # Waves done — completion check (not a bare flag)
+    ok, missing = artifacts_complete(dict(state), criteria)
+    if not ok:
+        intent_now = state.get("intent") or "plan"
+        refill = agents_for_missing_criteria(missing)
+        if intent_now != "explain":
+            refill = [a for a in refill if a != "knowledge_agent"]
+            missing = [m for m in missing if m != "citations_present"]
+            ok = len(missing) == 0
+        if not ok:
+            logger.info(
+                "NODE orchestrator artifacts incomplete missing=%s → redispatch %s",
+                missing,
+                refill,
+            )
+            if refill and steps < MAX_ORCHESTRATOR_STEPS:
+                nxt = [refill[0]]
+                rest = [[a] for a in refill[1:]]
+                return {
+                    "ready_for_synthesis": False,
+                    "ready_for_merger": False,
+                    "next_agent": nxt[0],
+                    "next_agents": nxt,
+                    "pending_agents": _flatten_remaining(rest),
+                    "pending_waves": rest,
+                    "orchestrator_steps": steps,
+                    "agent_trace": trace
+                    + [
+                        {
+                            "agent": "orchestrator",
+                            "action": "fill_missing_artifacts",
+                            "missing": missing,
+                            "dispatch": refill,
+                        }
+                    ],
                 }
-            ],
-        }
+            # Cap / cannot fill — proceed anyway and let Reviewer catch issues
+            return {
+                **_finalize_to_synthesis(
+                    state, steps, reason=f"incomplete:{','.join(missing)}"
+                ),
+                "agent_trace": trace
+                + [
+                    {
+                        "agent": "orchestrator",
+                        "action": "artifacts_incomplete_proceed",
+                        "missing": missing,
+                    }
+                ],
+            }
 
     return {
         **_finalize_to_synthesis(state, steps, reason="all_success_criteria_met"),
@@ -2713,6 +2771,12 @@ def orchestrator_node(state: GraphState) -> dict[str, Any]:
         target = normalize_target_agent(
             str(feedback.get("target_agent") or v.target_agent or "")
         ) or "itinerary_agent"
+        # Plan/edit must never re-enter knowledge_agent (RAG is explain-only).
+        if target == "knowledge_agent":
+            logger.info(
+                "NODE orchestrator REVISE remapped knowledge_agent → itinerary_agent"
+            )
+            target = "itinerary_agent"
         constraints = [
             str(c)
             for c in (feedback.get("constraints") or v.constraints or [])

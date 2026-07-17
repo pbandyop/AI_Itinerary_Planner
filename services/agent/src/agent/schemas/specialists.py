@@ -117,7 +117,7 @@ class DispatchPlan(BaseModel):
 
     run_poi: bool = True
     run_itinerary: bool = True
-    run_knowledge: bool = True
+    run_knowledge: bool = False
     run_weather: bool = True
     run_travel_time: bool = True
     agent_sequence: list[

@@ -451,6 +451,24 @@ def itinerary_agent_node(state: GraphState) -> dict[str, Any]:
 
 
 def knowledge_agent_node(state: GraphState) -> dict[str, Any]:
+    intent = state.get("intent") or "plan"
+    # Hard gate: RAG is explain / place-Q&A only — never during itinerary build.
+    if intent not in {"explain"}:
+        logger.info(
+            "NODE knowledge_agent SKIP intent=%s (RAG is explain-only)",
+            intent,
+        )
+        return {
+            "agent_trace": trace_delta(
+                {
+                    "agent": "knowledge_agent",
+                    "action": "skip",
+                    "detail": "RAG skipped during plan/edit — explain-only.",
+                    "intent": intent,
+                }
+            ),
+        }
+
     trip = as_trip(state.get("trip_constraints"))
     city = trip.city if trip else "Jaipur"
     msg = (state.get("user_message") or "").strip()

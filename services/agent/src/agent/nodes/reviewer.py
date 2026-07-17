@@ -56,7 +56,7 @@ _CODE_TARGET: dict[str, TargetAgent] = {
     "feasibility_pace": "itinerary_agent",
     "feasibility_travel": "travel_time_agent",
     "grounding_osm": "poi_agent",
-    "grounding_citation": "knowledge_agent",
+    "grounding_citation": "itinerary_agent",
     "missing_data": "poi_agent",
     "edit_scope": "itinerary_agent",
     "other": "itinerary_agent",
@@ -265,16 +265,18 @@ def _llm_review(
         "multi-agent system. You do NOT invent POIs or call tools. "
         "Decide approve or revise. On revise you MUST name the specialist to fix "
         "the problem and give concrete constraints the Orchestrator will pass through. "
-        "Valid target_agent values: poi_agent, itinerary_agent, knowledge_agent, "
+        "Valid target_agent values: poi_agent, itinerary_agent, "
         "weather_agent, travel_time_agent. "
+        "Do NOT target knowledge_agent — RAG tips are explain-only and are not "
+        "part of itinerary generation. Citation gaps alone must APPROVE. "
         "Examples: duration/pace → itinerary_agent with constraints like "
         '["Reduce travel", "Keep museum", "Preserve Day 1"]; '
-        "missing real POIs → poi_agent; weak citations → knowledge_agent; "
+        "missing real POIs → poi_agent; "
         "leg times only → travel_time_agent. "
         "If heuristic_issues list hard problems, status must be revise. "
         "Soft notes alone may approve — including placeholder/demo OSM IDs, "
         "minor clustering preferences, and citation gaps. Do NOT revise solely "
-        "for OSM ID format or geographic clustering polish. "
+        "for OSM ID format, geographic clustering polish, or missing Wikivoyage tips. "
         "Return ONLY JSON: "
         '{"status":"approve"|"revise","reason":"...",'
         '"target_agent":"itinerary_agent"|null,'
@@ -362,6 +364,7 @@ def _finalize_verdict(
     llm: ReviewerVerdict | None,
     revision_count: int,
     trip,
+    intent: str = "plan",
 ) -> tuple[ReviewerVerdict, int, str]:
     hard = [i for i in heuristic if i.code in _HARD_CODES]
     soft = [i for i in heuristic if i.code not in _HARD_CODES]
@@ -373,10 +376,29 @@ def _finalize_verdict(
 
     if hard and can_revise:
         verdict = _feedback_from_hard(hard, affected, trip=trip, llm=llm)
+        # Never send plan/edit back to knowledge_agent (RAG is explain-only).
+        if intent in {"plan", "edit"} and verdict.target_agent == "knowledge_agent":
+            verdict = verdict.model_copy(update={"target_agent": "itinerary_agent"})
         return verdict, revision_count + 1, mode if llm else "heuristic"
 
     if llm and llm.status == "revise" and can_revise:
         target = llm.target_agent or "itinerary_agent"
+        # Citation/RAG revises during plan/edit → approve with notes instead.
+        if intent in {"plan", "edit"} and target == "knowledge_agent":
+            reason = llm.reason or "Approved (RAG not used during itinerary generation)."
+            return (
+                ReviewerVerdict(
+                    status="approve",
+                    reason=reason[:400],
+                    target_agent=None,
+                    constraints=[],
+                    issues=llm.issues or soft,
+                    affected_sections=[],
+                    notes=llm.notes or reason,
+                ),
+                revision_count,
+                "llm",
+            )
         constraints = list(llm.constraints) or _constraints_from_issues(
             llm.issues or soft, llm.affected_sections or affected, trip=trip
         )
@@ -496,6 +518,7 @@ def reviewer_node(state: GraphState) -> dict[str, Any]:
         llm=llm_verdict,
         revision_count=revision_count,
         trip=trip,
+        intent=intent,
     )
 
     logger.info(
