@@ -77,6 +77,7 @@ export default function VoicePlanner() {
   const [tts, setTts] = useState(true);
   const [autoSend, setAutoSend] = useState(true);
   const [pending, setPending] = useState(false);
+  const [samplesOpen, setSamplesOpen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const itineraryRef = useRef<Itinerary | null>(null);
   const pendingTripRef = useRef<TripConstraints | null>(null);
@@ -494,28 +495,41 @@ export default function VoicePlanner() {
               </button>
             </div>
 
-            <div className={styles.samples}>
-              {SAMPLE_PROMPTS.map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  className={styles.chip}
-                  onClick={() => {
-                    setDraft(p);
-                    speech.setTranscript(p);
-                  }}
-                >
-                  {p}
-                </button>
-              ))}
+            <div className={styles.samplesWrap}>
+              <button
+                type="button"
+                className={styles.samplesToggle}
+                onClick={() => setSamplesOpen((v) => !v)}
+                aria-expanded={samplesOpen}
+              >
+                <span>Suggestions</span>
+                <span className={styles.samplesHint}>
+                  {samplesOpen
+                    ? "Hide"
+                    : `${SAMPLE_PROMPTS.length} prompts · show`}
+                </span>
+                <span className={styles.samplesChev} aria-hidden>
+                  {samplesOpen ? "▾" : "▸"}
+                </span>
+              </button>
+              {samplesOpen ? (
+                <div className={styles.samples}>
+                  {SAMPLE_PROMPTS.map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      className={styles.chip}
+                      onClick={() => {
+                        setDraft(p);
+                        speech.setTranscript(p);
+                      }}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
-
-            {(intent || safety) && (
-              <div className={styles.metaRow}>
-                {intent && <span>intent · {intent}</span>}
-                {safety && <span>safety · {safety}</span>}
-              </div>
-            )}
           </div>
         </section>
 
