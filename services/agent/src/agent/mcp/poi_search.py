@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
 import httpx
@@ -123,6 +124,11 @@ INTEREST_FILTERS: dict[str, list[str]] = {
 }
 
 DEFAULT_INTERESTS = ["culture", "heritage", "food"]
+
+# Cap concurrent Overpass HTTP calls (public mirrors rate-limit aggressive clients).
+_OVERPASS_MAX_WORKERS = max(
+    1, min(3, int(os.getenv("OVERPASS_MAX_WORKERS", "3") or "3"))
+)
 
 
 def fetch_overpass(query: str, *, timeout: float = 50.0) -> list[dict[str, Any]]:
@@ -341,6 +347,75 @@ def build_overpass_query(
 );
 out center tags {limit};
 """
+
+
+def _coalesce_overpass_interest_keys(interests: list[str]) -> list[str]:
+    """One query per unique filter set (e.g. shopping/market, park/garden)."""
+    seen: set[tuple[str, ...]] = set()
+    keys: list[str] = []
+    for raw in interests:
+        key = raw.lower().strip()
+        if not key:
+            continue
+        filters = INTEREST_FILTERS.get(key)
+        sig: tuple[str, ...] = (
+            tuple(filters) if filters is not None else (f"__fallback__:{key}",)
+        )
+        if sig in seen:
+            continue
+        seen.add(sig)
+        keys.append(key)
+    return keys
+
+
+def _fetch_overpass_for_interests(
+    interests: list[str],
+    *,
+    bbox: tuple[float, float, float, float],
+    per_limit: int,
+    timeout: float = 25.0,
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """Fetch Overpass in parallel (coalesced interests). Returns (elements, notes)."""
+    keys = _coalesce_overpass_interest_keys(interests) or list(DEFAULT_INTERESTS)
+    notes: list[str] = []
+    seen_ids: set[str] = set()
+    elements: list[dict[str, Any]] = []
+
+    def _one(interest: str) -> tuple[str, list[dict[str, Any]] | None, str | None]:
+        query = build_overpass_query([interest], bbox=bbox, limit=per_limit)
+        try:
+            return interest, fetch_overpass(query, timeout=timeout), None
+        except Exception as exc:  # noqa: BLE001
+            return interest, None, f"{exc.__class__.__name__}: {exc}"
+
+    workers = min(_OVERPASS_MAX_WORKERS, max(1, len(keys)))
+    logger.info(
+        "Overpass parallel interests=%s workers=%d",
+        keys,
+        workers,
+    )
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = [pool.submit(_one, key) for key in keys]
+        for fut in as_completed(futures):
+            interest, chunk, err = fut.result()
+            if err is not None or chunk is None:
+                notes.append(
+                    f"Overpass partial failure for interest={interest!r} ({err})."
+                )
+                logger.warning(
+                    "Overpass failed for interest=%s: %s", interest, err
+                )
+                continue
+            for el in chunk:
+                osm_type = el.get("type")
+                osm_id = el.get("id")
+                if osm_type and osm_id is not None:
+                    key = f"{osm_type}/{osm_id}"
+                    if key in seen_ids:
+                        continue
+                    seen_ids.add(key)
+                elements.append(el)
+    return elements, notes
 
 
 def _element_coords(el: dict[str, Any]) -> tuple[float | None, float | None]:
@@ -687,37 +762,12 @@ def poi_search(
         )
 
     try:
-        # Query each interest separately so one heavy filter cannot time out the rest.
-        seen_ids: set[str] = set()
-        elements: list[dict[str, Any]] = []
+        # Parallel per coalesced interest so one heavy filter cannot stall the rest.
         per_limit = max(40, limit)
-        for interest in interests:
-            sub_query = build_overpass_query(
-                [interest], bbox=bbox, limit=per_limit
-            )
-            try:
-                chunk = fetch_overpass(sub_query, timeout=25.0)
-            except Exception as exc:  # noqa: BLE001
-                notes.append(
-                    f"Overpass partial failure for interest={interest!r} "
-                    f"({exc.__class__.__name__})."
-                )
-                logger.warning(
-                    "Overpass failed for %s interest=%s: %s",
-                    canonical,
-                    interest,
-                    exc,
-                )
-                continue
-            for el in chunk:
-                osm_type = el.get("type")
-                osm_id = el.get("id")
-                if osm_type and osm_id is not None:
-                    key = f"{osm_type}/{osm_id}"
-                    if key in seen_ids:
-                        continue
-                    seen_ids.add(key)
-                elements.append(el)
+        elements, partial_notes = _fetch_overpass_for_interests(
+            interests, bbox=bbox, per_limit=per_limit, timeout=25.0
+        )
+        notes.extend(partial_notes)
         pois = _parse_elements(elements, interests)
         if not pois:
             missing = True

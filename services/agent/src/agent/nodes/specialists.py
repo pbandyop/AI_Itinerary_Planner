@@ -232,7 +232,7 @@ def itinerary_agent_node(state: GraphState) -> dict[str, Any]:
                     }.get(cat, {cat})
                     if cats_have.isdisjoint(wanted):
                         return True
-                    if p.operation == "make_indoor" and cats_have.isdisjoint(
+                if p.operation == "make_indoor" and cats_have.isdisjoint(
                     {"museum", "food", "market", "temple", "heritage", "art"}
                 ):
                     return True
