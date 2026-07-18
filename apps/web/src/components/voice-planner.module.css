@@ -296,8 +296,21 @@
   color: var(--on-surface-variant);
 }
 
+.sidebarRow {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 0.15rem;
+  border-radius: var(--radius-md);
+}
+
+.sidebarRow:hover {
+  background: var(--surface-low);
+}
+
 .sidebarItem {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -305,17 +318,21 @@
   border: none;
   background: transparent;
   text-align: left;
-  padding: 0.55rem 0.6rem;
+  padding: 0.55rem 0.35rem 0.55rem 0.6rem;
   border-radius: var(--radius-md);
   cursor: pointer;
   color: var(--on-surface);
 }
 
 .sidebarItem:hover {
-  background: var(--surface-low);
+  background: transparent;
 }
 
 .sidebarItemActive {
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+
+.sidebarRow:has(.sidebarItemActive) {
   background: color-mix(in srgb, var(--primary) 12%, transparent);
 }
 
@@ -328,6 +345,67 @@
 .sidebarItemMeta {
   font-size: 0.72rem;
   color: var(--on-surface-variant);
+}
+
+.sidebarItemMenuWrap {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+  padding: 0.2rem 0.15rem 0 0;
+}
+
+.sidebarItemMenuBtn {
+  border: none;
+  background: transparent;
+  color: var(--on-surface-variant);
+  font-size: 1.1rem;
+  line-height: 1;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  opacity: 0.55;
+}
+
+.sidebarRow:hover .sidebarItemMenuBtn,
+.sidebarItemMenuBtn[aria-expanded="true"] {
+  opacity: 1;
+}
+
+.sidebarItemMenuBtn:hover {
+  background: color-mix(in srgb, var(--on-surface) 8%, transparent);
+  color: var(--on-surface);
+}
+
+.sidebarItemMenu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 20;
+  min-width: 7.5rem;
+  padding: 0.25rem;
+  border-radius: var(--radius-md);
+  background: var(--surface-lowest);
+  border: 1px solid color-mix(in srgb, var(--outline-variant) 55%, transparent);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--on-surface) 12%, transparent);
+}
+
+.sidebarItemMenuDelete {
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #b42318;
+  cursor: pointer;
+}
+
+.sidebarItemMenuDelete:hover {
+  background: color-mix(in srgb, #b42318 10%, transparent);
 }
 
 /* —— Main grid —— */

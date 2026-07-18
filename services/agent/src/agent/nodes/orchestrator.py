@@ -204,9 +204,10 @@ def _find_any_day_count(message: str) -> int | None:
 def _find_pace(message: str) -> Pace | None:
     lower = message.lower()
     # Prefer packed when both cues appear (e.g. STT noise / "packed not relaxed").
-    # Include common STT mishears: packt, pac, pact, pack.
+    # Include common STT mishears: packt, pac, pact, pack, pat, fact, packet.
     if re.search(
-        r"\b(packed|packt|pact|pac|pack(?:ed)?|busy|intense|full[\s-]?day)\b",
+        r"\b(packed|packt|packet|packe|packd|pact|pac|pat|fact|pack(?:ed)?|"
+        r"busy|intense|full[\s-]?day)\b",
         lower,
     ):
         return "packed"
@@ -231,8 +232,9 @@ def _detect_intent(message: str, state: GraphState) -> str:
     # Confirm always wins when we are waiting on an unconfirmed trip.
     trip = as_trip(state.get("trip_constraints"))
     if trip and not trip.confirmed and re.search(
-        r"\b(yes|yeah|yep|yup|confirm|confirmed|looks good|go ahead|proceed|"
-        r"ok(ay)?|sounds good|can\s*fun|con\s*firm|confurm|confrom|conform)\b",
+        r"\b(yes|yeah|yep|yup|confirm|confirmed|firm|looks good|go ahead|proceed|"
+        r"ok(ay)?|sounds good|can\s*fun|can\s*firm|come\s*firm|con\s*firm|"
+        r"confurm|confrom|conform|confem)\b",
         lower,
     ):
         return "confirm"
@@ -1670,7 +1672,7 @@ def _parse_clause_patch(
         r"fill (the )?day|make .{0,20}packed)\b",
         lower,
     ) or (
-        re.search(r"\bpacked\b", lower)
+        re.search(r"\b(packed|packt|packet|pact|pac|pat|fact|pack)\b", lower)
         and not re.search(r"\b(less|more\s+relaxed|relax)\b", lower)
     ):
         return EditPatch(
@@ -2058,8 +2060,9 @@ def _dates_flexible(message: str) -> bool:
 def _yes_no(message: str) -> bool | None:
     lower = (message or "").lower().strip()
     if re.search(
-        r"\b(yes|yeah|yep|yup|confirm|confirmed|sure|ok(?:ay)?|go ahead|please do|"
-        r"do it|sounds good|absolutely|can\s*fun|con\s*firm|confurm|confrom|conform)\b",
+        r"\b(yes|yeah|yep|yup|confirm|confirmed|firm|sure|ok(?:ay)?|go ahead|please do|"
+        r"do it|sounds good|absolutely|can\s*fun|can\s*firm|come\s*firm|con\s*firm|"
+        r"confurm|confrom|conform|confem)\b",
         lower,
     ):
         return True

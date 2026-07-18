@@ -459,7 +459,7 @@ def _is_confirmish_utterance(message: str) -> bool:
         return False
     # Pure confirm / yes (allow trailing punctuation).
     if re.fullmatch(
-        r"(yes|yeah|yep|yup|ok(?:ay)?|confirm|sure|go ahead|sounds good)"
+        r"(yes|yeah|yep|yup|ok(?:ay)?|confirm|confirmed|firm|sure|go ahead|sounds good)"
         r"[\s.!?]*",
         lower,
     ):
@@ -468,7 +468,7 @@ def _is_confirmish_utterance(message: str) -> bool:
     if re.search(
         r"transcription task|i will transcribe|audio contains the word",
         lower,
-    ) and re.search(r"\b(yes|yeah|yep|yup|ok(?:ay)?|confirm)\b", lower):
+    ) and re.search(r"\b(yes|yeah|yep|yup|ok(?:ay)?|confirm|firm)\b", lower):
         return True
     return False
 

@@ -736,6 +736,17 @@ _TRANSIT_JUNK_RE = re.compile(
     re.I,
 )
 
+# "Nahargarh Fort Road", "Palace Entrance" — access corridors, not attractions.
+_ACCESS_CORRIDOR_RE = re.compile(
+    r"(?:"
+    r"\b(?:fort|palace|mahal|temple|museum|garden|park)\s+(?:road|rd|street|marg|lane|approach)\b|"
+    r"\b(?:road|rd|street|marg|lane|approach)\s+to\b|"
+    r"\b(?:fort|palace|mahal)\s+entrance\b|"
+    r"\bentrance\s+(?:road|gate|of)\b"
+    r")",
+    re.I,
+)
+
 _TOURIST_MARKET_RE = re.compile(
     r"\b(bazaar|bazar|market|mela|haat|chaupar|bapu|johari|tripolia|nehru)\b",
     re.I,
@@ -834,6 +845,8 @@ def _is_low_signal_poi(name: str, tags: dict[str, str], category: str) -> bool:
     if _WRONG_CITY_POI_RE.search(n):
         return True
     if _TRANSIT_JUNK_RE.search(n):
+        return True
+    if _ACCESS_CORRIDOR_RE.search(n):
         return True
     if _is_low_signal_park(n, tags, cat):
         return True

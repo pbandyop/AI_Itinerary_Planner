@@ -5,11 +5,12 @@ from __future__ import annotations
 import re
 
 
-# Whole-utterance confirm mishears (e.g. "Can fun" → confirm).
+# Whole-utterance confirm mishears (e.g. "Can fun" / bare "firm" → confirm).
 _CONFIRM_UTTERANCE_RE = re.compile(
     r"^\s*("
     r"yes|yeah|yep|yup|y|ok|okay|sure|confirm|confirmed|"
-    r"can\s*fun|con\s*firm|confurm|confrom|conform|confem|"
+    r"firm|can\s*fun|can\s*firm|come\s*firm|con\s*firm|"
+    r"confurm|confrom|conform|confem|confurm|confirms|"
     r"looks\s+good|go\s+ahead|proceed|sounds\s+good|please\s+do|do\s+it"
     r")\s*[.!]?\s*$",
     re.I,
@@ -17,16 +18,44 @@ _CONFIRM_UTTERANCE_RE = re.compile(
 
 _CONFIRM_TOKEN_RE = re.compile(
     r"\b("
-    r"yes|yeah|yep|yup|confirm|confirmed|sure|ok(?:ay)?|"
+    r"yes|yeah|yep|yup|confirm|confirmed|sure|ok(?:ay)?|firm|"
     r"go\s+ahead|proceed|looks\s+good|sounds\s+good|"
-    r"can\s*fun|con\s*firm|confurm|confrom|conform"
+    r"can\s*fun|can\s*firm|come\s*firm|con\s*firm|"
+    r"confurm|confrom|conform|confem"
     r")\b",
     re.I,
 )
 
-# Pace: packed misheard as packt / pac / pact / pack
+# Pace: packed misheard as packt / pac / pact / pack / pat / fact / packet
 _PACKED_TOKEN_RE = re.compile(
-    r"\b(packed|packt|pact|pac|pack(?:ed)?)\b",
+    r"\b("
+    r"packed|packt|packet|packe|packd|pact|pac|pat|fact|"
+    r"pack(?:ed)?"
+    r")\b",
+    re.I,
+)
+
+_PACKED_WORDS = frozenset(
+    {
+        "packed",
+        "packt",
+        "packet",
+        "packe",
+        "packd",
+        "pact",
+        "pac",
+        "pat",
+        "fact",
+        "pack",
+    }
+)
+
+# Whole utterance that is only a pace answer.
+_PACKED_UTTERANCE_RE = re.compile(
+    r"^\s*("
+    r"packed|packt|packet|packe|packd|pact|pac|pat|fact|pack|"
+    r"busy|intense|full[\s-]?day"
+    r")\s*(?:pace)?\s*[.!]?\s*$",
     re.I,
 )
 
@@ -41,10 +70,13 @@ def normalize_stt_message(message: str) -> str:
     if _CONFIRM_UTTERANCE_RE.match(text):
         return "confirm"
 
-    # Replace pace tokens in longer phrases ("2 days packt heritage…").
+    if _PACKED_UTTERANCE_RE.match(text):
+        return "packed"
+
+    # Replace pace tokens in longer phrases ("2 days pat heritage…").
     def _pace_sub(m: re.Match[str]) -> str:
         raw = m.group(1).lower()
-        if raw in {"packed", "packt", "pact", "pac", "pack", "packe", "packd"}:
+        if raw in _PACKED_WORDS:
             return "packed"
         return m.group(0)
 

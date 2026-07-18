@@ -1004,7 +1004,11 @@ def densify_packed_am_pm(
         return seen
 
     def _pick(
-        used: PlaceSeen, *, block_stops: list[Stop], day: DayPlan
+        used: PlaceSeen,
+        *,
+        block_stops: list[Stop],
+        day: DayPlan,
+        bname: str = "morning",
     ) -> POICandidate | None:
         prefer_non_food = _has_non_food_interest(interest_keys or interests)
         block_has_food = any(
@@ -1024,11 +1028,18 @@ def densify_packed_am_pm(
         need_culture = mixed_culture_soft and want_culture and (
             cult_n < 3 * max(1, soft_n) or cult_n <= soft_n
         )
+        # Evening densify must not chase culture floors with museums/forts.
+        if bname == "evening":
+            need_culture = False
         require_non_food = prefer_non_food and block_has_food
-        prefer_sight = prefer_non_food and not block_has_culture
+        prefer_sight = prefer_non_food and not block_has_culture and bname != "evening"
         non_food_keys = [k for k in interest_keys if k != "food"]
 
         def _ok(p: POICandidate) -> bool:
+            if bname == "evening" and not _is_evening_eligible(
+                p, interest_keys or interests
+            ):
+                return False
             cat = (p.category or "").lower()
             is_food = cat in {"food", "cafe", "restaurant"} or _is_food(p)
             is_market = cat in {"market", "shopping"}
@@ -1066,11 +1077,18 @@ def densify_packed_am_pm(
             for p in pool:
                 if used.contains(p):
                     continue
-                if _is_culture_poi(p):
+                if _is_culture_poi(p) and (
+                    bname != "evening"
+                    or _is_evening_eligible(p, interest_keys or interests)
+                ):
                     return p
         if prefer_sight or require_non_food:
             for p in pool:
                 if used.contains(p):
+                    continue
+                if bname == "evening" and not _is_evening_eligible(
+                    p, interest_keys or interests
+                ):
                     continue
                 cat = (p.category or "").lower()
                 if cat not in {"food", "cafe", "restaurant"} and not _is_food(p):
@@ -1078,14 +1096,29 @@ def densify_packed_am_pm(
                         continue
                     return p
         for p in pool:
-            if not used.contains(p):
-                return p
+            if used.contains(p):
+                continue
+            if bname == "evening" and not _is_evening_eligible(
+                p, interest_keys or interests
+            ):
+                continue
+            return p
         return None
 
     for day in working:
         for bname in ("morning", "afternoon", "evening"):
             floor = floors[bname]
             soft_cap = soft_caps[bname]
+            # Evening floors only apply when eligible POIs exist for after-5 policy.
+            if bname == "evening":
+                eve_pool = [
+                    p
+                    for p in pool
+                    if _is_evening_eligible(p, interest_keys or interests)
+                ]
+                if not eve_pool:
+                    floor = 0
+                    soft_cap = 0
             win_start, win_end = _packed_block_window(bname, pace)
             window_mins = max(60, win_end - win_start)
             # Leave a little slack so flex notes can still appear.
@@ -1093,6 +1126,21 @@ def densify_packed_am_pm(
 
             block: TimeBlock = getattr(day, bname)
             stops = list(block.stops)
+            # Strip any ineligible evening stops left from earlier packing.
+            if bname == "evening" and stops:
+                kept = [
+                    s
+                    for s in stops
+                    if _is_evening_eligible_fields(
+                        s.name, s.category, interest_keys or interests
+                    )
+                ]
+                if len(kept) != len(stops):
+                    stops = kept
+                    notes.append(
+                        f"Day {day.day_index} evening: removed after-5:00 PM "
+                        f"ineligible stops (museums / fort interiors)."
+                    )
 
             # Grow until floor met (if POIs exist); packed also fills by clock.
             while len(stops) < soft_cap:
@@ -1110,7 +1158,7 @@ def densify_packed_am_pm(
                 ):
                     break
                 used = _used()
-                pick = _pick(used, block_stops=stops, day=day)
+                pick = _pick(used, block_stops=stops, day=day, bname=bname)
                 if pick is None:
                     notes.append(
                         f"Day {day.day_index} {bname}: no more interest POIs — "
@@ -1348,6 +1396,29 @@ _SIGHT_CATEGORIES = frozenset(
     {"heritage", "museum", "temple", "attraction", "viewpoint", "park", "garden", "art"}
 )
 
+# After ~5:00 PM: prefer markets/food; carve out temple / garden / sunset heritage.
+# Museums and fort/palace interiors are not evening-appropriate (closing times).
+_SUNSET_HERITAGE_RE = re.compile(
+    r"\b("
+    r"jal\s*mahal|nahargarh|hawa\s*mahal|palace\s+of\s+winds|"
+    r"sunset|view\s*point|viewpoint|lake\s*view|light\s*show|"
+    r"sound\s+and\s+light|illuminat"
+    r")\b",
+    re.I,
+)
+_FORT_PALACE_INTERIOR_RE = re.compile(
+    r"\b("
+    r"fort|palace|amer|amber|jaigarh|city\s+palace|sheesh\s*mahal|"
+    r"jantar\s+mantar|albert\s+hall|museum"
+    r")\b",
+    re.I,
+)
+
+_FREE_EVENING_NOTE = (
+    "Relax / free time after 5:00 PM — no evening-appropriate stop "
+    "(markets/food when chosen, or temple / garden / sunset heritage)."
+)
+
 
 def _cat(poi: POICandidate) -> str:
     return (poi.category or "other").lower()
@@ -1365,45 +1436,147 @@ def _is_sight(poi: POICandidate) -> bool:
     return _cat(poi) in _SIGHT_CATEGORIES
 
 
+def _interest_key_set(interests: list[str] | None) -> set[str]:
+    return {
+        (normalize_interest(i) or i).lower()
+        for i in (interests or [])
+        if i and (normalize_interest(i) or i).strip()
+    }
+
+
+def _is_sunset_heritage_name(name: str | None) -> bool:
+    return bool(_SUNSET_HERITAGE_RE.search(name or ""))
+
+
+def _looks_like_fort_palace_interior(name: str | None) -> bool:
+    n = name or ""
+    if _is_sunset_heritage_name(n):
+        return False
+    return bool(_FORT_PALACE_INTERIOR_RE.search(n))
+
+
+def _is_evening_eligible_fields(
+    name: str | None,
+    category: str | None,
+    interests: list[str] | None = None,
+) -> bool:
+    """After-5:00 PM pack policy on raw name/category."""
+    cat = (category or "other").lower()
+    keys = _interest_key_set(interests)
+    n = name or ""
+
+    if cat in {"museum", "art"}:
+        return False
+
+    if cat in {"food", "cafe", "restaurant"}:
+        return "food" in keys
+
+    if cat in {"market", "shopping"}:
+        return bool(keys & {"shopping", "market"})
+
+    if cat == "nightlife":
+        return "nightlife" in keys
+
+    if cat == "temple":
+        return bool(keys & {"temple", "culture", "spiritual"})
+
+    if cat in {"park", "garden", "viewpoint"}:
+        return bool(
+            keys
+            & {
+                "park",
+                "garden",
+                "nature",
+                "viewpoint",
+                "outdoor",
+                "heritage",
+                "culture",
+            }
+        )
+
+    if cat in {"heritage", "attraction"}:
+        want_soft_heritage = bool(
+            keys
+            & {
+                "heritage",
+                "culture",
+                "history",
+                "architecture",
+                "park",
+                "garden",
+                "nature",
+                "viewpoint",
+                "outdoor",
+            }
+        )
+        if not want_soft_heritage:
+            return False
+        if _is_sunset_heritage_name(n):
+            return True
+        if _looks_like_fort_palace_interior(n):
+            return False
+        return False
+
+    return False
+
+
+def _is_evening_eligible(
+    poi: POICandidate, interests: list[str] | None = None
+) -> bool:
+    """After-5:00 PM pack policy.
+
+    | Category | Rule |
+    | Museum / art | Never |
+    | Fort / palace interiors | Prefer not (closing times) |
+    | Market / food | Only if user chose them |
+    | Temple | Allow if temple interest |
+    | Garden / viewpoint / sunset heritage | Soft-allow if park or heritage |
+    | Nothing eligible | Leave evening empty (relax) |
+    """
+    return _is_evening_eligible_fields(
+        getattr(poi, "name", None),
+        getattr(poi, "category", None),
+        interests,
+    )
+
+
 def _is_evening_friendly(poi: POICandidate) -> bool:
+    """Legacy name — food/market/nightlife categories only (no interest gate)."""
     return _cat(poi) in _EVENING_CATEGORIES
 
 
 def _evening_soft_categories(interests: list[str] | None) -> frozenset[str]:
-    """Non-food evening soft categories — only when the user chose matching interests.
-
-    Shopping/market, nightlife, and park/viewpoint are never always-on.
-    """
+    """Non-food evening soft categories unlocked by user interests."""
     cats: set[str] = set()
-    for raw in interests or []:
-        key = (normalize_interest(raw) or raw).lower()
-        if not key:
-            continue
-        if key in {"shopping", "market"}:
-            cats.update({"market", "shopping"})
-        if key == "nightlife":
-            cats.add("nightlife")
-        # Explicit park / nature / garden / viewpoint interests unlock sunset-style soft stops.
-        if key in {"park", "garden", "nature", "viewpoint", "outdoor"}:
-            cats.update({"park", "garden", "viewpoint"})
-        for c in categories_for_interest(key):
-            if c in {"park", "garden", "viewpoint"} and key in {
-                "park",
-                "garden",
-                "nature",
-                "outdoor",
-                "viewpoint",
-                "adventure",
-            }:
-                cats.add(c)
+    keys = _interest_key_set(interests)
+    if keys & {"shopping", "market"}:
+        cats.update({"market", "shopping"})
+    if "nightlife" in keys:
+        cats.add("nightlife")
+    if keys & {"park", "garden", "nature", "viewpoint", "outdoor", "heritage", "culture"}:
+        cats.update({"park", "garden", "viewpoint"})
+    if keys & {"temple", "culture", "spiritual"}:
+        cats.add("temple")
+    if keys & {
+        "heritage",
+        "culture",
+        "history",
+        "architecture",
+        "park",
+        "garden",
+        "nature",
+        "viewpoint",
+        "outdoor",
+    }:
+        cats.add("heritage")
     return frozenset(cats)
 
 
 def _is_evening_soft(poi: POICandidate, interests: list[str] | None = None) -> bool:
-    """Soft evening stop (not dinner): only categories unlocked by user interests."""
+    """Non-food evening stop allowed by after-5:00 PM policy."""
     if _is_food(poi):
         return False
-    return _cat(poi) in _evening_soft_categories(interests)
+    return _is_evening_eligible(poi, interests)
 
 def _has_food_interest(interests: list[str]) -> bool:
     return any((normalize_interest(i) or i).lower() == "food" for i in interests if i)
@@ -1707,13 +1880,19 @@ def _pack_meal_template(
                         ]
                         used.add(_poi_key(food_pick))
                         continue
-                # Fill empty evening with any leftover (heritage/museum/food) so
-                # relaxed/balanced keep a 1·1·1 panel when POIs exist.
+                # Do not fill evening with museums / fort interiors / random sights.
+                # After 5:00 PM only evening-eligible stops; else leave empty (relax).
                 if not block and leftovers:
                     fill = next(
-                        (p for p in leftovers if not _is_food(p)),
-                        leftovers[0],
+                        (
+                            p
+                            for p in leftovers
+                            if _is_evening_eligible(p, interests)
+                        ),
+                        None,
                     )
+                    if fill is None:
+                        break
                     block.append(fill)
                     leftovers = [
                         p for p in leftovers if _poi_key(p) != _poi_key(fill)
@@ -1753,13 +1932,14 @@ def _pack_meal_template(
 
     morning = _breakfast_first(_dedupe_foods_in_block(morning))[:m_budget]
     afternoon = _dedupe_foods_in_block(afternoon)[:a_budget]
-    evening = _dinner_last(_dedupe_foods_in_block(evening))[:eve_slots]
+    evening = [
+        p
+        for p in _dinner_last(_dedupe_foods_in_block(evening))
+        if _is_evening_eligible(p, interests)
+    ][:eve_slots]
 
     if eve_slots > 0 and not evening:
-        note = (
-            "Free evening / rest near your stay — not enough grounded "
-            "dinner/food stops left after morning and afternoon."
-        )
+        note = _FREE_EVENING_NOTE
     return morning, afternoon, evening, note
 
 
@@ -2196,23 +2376,24 @@ def _assign_blocks(
             morning_pois = _dedupe_foods_in_block(morning_pois)
             afternoon_pois = _dedupe_foods_in_block(afternoon_pois)
             evening_pois = _dedupe_foods_in_block(evening_pois)
-        # Last resort: if evening still empty, move a spare afternoon/morning
-        # stop so relaxed days keep all three panels when ≥3 POIs exist.
+        # Last resort: only move an evening-eligible spare (never museum/fort).
         if not evening_pois and len(unique) >= 3:
             used = {
                 _poi_key(p)
                 for p in (*morning_pois, *afternoon_pois, *evening_pois)
             }
-            spare = [p for p in unique if _poi_key(p) not in used]
+            spare = [
+                p
+                for p in unique
+                if _poi_key(p) not in used and _is_evening_eligible(p, interests)
+            ]
             if spare:
                 evening_pois.append(spare[0])
                 evening_note = None
-            elif len(afternoon_pois) >= 2:
-                evening_pois.append(afternoon_pois.pop())
-                evening_note = None
-            elif len(morning_pois) >= 2:
-                evening_pois.append(morning_pois.pop())
-                evening_note = None
+            else:
+                evening_note = _FREE_EVENING_NOTE
+        elif not evening_pois:
+            evening_note = evening_note or _FREE_EVENING_NOTE
     else:
         # No food interest: geo order + adaptive block budgets.
         ordered = _order_nearest(unique, start=None)
@@ -2229,7 +2410,7 @@ def _assign_blocks(
             for p in pool:
                 if _poi_key(p) in used:
                     continue
-                if evening_only and not _is_evening_soft(p, interests):
+                if evening_only and not _is_evening_eligible(p, interests):
                     continue
                 used.add(_poi_key(p))
                 if p in remaining:
@@ -2241,7 +2422,9 @@ def _assign_blocks(
         # consume markets/shopping (same idea as meal-template soft reserve).
         soft_budget = min(e_budget, MAX_EVENING_EXTRAS.get(pace, 1))
         if soft_budget > 0:
-            soft_pool = [p for p in remaining if _is_evening_soft(p, interests)]
+            soft_pool = [
+                p for p in remaining if _is_evening_eligible(p, interests) and not _is_food(p)
+            ]
             while len(evening_pois) < soft_budget:
                 pick = _pull(soft_pool, evening_only=True)
                 if pick is None:
@@ -2261,25 +2444,19 @@ def _assign_blocks(
             afternoon_pois.append(pick)
 
         if len(evening_pois) < e_budget:
-            soft = [p for p in remaining if _is_evening_soft(p, interests)]
+            soft = [p for p in remaining if _is_evening_eligible(p, interests)]
             while len(evening_pois) < e_budget:
                 pick = _pull(soft, evening_only=True)
                 if pick is None:
                     break
                 evening_pois.append(pick)
 
+        # Never dump museums / fort interiors into evening to "fill panels".
+        evening_pois = [
+            p for p in evening_pois if _is_evening_eligible(p, interests)
+        ]
         if e_budget > 0 and not evening_pois:
-            # Prefer evening-soft; else any leftover so panels aren't empty.
-            while len(evening_pois) < max(1, min(e_budget, 1)):
-                pick = _pull()
-                if pick is None:
-                    break
-                evening_pois.append(pick)
-            if not evening_pois:
-                evening_note = (
-                    "Free evening / rest near your stay — no evening-friendly "
-                    "grounded stop available for this day."
-                )
+            evening_note = _FREE_EVENING_NOTE
 
     morning_stops = [
         _make_stop(p, pace=pace, interests=interests, meal_slot=food_interest)
@@ -2314,10 +2491,7 @@ def _assign_blocks(
             "(catalog had fewer unique POIs than needed)."
         )
     if e_n == 0 and evening_note is None:
-        evening_note = (
-            "Free evening / rest near your stay — no evening-friendly "
-            "grounded stop available for this day."
-        )
+        evening_note = _FREE_EVENING_NOTE
 
     return DayPlan(
         day_index=day_index,

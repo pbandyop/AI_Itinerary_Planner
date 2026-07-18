@@ -30,14 +30,55 @@ _TYPE_TOKENS = frozenset(
         "centre",
         "center",
         "hall",  # only when trailing AND another core token remains
+        "cafe",
+        "café",
+        "restaurant",
+        "parlour",
+        "parlor",
+        "shop",
+        "store",
     }
+)
+
+# Access / approach suffixes (Nahargarh Fort Road → nahargarh fort → nahargarh).
+_ACCESS_SUFFIX_TOKENS = frozenset(
+    {
+        "road",
+        "rd",
+        "street",
+        "st",
+        "marg",
+        "lane",
+        "path",
+        "approach",
+        "entrance",
+        "parking",
+        "gate",  # only when trailing after a named fort/palace (see strip loop)
+    }
+)
+
+# Extra rest tokens allowed when one core contains the other.
+_SOFT_SUFFIX_TOKENS = _TYPE_TOKENS | _ACCESS_SUFFIX_TOKENS | frozenset(
+    {"ice", "cream", "art"}
 )
 
 # Never strip these as a sole remaining token via "hall" alone — handled below.
 _LEAD_TOKENS = frozenset({"the", "sri", "shri", "sir"})
 # Don't strip a type token if that would leave only a generic core.
 _GENERIC_CORES = frozenset(
-    {"city", "pink", "art", "royal", "national", "state", "old", "new", "india"}
+    {
+        "city",
+        "pink",
+        "art",
+        "royal",
+        "national",
+        "state",
+        "old",
+        "new",
+        "india",
+        "sun",
+        "moon",
+    }
 )
 
 # Spelling variants that mean the same place (Amer Fort ↔ Amber Fort).
@@ -71,23 +112,53 @@ def normalize_place_name(name: str | None) -> str:
     return text
 
 
+def _strip_trailing_tokens(tokens: list[str]) -> list[str]:
+    """Strip type + access suffixes while keeping meaningful cores (City Palace)."""
+    stripable = _TYPE_TOKENS | _ACCESS_SUFFIX_TOKENS
+    changed = True
+    while changed and len(tokens) >= 2:
+        changed = False
+        # Prefer stripping access suffixes first (… Fort Road).
+        if tokens[-1] in _ACCESS_SUFFIX_TOKENS:
+            # Keep standalone gate landmarks: Sun Gate, Moon Gate.
+            if tokens[-1] == "gate" and len(tokens) == 2:
+                break
+            tokens = tokens[:-1]
+            changed = True
+            continue
+        if tokens[-1] in stripable:
+            if tokens[-1] == "hall" and len(tokens) == 2:
+                break
+            candidate = tokens[:-1]
+            if len(candidate) == 1 and candidate[0] in _GENERIC_CORES:
+                break
+            tokens = candidate
+            changed = True
+    return tokens
+
+
 def core_place_name(name: str | None) -> str:
     """Stable core for near-duplicate matching (Albert Hall Museum → albert hall)."""
     tokens = normalize_place_name(name).split()
     while tokens and tokens[0] in _LEAD_TOKENS:
         tokens.pop(0)
-    # Strip trailing type words, but keep "hall" when it's the distinctive noun
-    # of a two-token name like "albert hall", and don't reduce "City Palace"
-    # to the bare generic "city".
-    while len(tokens) >= 2 and tokens[-1] in _TYPE_TOKENS:
-        if tokens[-1] == "hall" and len(tokens) == 2:
-            break
-        candidate = tokens[:-1]
-        if len(candidate) == 1 and candidate[0] in _GENERIC_CORES:
-            break
-        tokens.pop()
+    tokens = _strip_trailing_tokens(tokens)
     tokens = [_TOKEN_ALIASES.get(t, t) for t in tokens]
     return " ".join(tokens)
+
+
+def _cores_near_duplicate(ca: str, cb: str) -> bool:
+    if not ca or not cb:
+        return False
+    if ca == cb:
+        return True
+    shorter, longer = (ca, cb) if len(ca) <= len(cb) else (cb, ca)
+    # "nahargarh" vs "nahargarh fort road"; "anokhi" vs "anokhi cafe"
+    if len(shorter) >= 6 and longer.startswith(shorter + " "):
+        rest = longer[len(shorter) :].split()
+        if rest and all(t in _SOFT_SUFFIX_TOKENS for t in rest):
+            return True
+    return False
 
 
 def osm_ref(place: Any) -> str | None:
@@ -105,18 +176,7 @@ def places_are_same(a: Any, b: Any) -> bool:
         return True
     ca = core_place_name(getattr(a, "name", None))
     cb = core_place_name(getattr(b, "name", None))
-    if not ca or not cb:
-        return False
-    if ca == cb:
-        return True
-    # Longer name is shorter + only type tokens (already core-equal above covers
-    # Albert Hall / Albert Hall Museum). Also catch raw containment of cores.
-    shorter, longer = (ca, cb) if len(ca) <= len(cb) else (cb, ca)
-    if len(shorter) >= 8 and longer.startswith(shorter + " "):
-        rest = longer[len(shorter) :].split()
-        if rest and all(t in _TYPE_TOKENS for t in rest):
-            return True
-    return False
+    return _cores_near_duplicate(ca, cb)
 
 
 class PlaceSeen:
@@ -151,13 +211,8 @@ class PlaceSeen:
         if core in self.cores:
             return True
         for existing in self.cores:
-            shorter, longer = (
-                (core, existing) if len(core) <= len(existing) else (existing, core)
-            )
-            if len(shorter) >= 8 and longer.startswith(shorter + " "):
-                rest = longer[len(shorter) :].split()
-                if rest and all(t in _TYPE_TOKENS for t in rest):
-                    return True
+            if _cores_near_duplicate(core, existing):
+                return True
         return False
 
 

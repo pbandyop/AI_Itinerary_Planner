@@ -116,6 +116,7 @@ export default function VoicePlanner() {
   const [chatHistory, setChatHistory] = useState<SavedChat[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [menuChatId, setMenuChatId] = useState<string | null>(null);
   const sttTextRef = useRef("");
   const abortRef = useRef<AbortController | null>(null);
   const itineraryRef = useRef<Itinerary | null>(null);
@@ -127,6 +128,7 @@ export default function VoicePlanner() {
   const submitRef = useRef<(message: string) => Promise<void>>(async () => {});
   const aiLevelRafRef = useRef(0);
   const navNoticeTimerRef = useRef<number | null>(null);
+  const sidebarMenuRef = useRef<HTMLDivElement | null>(null);
   const travelTimesRef = useRef<TravelTimeResult | null>(null);
   const weatherRef = useRef<WeatherResult | null>(null);
   const sourcesRef = useRef<Source[]>([]);
@@ -280,6 +282,7 @@ export default function VoicePlanner() {
       }
       stopSpeaking();
       setAiSpeaking(false);
+      setMenuChatId(null);
       setActiveChatId(chat.id);
       setSessionId(chat.sessionId || chat.id);
       setConversation(chat.conversation || []);
@@ -302,6 +305,53 @@ export default function VoicePlanner() {
     },
     [activeChatId, archiveCurrentChat, speech]
   );
+
+  const deleteSavedChat = useCallback(
+    (chatId: string) => {
+      const target = chatHistory.find((c) => c.id === chatId);
+      const label = target?.title || "this conversation";
+      if (
+        typeof window !== "undefined" &&
+        !window.confirm(`Delete “${label}”? This cannot be undone.`)
+      ) {
+        setMenuChatId(null);
+        return;
+      }
+      setChatHistory((prev) => {
+        const next = prev.filter((c) => c.id !== chatId);
+        persistChatHistory(next);
+        return next;
+      });
+      setMenuChatId(null);
+      const deletingActive =
+        activeChatId === chatId ||
+        sessionIdRef.current === chatId ||
+        (target != null && sessionIdRef.current === target.sessionId);
+      if (deletingActive) {
+        resetSession();
+      }
+    },
+    [activeChatId, chatHistory, resetSession]
+  );
+
+  useEffect(() => {
+    if (!menuChatId) return;
+    const onPointerDown = (event: MouseEvent | PointerEvent) => {
+      const root = sidebarMenuRef.current;
+      if (root && !root.contains(event.target as Node)) {
+        setMenuChatId(null);
+      }
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuChatId(null);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menuChatId]);
 
   const submit = useCallback(
     async (message: string) => {
@@ -632,7 +682,7 @@ export default function VoicePlanner() {
                 </li>
               ) : (
                 chatHistory.map((chat) => (
-                  <li key={chat.id}>
+                  <li key={chat.id} className={styles.sidebarRow}>
                     <button
                       type="button"
                       className={`${styles.sidebarItem} ${
@@ -650,6 +700,45 @@ export default function VoicePlanner() {
                         })}
                       </span>
                     </button>
+                    <div
+                      className={styles.sidebarItemMenuWrap}
+                      ref={menuChatId === chat.id ? sidebarMenuRef : undefined}
+                    >
+                      <button
+                        type="button"
+                        className={styles.sidebarItemMenuBtn}
+                        aria-label={`Conversation options for ${chat.title}`}
+                        aria-haspopup="menu"
+                        aria-expanded={menuChatId === chat.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setMenuChatId((id) =>
+                            id === chat.id ? null : chat.id
+                          );
+                        }}
+                      >
+                        ⋮
+                      </button>
+                      {menuChatId === chat.id ? (
+                        <div
+                          className={styles.sidebarItemMenu}
+                          role="menu"
+                          aria-label="Conversation actions"
+                        >
+                          <button
+                            type="button"
+                            role="menuitem"
+                            className={styles.sidebarItemMenuDelete}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteSavedChat(chat.id);
+                            }}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
                   </li>
                 ))
               )}

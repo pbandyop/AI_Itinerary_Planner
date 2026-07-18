@@ -821,7 +821,9 @@ def apply_edit_patch(
                 BLOCK_FLOOR_BY_PACE,
                 BLOCK_SOFT_CAP_BY_PACE,
                 _has_non_food_interest,
+                _is_evening_eligible,
                 _is_food,
+                _FREE_EVENING_NOTE,
             )
             from agent.mcp.poi_search import _MUST_SEE_NAME_RE, _is_low_signal_poi
             from agent.preferences import categories_for_interests, culture_soft_mix_active
@@ -885,8 +887,13 @@ def apply_edit_patch(
                 "packed", BLOCK_SOFT_CAP_BY_PACE["moderate"]
             )
 
-            def _pick_for_block(stops: list[Stop]) -> POICandidate | None:
-                """Avoid stacking a second food; prefer culture when mixed."""
+            def _pick_for_block(
+                stops: list[Stop], *, bname: str
+            ) -> POICandidate | None:
+                """Avoid stacking a second food; prefer culture when mixed.
+
+                Evening only accepts after-5:00 PM eligible stops.
+                """
                 block_has_food = any(
                     (s.category or "").lower() in {"food", "cafe", "restaurant"}
                     for s in stops
@@ -904,9 +911,12 @@ def apply_edit_patch(
                     mixed_culture_soft
                     and want_culture
                     and not block_has_culture
+                    and bname != "evening"
                 )
                 for i, p in enumerate(pool):
                     if used.contains(p):
+                        continue
+                    if bname == "evening" and not _is_evening_eligible(p, interests):
                         continue
                     cat = (p.category or "").lower()
                     is_food = _is_food(p) or cat in {"food", "cafe", "restaurant"}
@@ -932,19 +942,29 @@ def apply_edit_patch(
                     for i, p in enumerate(pool):
                         if used.contains(p):
                             continue
+                        if bname == "evening" and not _is_evening_eligible(p, interests):
+                            continue
                         cat = (p.category or "").lower()
                         is_food = _is_food(p) or cat in {"food", "cafe", "restaurant"}
                         if not is_food:
                             return pool.pop(i)
                 while pool:
                     p = pool.pop(0)
-                    if not used.contains(p):
-                        return p
+                    if used.contains(p):
+                        continue
+                    if bname == "evening" and not _is_evening_eligible(p, interests):
+                        continue
+                    return p
                 return None
 
             for bname, block in _get_block(new_day, target_block):
                 floor = floors.get(bname, 2)
                 soft_cap = soft_caps.get(bname, 5)
+                if bname == "evening":
+                    eve_ok = any(_is_evening_eligible(p, interests) for p in pool)
+                    if not eve_ok:
+                        floor = 0
+                        soft_cap = 0
                 # Packed day: meet pace floors, then soft-cap when packing a block.
                 if target_block:
                     target_count = max(floor, len(block.stops) + 1)
@@ -960,8 +980,19 @@ def apply_edit_patch(
                     )
                     for s in block.stops
                 ]
+                if bname == "evening":
+                    from types import SimpleNamespace
+
+                    stops = [
+                        s
+                        for s in stops
+                        if _is_evening_eligible(
+                            SimpleNamespace(name=s.name, category=s.category),
+                            interests,
+                        )
+                    ]
                 while len(stops) < target_count:
-                    p = _pick_for_block(stops)
+                    p = _pick_for_block(stops, bname=bname)
                     if p is None:
                         break
                     used.add(p)
@@ -982,13 +1013,18 @@ def apply_edit_patch(
                         )
                     )
                     added_names.append(p.name)
+                eve_note = ""
+                if bname == "evening" and not stops:
+                    eve_note = " " + _FREE_EVENING_NOTE
                 new_day = _set_block(
                     new_day,
                     bname,
                     TimeBlock(
                         time_of_day=bname,
                         stops=stops,
-                        notes=(block.notes or "") + " Packed via voice edit.",
+                        notes=(block.notes or "")
+                        + " Packed via voice edit."
+                        + eve_note,
                     ),
                 )
             if added_names:
