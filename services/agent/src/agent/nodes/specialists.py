@@ -237,7 +237,7 @@ def itinerary_agent_node(state: GraphState) -> dict[str, Any]:
                     {"museum", "food", "market", "temple", "heritage", "art"}
                 ):
                     return True
-                if p.operation == "pack_block" and len(pois) < 3:
+                if p.operation == "pack_block" and len(pois) < 12:
                     return True
                 if p.operation == "balance_block":
                     # Need unused candidates beyond what's already on the plan.

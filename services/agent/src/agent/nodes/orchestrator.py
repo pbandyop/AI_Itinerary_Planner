@@ -204,7 +204,11 @@ def _find_any_day_count(message: str) -> int | None:
 def _find_pace(message: str) -> Pace | None:
     lower = message.lower()
     # Prefer packed when both cues appear (e.g. STT noise / "packed not relaxed").
-    if re.search(r"\b(packed|busy|intense|full[\s-]?day)\b", lower):
+    # Include common STT mishears: packt, pac, pact, pack.
+    if re.search(
+        r"\b(packed|packt|pact|pac|pack(?:ed)?|busy|intense|full[\s-]?day)\b",
+        lower,
+    ):
         return "packed"
     if re.search(r"\b(relax(?:ed)?|chill|slow|leisurely)\b", lower):
         return "relaxed"
@@ -227,7 +231,9 @@ def _detect_intent(message: str, state: GraphState) -> str:
     # Confirm always wins when we are waiting on an unconfirmed trip.
     trip = as_trip(state.get("trip_constraints"))
     if trip and not trip.confirmed and re.search(
-        r"\b(yes|confirm|looks good|go ahead|proceed|ok(ay)?|sounds good)\b", lower
+        r"\b(yes|yeah|yep|yup|confirm|confirmed|looks good|go ahead|proceed|"
+        r"ok(ay)?|sounds good|can\s*fun|con\s*firm|confurm|confrom|conform)\b",
+        lower,
     ):
         return "confirm"
 
@@ -2052,8 +2058,8 @@ def _dates_flexible(message: str) -> bool:
 def _yes_no(message: str) -> bool | None:
     lower = (message or "").lower().strip()
     if re.search(
-        r"\b(yes|yeah|yep|yup|confirm|sure|ok(?:ay)?|go ahead|please do|"
-        r"do it|sounds good|absolutely)\b",
+        r"\b(yes|yeah|yep|yup|confirm|confirmed|sure|ok(?:ay)?|go ahead|please do|"
+        r"do it|sounds good|absolutely|can\s*fun|con\s*firm|confurm|confrom|conform)\b",
         lower,
     ):
         return True
@@ -2919,7 +2925,9 @@ def _continue_pending_dialog(
 
 
 def orchestrator_node(state: GraphState) -> dict[str, Any]:
-    message = (state.get("user_message") or "").strip()
+    from agent.stt_normalize import normalize_stt_message
+
+    message = normalize_stt_message((state.get("user_message") or "").strip())
     revision_count = int(state.get("revision_count") or 0)
     existing_trip = as_trip(state.get("trip_constraints"))
 

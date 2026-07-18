@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { invokeAgent, type ConversationTurn } from "@/lib/agent";
+import { normalizeSttMessage } from "@/lib/sttNormalize";
 import {
   speakText,
   stopSpeaking,
@@ -32,17 +33,60 @@ const SAMPLE_PROMPTS = [
 const WELCOME_SPEECH =
   "Hi — I’m VocalVoyage. Tap the mic and say “Plan a trip to Jaipur.” Voice input is required — I’ll ask for days, pace, and interests before building anything.";
 
-function newSessionId(): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-  return `sess-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-}
+const CHAT_HISTORY_KEY = "vocalvoyage.chatHistory.v1";
+
+type SavedChat = {
+  id: string;
+  title: string;
+  updatedAt: number;
+  sessionId: string;
+  conversation: ConversationTurn[];
+  itinerary: Itinerary | null;
+  travelTimes: TravelTimeResult | null;
+  weather: WeatherResult | null;
+  pendingTrip: TripConstraints | null;
+  sources: Source[];
+  reply: string;
+};
 
 function truncateCaption(text: string, max = 140): string {
   const clean = text.replace(/\s+/g, " ").trim();
   if (clean.length <= max) return clean;
   return `${clean.slice(0, max - 1).trimEnd()}…`;
+}
+
+function loadChatHistory(): SavedChat[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(CHAT_HISTORY_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as SavedChat[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistChatHistory(items: SavedChat[]) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(items.slice(0, 40)));
+  } catch {
+    /* ignore quota */
+  }
+}
+
+function chatTitleFrom(conversation: ConversationTurn[]): string {
+  const firstUser = conversation.find((t) => t.role === "user")?.content?.trim();
+  if (firstUser) return truncateCaption(firstUser, 42);
+  return "New conversation";
+}
+
+function newSessionId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `sess-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
 export default function VoicePlanner() {
@@ -68,6 +112,10 @@ export default function VoicePlanner() {
   const [speakHint, setSpeakHint] = useState<string | null>(null);
   const [aiSpeaking, setAiSpeaking] = useState(false);
   const [aiLevel, setAiLevel] = useState(0);
+  const [navNotice, setNavNotice] = useState<string | null>(null);
+  const [chatHistory, setChatHistory] = useState<SavedChat[]>([]);
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const sttTextRef = useRef("");
   const abortRef = useRef<AbortController | null>(null);
   const itineraryRef = useRef<Itinerary | null>(null);
@@ -78,15 +126,28 @@ export default function VoicePlanner() {
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const submitRef = useRef<(message: string) => Promise<void>>(async () => {});
   const aiLevelRafRef = useRef(0);
+  const navNoticeTimerRef = useRef<number | null>(null);
+  const travelTimesRef = useRef<TravelTimeResult | null>(null);
+  const weatherRef = useRef<WeatherResult | null>(null);
+  const sourcesRef = useRef<Source[]>([]);
+  const replyRef = useRef("");
   itineraryRef.current = itinerary;
   pendingTripRef.current = pendingTrip;
   conversationRef.current = conversation;
   sessionIdRef.current = sessionId;
+  travelTimesRef.current = travelTimes;
+  weatherRef.current = weather;
+  sourcesRef.current = sources;
+  replyRef.current = reply;
+
+  useEffect(() => {
+    setChatHistory(loadChatHistory());
+  }, []);
 
   const speech = useSpeechRecognition({
     lang: "en-US",
     onFinal: (text) => {
-      const clean = text.trim();
+      const clean = normalizeSttMessage(text.trim());
       sttTextRef.current = clean;
       setDraft(clean);
       setVoiceUnlocked(Boolean(clean));
@@ -168,11 +229,11 @@ export default function VoicePlanner() {
     setPendingTrip(null);
     setSources([]);
     setConversation([]);
+    setActiveChatId(null);
     setSessionId(newSessionId());
     stopSpeaking();
     setAiSpeaking(false);
     if (tts) {
-      // Re-greet after reset so the empty chat state matches landing.
       window.setTimeout(() => {
         speakText(WELCOME_SPEECH, true, {
           onStart: () => setAiSpeaking(true),
@@ -182,17 +243,78 @@ export default function VoicePlanner() {
     }
   }, [speech, tts]);
 
+  const archiveCurrentChat = useCallback(() => {
+    const turns = conversationRef.current;
+    if (!turns.length) return;
+    const snapshot: SavedChat = {
+      id: activeChatId || sessionIdRef.current || newSessionId(),
+      title: chatTitleFrom(turns),
+      updatedAt: Date.now(),
+      sessionId: sessionIdRef.current,
+      conversation: turns,
+      itinerary: itineraryRef.current,
+      travelTimes: travelTimesRef.current,
+      weather: weatherRef.current,
+      pendingTrip: pendingTripRef.current,
+      sources: sourcesRef.current,
+      reply: replyRef.current,
+    };
+    setChatHistory((prev) => {
+      const without = prev.filter((c) => c.id !== snapshot.id);
+      const next = [snapshot, ...without].slice(0, 40);
+      persistChatHistory(next);
+      return next;
+    });
+  }, [activeChatId]);
+
+  const startNewConversation = useCallback(() => {
+    archiveCurrentChat();
+    setSidebarOpen(true);
+    resetSession();
+  }, [archiveCurrentChat, resetSession]);
+
+  const openSavedChat = useCallback(
+    (chat: SavedChat) => {
+      if (conversationRef.current.length && activeChatId !== chat.id) {
+        archiveCurrentChat();
+      }
+      stopSpeaking();
+      setAiSpeaking(false);
+      setActiveChatId(chat.id);
+      setSessionId(chat.sessionId || chat.id);
+      setConversation(chat.conversation || []);
+      setItinerary(chat.itinerary);
+      setTravelTimes(chat.travelTimes);
+      setWeather(chat.weather);
+      setPendingTrip(chat.pendingTrip);
+      setSources(chat.sources || []);
+      setReply(chat.reply || "");
+      setPipelineLog([]);
+      setIntent(null);
+      setSafety(null);
+      setDraft("");
+      setError(null);
+      setVoiceUnlocked(false);
+      setSpeakHint(null);
+      sttTextRef.current = "";
+      speech.resetTranscript();
+      setSidebarOpen(true);
+    },
+    [activeChatId, archiveCurrentChat, speech]
+  );
+
   const submit = useCallback(
     async (message: string) => {
-      const text = message.trim();
+      const text = normalizeSttMessage(message.trim());
       if (!text || pending) return;
       // Capstone: strictly STT — message must match the latest transcript.
-      if (!voiceUnlocked || text !== sttTextRef.current.trim()) {
+      if (!voiceUnlocked || text !== normalizeSttMessage(sttTextRef.current.trim())) {
         setError(
           "Voice input is required — tap the orb and speak. Typed messages are not accepted."
         );
         return;
       }
+      sttTextRef.current = text;
 
       speech.stop();
       stopSpeaking();
@@ -400,6 +522,36 @@ export default function VoicePlanner() {
     conversation,
   ]);
 
+  const showCitiesComingSoon = useCallback(() => {
+    setNavNotice("Additional cities are in progress. Come back soon!");
+    if (navNoticeTimerRef.current) {
+      window.clearTimeout(navNoticeTimerRef.current);
+    }
+    navNoticeTimerRef.current = window.setTimeout(() => {
+      setNavNotice(null);
+      navNoticeTimerRef.current = null;
+    }, 4500);
+  }, []);
+
+  const showEvalsComingSoon = useCallback(() => {
+    setNavNotice("Evals will appear here");
+    if (navNoticeTimerRef.current) {
+      window.clearTimeout(navNoticeTimerRef.current);
+    }
+    navNoticeTimerRef.current = window.setTimeout(() => {
+      setNavNotice(null);
+      navNoticeTimerRef.current = null;
+    }, 4500);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (navNoticeTimerRef.current) {
+        window.clearTimeout(navNoticeTimerRef.current);
+      }
+    };
+  }, []);
+
   void reply;
 
   return (
@@ -420,34 +572,90 @@ export default function VoicePlanner() {
               <button
                 type="button"
                 className={styles.navLink}
-                onClick={resetSession}
+                onClick={showCitiesComingSoon}
               >
                 New Trip
               </button>
             </li>
             <li>
-              <span className={styles.navLinkActive}>Voice Input</span>
+              <button
+                type="button"
+                className={styles.navLink}
+                onClick={showEvalsComingSoon}
+              >
+                Eval
+              </button>
             </li>
           </ul>
           <div className={styles.navActions}>
-            <button
-              type="button"
-              className={styles.ghostNav}
-              onClick={resetSession}
+            <span
+              className={styles.ctaNavDisabled}
+              aria-disabled="true"
+              title="Coming soon"
             >
-              Reset
-            </button>
-            <button
-              type="button"
-              className={styles.ctaNav}
-              disabled={!canSendVoice}
-              onClick={() => void submit(draft)}
-            >
-              {pending ? "Working…" : "Send"}
-            </button>
+              Log in
+            </span>
           </div>
         </div>
+        {navNotice ? (
+          <p className={styles.navNotice} role="status" aria-live="polite">
+            {navNotice}
+          </p>
+        ) : null}
       </header>
+
+      <div className={styles.bodyRow}>
+        {sidebarOpen ? (
+          <aside className={styles.chatSidebar} aria-label="Conversation history">
+            <div className={styles.sidebarHead}>
+              <h2>Conversations</h2>
+              <button
+                type="button"
+                className={styles.sidebarClose}
+                onClick={() => setSidebarOpen(false)}
+                aria-label="Close conversation list"
+              >
+                ✕
+              </button>
+            </div>
+            <button
+              type="button"
+              className={styles.sidebarNew}
+              onClick={startNewConversation}
+            >
+              + New conversation
+            </button>
+            <ul className={styles.sidebarList}>
+              {chatHistory.length === 0 ? (
+                <li className={styles.sidebarEmpty}>
+                  Past chats appear here when you start a new conversation.
+                </li>
+              ) : (
+                chatHistory.map((chat) => (
+                  <li key={chat.id}>
+                    <button
+                      type="button"
+                      className={`${styles.sidebarItem} ${
+                        activeChatId === chat.id ? styles.sidebarItemActive : ""
+                      }`}
+                      onClick={() => openSavedChat(chat)}
+                    >
+                      <span className={styles.sidebarItemTitle}>{chat.title}</span>
+                      <span className={styles.sidebarItemMeta}>
+                        {new Date(chat.updatedAt).toLocaleString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    </button>
+                  </li>
+                ))
+              )}
+            </ul>
+          </aside>
+        ) : null}
 
       <div className={styles.main}>
         <section className={styles.chatColumn} aria-label="Voice conversation">
@@ -581,8 +789,8 @@ export default function VoicePlanner() {
               <button
                 type="button"
                 className={styles.ghost}
-                disabled={pending || (!draft && !conversation.length)}
-                onClick={resetSession}
+                disabled={pending}
+                onClick={startNewConversation}
               >
                 New conversation
               </button>
@@ -660,6 +868,7 @@ export default function VoicePlanner() {
 
           <SourcesPanel sources={collectSources(sources, itinerary)} />
         </section>
+      </div>
       </div>
     </div>
   );

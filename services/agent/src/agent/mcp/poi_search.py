@@ -243,9 +243,9 @@ def nominatim_category_search(
         nonlocal pois
         if len(pois) >= limit:
             return
-        name = str(
-            row.get("name") or row.get("display_name") or ""
-        ).split(",")[0].strip()
+        name = normalize_poi_name(
+            str(row.get("name") or row.get("display_name") or "").split(",")[0].strip()
+        )
         if not name:
             return
         try:
@@ -274,10 +274,14 @@ def nominatim_category_search(
             return
         seen.add(ref)
         score = 7.0
+        if _looks_like_food_name(name):
+            category = "food"
         if category == "heritage" and _MUST_SEE_NAME_RE.search(name):
             score = 18.0
         elif category == "garden" and _MUST_SEE_NAME_RE.search(name):
             score = 18.0
+        if _is_low_signal_poi(name, {"source": "nominatim"}, category):
+            return
         pois.append(
             POICandidate(
                 name=name,
@@ -395,6 +399,46 @@ def nominatim_category_search(
     return pois
 
 
+_FOOD_NAME_RE = re.compile(
+    r"\b("
+    r"ice\s*cream|gelato|parlou?r|cafe|café|coffee|restaurant|dhaba|"
+    r"misthan|bhandar|bakery|sweet(?:s)?|pizza|burger|kitchen|bistro|"
+    r"eatery|canteen|tiffin|snack|juice|lassi|chai"
+    r")\b",
+    re.I,
+)
+
+_TICKET_STUB_RE = re.compile(
+    r"\b(tickets?|ticket\s+counter|booking\s+office|entry\s+gate)\b",
+    re.I,
+)
+
+
+def _looks_like_food_name(name: str) -> bool:
+    return bool(_FOOD_NAME_RE.search(name or ""))
+
+
+def normalize_poi_name(name: str) -> str:
+    """Strip navigation/ticket stubs: 'to Jaigarh Fort' → 'Jaigarh Fort'."""
+    n = (name or "").strip()
+    if not n:
+        return n
+    n = re.sub(
+        r"^(?:to|towards|toward|near|at|via|for)\s+",
+        "",
+        n,
+        flags=re.I,
+    )
+    n = re.sub(
+        r"\s+(?:tickets?|ticket\s+counter|entry\s+tickets?|booking(?:\s+office)?)\s*$",
+        "",
+        n,
+        flags=re.I,
+    )
+    n = re.sub(r"\s{2,}", " ", n).strip(" -–—,.")
+    return n
+
+
 def _category_from_tags(tags: dict[str, str]) -> str:
     amenity = tags.get("amenity", "")
     tourism = tags.get("tourism", "")
@@ -402,7 +446,20 @@ def _category_from_tags(tags: dict[str, str]) -> str:
     leisure = tags.get("leisure", "")
     shop = tags.get("shop")
     name = (tags.get("name:en") or tags.get("name") or "").lower()
-    if amenity in {"restaurant", "cafe", "fast_food", "food_court"} or shop == "bakery":
+    # Food amenities + food-like names first (e.g. "Jal Mahal Ice Cream Parlour"
+    # must not become heritage via the Jal Mahal must-see match).
+    if (
+        amenity
+        in {
+            "restaurant",
+            "cafe",
+            "fast_food",
+            "food_court",
+            "ice_cream",
+        }
+        or shop in {"bakery", "pastry", "confectionery", "ice_cream"}
+        or _looks_like_food_name(name)
+    ):
         return "food"
     if amenity in {"bar", "pub", "nightclub", "biergarten"} or leisure == "dance":
         return "nightlife"
@@ -422,11 +479,18 @@ def _category_from_tags(tags: dict[str, str]) -> str:
         return "park"
     if leisure and ("garden" in name or "bagh" in name):
         return "garden"
-    # Forts/palaces/must-sees before shop — OSM gift shops inside Amber Fort
-    # often have shop=* and were mislabeled "market".
-    if _MUST_SEE_NAME_RE.search(name) and (
-        re.search(r"\b(fort|palace|mahal|qila|garh|museum|mandir|temple)\b", name, re.I)
-        or _looks_like_heritage_name(name)
+    # Famous bazaars are always market — never heritage via must-see circular match.
+    if _MUST_SEE_MARKET_RE.search(name) or (
+        re.search(r"\b(bazaar|bazar|market|mela|haat|chaupar)\b", name, re.I)
+        and not re.search(r"\b(fort|palace|mahal|qila|garh|museum|mandir|temple)\b", name, re.I)
+    ):
+        return "market"
+    # Heritage must-sees / forts before generic shop tags.
+    if not _looks_like_food_name(name) and (
+        _MUST_SEE_HERITAGE_RE.search(name)
+        or re.search(
+            r"\b(fort|palace|mahal|qila|garh)\b", name, re.I
+        )
     ):
         if re.search(r"\b(museum|gallery)\b", name, re.I) or tourism in {
             "museum",
@@ -435,6 +499,12 @@ def _category_from_tags(tags: dict[str, str]) -> str:
             return "museum"
         if re.search(r"\b(mandir|temple|masjid|mosque)\b", name, re.I):
             return "temple"
+        if re.search(
+            r"\b(park|garden|bagh|biological)\b", name, re.I
+        ) and not re.search(r"\b(fort|palace|mahal)\b", name, re.I):
+            return "garden"
+        if _looks_like_food_name(name):
+            return "food"
         return "heritage"
     if (
         historic
@@ -590,24 +660,78 @@ _LOW_SIGNAL_MUSEUM_RE = re.compile(
     re.I,
 )
 
-_MUST_SEE_NAME_RE = re.compile(
+_MUST_SEE_HERITAGE_RE = re.compile(
     r"\b("
-    # Heritage
     r"hawa\s*mahal|city\s*palace|(?:amber|amer)\s*(?:fort|palace)|"
     r"jantar\s*mantar|nahargarh(?:\s+fort)?|jaigarh|jal\s*mahal|albert\s*hall|"
-    # Temples
     r"govind\s*dev|govindji|birla\s*mandir|laxmi\s*narayan|"
     r"galta\s*ji|galtaji|digamber\s*jain|shila\s*devi|"
-    # Museums / culture
     r"anokhi(?:\s+museum)?|jawahar\s*kala|dolls?\s*museum|museum\s+of\s+legacies|"
-    # Markets
-    r"johari|bapu\s*bazaar|tripolia|nehru\s*bazaar|kishanpol|"
-    # Parks / gardens
     r"sisodia|vidyadhar|ram\s*niwas|kanak\s*vrindavan|"
     r"central\s+park|statue\s+circle|nahargarh\s+biological|"
-    # Food icons (when food is requested)
     r"laxmi\s*misthan|rawat\s*misthan|handi(?:\s+restaurant)?|"
     r"niros?\b|chokhi\s*dhani|tapri\s+central"
+    r")\b",
+    re.I,
+)
+
+# Tourist bazaars only — never treat these as heritage.
+_MUST_SEE_MARKET_RE = re.compile(
+    r"\b("
+    r"johari(?:\s*bazaar|\s*bazar)?|bapu\s*bazaar|bapu\s*bazar|"
+    r"tripolia(?:\s*bazaar|\s*bazar)?|nehru\s*bazaar|nehru\s*bazar|"
+    r"kishanpol(?:\s*bazaar|\s*bazar)?|"
+    r"badi\s*chaupar|chhoti\s*chaupar|choti\s*chaupar"
+    r")\b",
+    re.I,
+)
+
+# Combined for ranking / must-see boosts (heritage + markets + food icons).
+_MUST_SEE_NAME_RE = re.compile(
+    r"\b("
+    r"hawa\s*mahal|city\s*palace|(?:amber|amer)\s*(?:fort|palace)|"
+    r"jantar\s*mantar|nahargarh(?:\s+fort)?|jaigarh|jal\s*mahal|albert\s*hall|"
+    r"govind\s*dev|govindji|birla\s*mandir|laxmi\s*narayan|"
+    r"galta\s*ji|galtaji|digamber\s*jain|shila\s*devi|"
+    r"anokhi(?:\s+museum)?|jawahar\s*kala|dolls?\s*museum|museum\s+of\s+legacies|"
+    r"johari|bapu\s*bazaar|tripolia|nehru\s*bazaar|kishanpol|"
+    r"sisodia|vidyadhar|ram\s*niwas|kanak\s*vrindavan|"
+    r"central\s+park|statue\s+circle|nahargarh\s+biological|"
+    r"laxmi\s*misthan|rawat\s*misthan|handi(?:\s+restaurant)?|"
+    r"niros?\b|chokhi\s*dhani|tapri\s+central"
+    r")\b",
+    re.I,
+)
+
+_FAMOUS_BAZAAR_RE = _MUST_SEE_MARKET_RE
+
+_JUNK_MARKET_RE = re.compile(
+    r"\b("
+    r"big\s*bazaar|world\s*trade\s*park|reliance|dmart|d-?mart|"
+    r"colony\s+market|sector\s+[-\w]*\s*market|local\s+market|"
+    r"gaurav\s+tower|palika\s+bazaar|sun\s*n\s*moon|sun\s+and\s+moon|"
+    r"jayanti\s+market|shopping\s+complex|trade\s+park|"
+    r"sindhi\s+colony|apartment\s+market"
+    r")\b",
+    re.I,
+)
+
+# Famous landmarks that are not in Jaipur (or wrong for this planner scope).
+_WRONG_CITY_POI_RE = re.compile(
+    r"\b("
+    r"india\s*gate|gateway\s+of\s+india|red\s+fort|qutub\s*minar|qutb\s*minar|"
+    r"taj\s*mahal|lotus\s*temple|charminar|howrah\s+bridge|"
+    r"victoria\s+memorial|gateway\s+of\s+india"
+    r")\b",
+    re.I,
+)
+
+_TRANSIT_JUNK_RE = re.compile(
+    r"\b("
+    r"bus\s*stop|bus\s*stand|bus\s*station|bus\s*depot|"
+    r"railway\s*station|train\s*station|metro\s*station|"
+    r"auto\s*stand|taxi\s*stand|cab\s*stand|parking\s*(?:lot|area)?|"
+    r"petrol\s*pump|fuel\s*station"
     r")\b",
     re.I,
 )
@@ -623,7 +747,13 @@ _TOURIST_FOOD_RE = re.compile(
 
 
 def _looks_like_heritage_name(name: str) -> bool:
-    return bool(_HERITAGE_NAME_RE.search(name) or _MUST_SEE_NAME_RE.search(name))
+    """True for fort/palace-style names — never bazaars/markets."""
+    n = name or ""
+    if _MUST_SEE_MARKET_RE.search(n) or re.search(
+        r"\b(bazaar|bazar|market|mall|emporium)\b", n, re.I
+    ):
+        return False
+    return bool(_HERITAGE_NAME_RE.search(n) or _MUST_SEE_HERITAGE_RE.search(n))
 
 
 def _is_low_signal_heritage_name(name: str) -> bool:
@@ -696,7 +826,27 @@ def _is_low_signal_poi(name: str, tags: dict[str, str], category: str) -> bool:
     n = name or ""
     if _is_generic_place_name(n):
         return True
+    # Bare ticket counters / "Hawa Mahal tickets" stubs without a real place title.
+    if _TICKET_STUB_RE.fullmatch((n or "").strip()) or re.fullmatch(
+        r"tickets?", (n or "").strip(), re.I
+    ):
+        return True
+    if _WRONG_CITY_POI_RE.search(n):
+        return True
+    if _TRANSIT_JUNK_RE.search(n):
+        return True
     if _is_low_signal_park(n, tags, cat):
+        return True
+    # Heritage must not be ice-cream shops / cafés that merely share a landmark name.
+    if cat in {"heritage", "museum", "temple", "attraction"} and _looks_like_food_name(n):
+        return True
+    # Bazaars mis-tagged as heritage: keep famous ones (reclassified later);
+    # drop junk "X Market" stubs from the heritage pool.
+    if cat in {"heritage", "attraction"} and re.search(
+        r"\b(bazaar|bazar|market)\b", n, re.I
+    ):
+        if _FAMOUS_BAZAAR_RE.search(n):
+            return False
         return True
     if cat == "heritage" and (
         _is_low_signal_heritage_name(n)
@@ -723,24 +873,26 @@ def _is_low_signal_poi(name: str, tags: dict[str, str], category: str) -> bool:
     if cat in {"food", "cafe", "restaurant"} and len(n.strip()) < 4:
         return True
     if cat in {"market", "shopping"}:
-        # Prefer bazaars; never keep forts/palaces mis-tagged as markets.
-        if _MUST_SEE_NAME_RE.search(n) and re.search(
+        # Prefer famous tourist bazaars; drop malls / colony markets / chains.
+        if _MUST_SEE_HERITAGE_RE.search(n) and re.search(
             r"\b(fort|palace|mahal|qila|garh|museum)\b", n, re.I
         ):
             return True  # drop — wrong category; heritage copy should win
-        if _TOURIST_MARKET_RE.search(n):
+        if _JUNK_MARKET_RE.search(n):
+            return True
+        if _FAMOUS_BAZAAR_RE.search(n):
             return False
         if _LOW_SIGNAL_MARKET_RE.search(n):
             return True
-        if tags.get("shop") and tags.get("shop") not in {
-            "mall",
-            "marketplace",
-            "department_store",
-        }:
-            # Keep named malls; drop generic single shops when no bazaar cue.
-            if not (tags.get("wikidata") or tags.get("wikipedia")):
-                return True
-        return False
+        # Keep wiki-backed marketplace/mall; drop generic shops & colony markets.
+        if tags.get("wikidata") or tags.get("wikipedia"):
+            if re.search(r"\b(bazaar|bazar|market|mall|marketplace)\b", n, re.I):
+                return False
+        if tags.get("shop") in {"mall", "marketplace", "department_store"}:
+            # Malls are not Jaipur tourist bazaars for culture+shopping mixes.
+            return True
+        # Default: no famous-bazaar cue → drop.
+        return True
     return False
 
 
@@ -1120,7 +1272,10 @@ def _parse_elements(
     pois: list[POICandidate] = []
     for el in elements:
         tags = el.get("tags") or {}
-        name = tags.get("name:en") or tags.get("name")
+        raw_name = tags.get("name:en") or tags.get("name")
+        if not raw_name:
+            continue
+        name = normalize_poi_name(str(raw_name))
         if not name:
             continue
         osm_type = el.get("type")

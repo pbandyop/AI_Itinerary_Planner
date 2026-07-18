@@ -583,8 +583,8 @@ def apply_edit_patch(
                 notes.extend(re_notes)
 
         elif op == "balance_block":
-            # Toward moderate/balanced (~2-2-2). From packed: trim first.
-            # From thin relaxed: may densify with unused interest POIs.
+            # Toward moderate/balanced (2–4 / 2–4 / 1–3). From packed: trim first.
+            # From thin relaxed: densify with unused interest POIs.
             from agent.mcp.itinerary_builder import STOPS_PER_DAY
             from agent.preferences import categories_for_interests
 
@@ -597,7 +597,8 @@ def apply_edit_patch(
             preferred_cats = categories_for_interests(interests) or {
                 (c or "").lower() for c in interests if c
             }
-            cap = STOPS_PER_DAY.get("moderate", 6)
+            culture_cats = {"museum", "heritage", "temple", "attraction"}
+            cap = STOPS_PER_DAY.get("moderate", 10)
             before_n = len(new_day.all_stops)
 
             # Always reshape to moderate meal/block layout (trims when over-cap).
@@ -610,18 +611,30 @@ def apply_edit_patch(
             notes.extend(re_notes)
 
             flat = list(new_day.all_stops)
+            from agent.mcp.poi_search import _MUST_SEE_NAME_RE, _is_low_signal_poi
+
             ranked_pool = sorted(
-                [p for p in pois if not used.contains(p)],
+                [
+                    p
+                    for p in pois
+                    if not used.contains(p)
+                    and not _is_low_signal_poi(
+                        p.name or "", p.tags or {}, (p.category or "").lower()
+                    )
+                ],
                 key=lambda p: (
                     0
+                    if _MUST_SEE_NAME_RE.search(p.name or "")
+                    or (p.category or "").lower() in culture_cats
+                    else 1
                     if (p.category or "").lower() in preferred_cats
-                    else 1,
+                    else 2,
                     -(p.rank_score or 0),
                     p.name or "",
                 ),
             )
-            # Only densify when still thin for a balanced day.
-            target_n = max(5, min(cap, 6))
+            # Balanced densify: morning 2–4 · afternoon 2–4 · evening 1–3 (~7–8).
+            target_n = max(7, min(cap, 8))
             added_names: list[str] = []
 
             def _take_from_pool(pred=None) -> bool:
@@ -805,10 +818,13 @@ def apply_edit_patch(
 
         elif op == "pack_block":
             from agent.mcp.itinerary_builder import (
+                BLOCK_FLOOR_BY_PACE,
+                BLOCK_SOFT_CAP_BY_PACE,
                 _has_non_food_interest,
                 _is_food,
             )
-            from agent.preferences import categories_for_interests
+            from agent.mcp.poi_search import _MUST_SEE_NAME_RE, _is_low_signal_poi
+            from agent.preferences import categories_for_interests, culture_soft_mix_active
 
             used = _existing_places(itinerary, new_day)
             interests = (
@@ -817,40 +833,78 @@ def apply_edit_patch(
                 else []
             )
             prefer_non_food = _has_non_food_interest(interests)
+            interest_keys = [
+                (i or "").lower() for i in interests if i
+            ]
+            culture_cats = {"heritage", "museum", "temple", "attraction"}
+            soft_cats = {"market", "shopping", "food", "cafe", "restaurant", "nightlife"}
+            mixed_culture_soft = culture_soft_mix_active(interest_keys)
+            want_culture = bool(
+                set(interest_keys)
+                & {"heritage", "culture", "history", "temple", "museum", "art"}
+            )
             non_food_cats = {
                 c
                 for c in categories_for_interests(interests)
                 if c not in {"food", "cafe", "restaurant"}
             }
-            # Rank unused POIs: interest non-food first when mixed interests,
+            # Rank unused POIs: must-sees / culture first, then interest non-food,
             # then other non-food, then food / remainder.
             def _pack_rank(p: POICandidate) -> tuple:
                 cat = (p.category or "").lower()
+                name = p.name or ""
                 is_food = _is_food(p) or cat in {"food", "cafe", "restaurant"}
-                if prefer_non_food:
+                must = 1 if _MUST_SEE_NAME_RE.search(name) else 0
+                culture = 1 if cat in culture_cats else 0
+                if prefer_non_food or want_culture:
+                    if must or culture:
+                        return (0, -must, -culture, -(p.rank_score or 0), name)
                     if cat in non_food_cats:
-                        return (0, -(p.rank_score or 0), p.name or "")
+                        return (1, 0, 0, -(p.rank_score or 0), name)
                     if not is_food:
-                        return (1, -(p.rank_score or 0), p.name or "")
-                    return (2, -(p.rank_score or 0), p.name or "")
-                # Food-only trip: any unused place is fine (food preferred).
+                        return (2, 0, 0, -(p.rank_score or 0), name)
+                    return (3, 0, 0, -(p.rank_score or 0), name)
                 if is_food:
-                    return (0, -(p.rank_score or 0), p.name or "")
-                return (1, -(p.rank_score or 0), p.name or "")
+                    return (0, 0, 0, -(p.rank_score or 0), name)
+                return (1, 0, 0, -(p.rank_score or 0), name)
 
             pool = sorted(
-                [p for p in pois if not used.contains(p)],
+                [
+                    p
+                    for p in pois
+                    if not used.contains(p)
+                    and not _is_low_signal_poi(
+                        p.name or "", p.tags or {}, (p.category or "").lower()
+                    )
+                ],
                 key=_pack_rank,
             )
             added_names: list[str] = []
+            floors = BLOCK_FLOOR_BY_PACE.get("packed", BLOCK_FLOOR_BY_PACE["moderate"])
+            soft_caps = BLOCK_SOFT_CAP_BY_PACE.get(
+                "packed", BLOCK_SOFT_CAP_BY_PACE["moderate"]
+            )
 
             def _pick_for_block(stops: list[Stop]) -> POICandidate | None:
-                """Avoid stacking a second food when non-food interests exist."""
+                """Avoid stacking a second food; prefer culture when mixed."""
                 block_has_food = any(
                     (s.category or "").lower() in {"food", "cafe", "restaurant"}
                     for s in stops
                 )
+                block_has_culture = any(
+                    (s.category or "").lower() in culture_cats for s in stops
+                )
+                block_market_n = sum(
+                    1
+                    for s in stops
+                    if (s.category or "").lower() in {"market", "shopping"}
+                )
                 require_non_food = prefer_non_food and block_has_food
+                need_culture = (
+                    mixed_culture_soft
+                    and want_culture
+                    and not block_has_culture
+                )
                 for i, p in enumerate(pool):
                     if used.contains(p):
                         continue
@@ -858,12 +912,23 @@ def apply_edit_patch(
                     is_food = _is_food(p) or cat in {"food", "cafe", "restaurant"}
                     if require_non_food and is_food:
                         continue
-                    if require_non_food and non_food_cats and cat not in non_food_cats:
-                        # Prefer interest-matched non-food; allow other non-food as fallback.
+                    if need_culture and cat in soft_cats and cat not in culture_cats:
                         continue
+                    if mixed_culture_soft and cat in {"market", "shopping"} and block_market_n >= 1:
+                        continue
+                    if require_non_food and non_food_cats and cat not in non_food_cats:
+                        if cat not in culture_cats and not _MUST_SEE_NAME_RE.search(
+                            p.name or ""
+                        ):
+                            continue
                     return pool.pop(i)
+                if need_culture:
+                    for i, p in enumerate(pool):
+                        if used.contains(p):
+                            continue
+                        if (p.category or "").lower() in culture_cats:
+                            return pool.pop(i)
                 if require_non_food:
-                    # Fallback: any non-food unused place.
                     for i, p in enumerate(pool):
                         if used.contains(p):
                             continue
@@ -871,7 +936,6 @@ def apply_edit_patch(
                         is_food = _is_food(p) or cat in {"food", "cafe", "restaurant"}
                         if not is_food:
                             return pool.pop(i)
-                # Last resort (or food-only trip): next unused.
                 while pool:
                     p = pool.pop(0)
                     if not used.contains(p):
@@ -879,16 +943,15 @@ def apply_edit_patch(
                 return None
 
             for bname, block in _get_block(new_day, target_block):
-                # Packed day: aim for denser morning/afternoon; light evening.
+                floor = floors.get(bname, 2)
+                soft_cap = soft_caps.get(bname, 5)
+                # Packed day: meet pace floors, then soft-cap when packing a block.
                 if target_block:
-                    target_count = max(2, len(block.stops) + 1)
-                elif bname == "evening":
-                    target_count = max(1, len(block.stops))
-                    if len(block.stops) == 0:
-                        target_count = 1
+                    target_count = max(floor, len(block.stops) + 1)
+                    target_count = min(soft_cap, max(target_count, floor))
                 else:
-                    target_count = max(2, len(block.stops) + 1)
-                    target_count = min(3, target_count)
+                    target_count = max(floor, len(block.stops))
+                    target_count = min(soft_cap, target_count)
                 stops = [
                     s.model_copy(
                         update={

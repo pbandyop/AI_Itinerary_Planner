@@ -39,36 +39,34 @@ DEFAULT_DURATION: dict[str, int] = {
     "other": 60,
 }
 
-# Soft day-size hints (relaxed/balanced). Packed has no hard stop cap —
-# blocks are filled by time windows (POIs first, then relax/rest notes).
+# Soft day-size hints. Packed densifies by clock windows beyond the floor.
 STOPS_PER_DAY: dict[Pace, int] = {
-    "relaxed": 4,  # morning 2 · afternoon 1 · evening 1 (dinner)
-    "moderate": 6,  # morning 2 · afternoon 2 · evening 2 (soft + dinner)
-    "packed": 24,  # generous pool only; densify fills by clock windows
+    "relaxed": 6,  # morning 1–3 · afternoon 1–3 · evening 1–2
+    "moderate": 10,  # morning 2–4 · afternoon 2–4 · evening 1–3
+    "packed": 24,  # floor 3·3·2 then densify until windows fill
 }
 
 # Non-food evening extras allowed before dinner (dinner stays last).
 MAX_EVENING_EXTRAS: dict[Pace, int] = {
-    "relaxed": 0,
-    "moderate": 1,  # one low-priority soft stop + dinner
-    "packed": 2,  # two soft stops + dinner
+    "relaxed": 1,
+    "moderate": 2,
+    "packed": 2,
 }
 
 def _ideal_block_targets(pace: Pace) -> tuple[int, int, int]:
     """Preferred (morning, afternoon, evening) counts when the day pool is rich enough."""
     if pace == "relaxed":
-        return (2, 1, 1)
+        return (2, 2, 1)  # within 1–3 / 1–3 / 1–2
     if pace == "packed":
-        return (3, 3, 2)  # seed denser; densify grows further by time window
-    return (2, 2, 2)  # moderate / balanced
+        return (3, 3, 2)  # floor; densify grows further by time window
+    return (3, 3, 2)  # moderate / balanced within 2–4 / 2–4 / 1–3
 
 
 def _adaptive_block_targets(pace: Pace, n: int) -> tuple[int, int, int]:
     """Soft-fill toward pace ideals; never invent stops.
 
     Shrink order when short: evening extras (e>1) → afternoon → morning
-    (keep morning protected). Prefer keeping one evening slot when possible
-    (e.g. 2-1-1 for four stops) rather than emptying evening (2-2-0).
+    (keep morning protected). Prefer keeping one evening slot when possible.
     With exactly 3 POIs, prefer 1-1-1 so all three panels show rather than 2-1-0.
     Packed grows AM/PM/evening freely (no small hard cap); densify fills by time.
     """
@@ -82,8 +80,8 @@ def _adaptive_block_targets(pace: Pace, n: int) -> tuple[int, int, int]:
         return (1, 1, 1)
 
     if pace == "packed":
-        # Start 2-2-2; stretch across blocks while POIs last (soft max 8/8/5).
-        m, a, e = 2, 2, 2
+        # Start at packed floor 3-3-2; stretch across blocks while POIs last.
+        m, a, e = 3, 3, 2
         cap_m, cap_a, cap_e = 8, 8, 5
         use = min(n, cap_m + cap_a + cap_e)
         spare = use - (m + a + e)
@@ -108,9 +106,9 @@ def _adaptive_block_targets(pace: Pace, n: int) -> tuple[int, int, int]:
         while m + a + e > use:
             if e > 2:
                 e -= 1
-            elif a > 2:
+            elif a > 3:
                 a -= 1
-            elif m > 2:
+            elif m > 3:
                 m -= 1
             elif e > 1:
                 e -= 1
@@ -122,11 +120,45 @@ def _adaptive_block_targets(pace: Pace, n: int) -> tuple[int, int, int]:
                 break
         return (m, a, e)
 
+    if pace == "moderate":
+        # Balanced: floor toward 2-2-1, ideal 3-3-2, caps 4-4-3.
+        m, a, e = 2, 2, 1
+        cap_m, cap_a, cap_e = 4, 4, 3
+        use = min(n, cap_m + cap_a + cap_e)
+        while m + a + e < use:
+            if m < 3:
+                m += 1
+            elif a < 3:
+                a += 1
+            elif e < 2:
+                e += 1
+            elif m < cap_m:
+                m += 1
+            elif a < cap_a:
+                a += 1
+            elif e < cap_e:
+                e += 1
+            else:
+                break
+        while m + a + e > use:
+            if e > 1:
+                e -= 1
+            elif a > 2:
+                a -= 1
+            elif m > 2:
+                m -= 1
+            elif a > 1:
+                a -= 1
+            elif m > 1:
+                m -= 1
+            else:
+                break
+        return (m, a, e)
+
+    # Relaxed: prefer 2-2-1 within 1–3 / 1–3 / 1–2.
     ideal_m, ideal_a, ideal_e = _ideal_block_targets(pace)
-    use = min(n, ideal_m + ideal_a + ideal_e)
+    use = min(n, 3 + 3 + 2)
     m, a, e = ideal_m, ideal_a, ideal_e
-    # Shrink extras first, then afternoon, then morning — keep a single
-    # evening slot when possible (prefer 2-1-1 over 2-2-0 for n=4).
     while m + a + e > use:
         if e > 1:
             e -= 1
@@ -138,6 +170,15 @@ def _adaptive_block_targets(pace: Pace, n: int) -> tuple[int, int, int]:
             e -= 1
         elif a > 0:
             a -= 1
+        else:
+            break
+    while m + a + e < use:
+        if m < 3:
+            m += 1
+        elif a < 3:
+            a += 1
+        elif e < 2:
+            e += 1
         else:
             break
     return (m, a, e)
@@ -266,7 +307,7 @@ def _diversify_for_interests(
         must = 1 if _MUST_SEE_NAME_RE.search(name) else 0
         return (must, float(p.rank_score or 0), name)
 
-    # Seed culture-tier first (2 each when mixed), then soft (1 each).
+    # Seed culture-tier first (3 each when mixed), then soft (1 each).
     def _seed_key(key: str, take_n: int) -> None:
         cats = categories_for_interest(key)
         candidates = [
@@ -294,7 +335,7 @@ def _diversify_for_interests(
 
     for key in keys:
         if key in CULTURE_TIER_INTERESTS:
-            _seed_key(key, 2 if mixed else 1)
+            _seed_key(key, 3 if mixed else 1)
     for key in keys:
         if key not in CULTURE_TIER_INTERESTS:
             _seed_key(key, 1)
@@ -333,7 +374,7 @@ def _diversify_for_interests(
             return True
         return False
 
-    # When culture + soft are both requested, prefer ~2 culture : 1 soft while filling.
+    # When culture + soft are both requested, prefer ~3 culture : 1 soft while filling.
     # Round-robin soft keys so food cannot starve park/shopping.
     soft_rr = 0
     while len(picks) < max_total:
@@ -346,7 +387,7 @@ def _diversify_for_interests(
                 for k in keys
                 if k not in CULTURE_TIER_INTERESTS and k not in SOFT_TIER_INTERESTS
             ]
-            for _ in range(2):
+            for _ in range(3):
                 if len(picks) >= max_total:
                     break
                 for key in culture_keys:
@@ -405,7 +446,7 @@ def _diversify_for_interests(
         )
         if mixed:
             notes.append(
-                "Culture-tier interests (heritage/temple/museum) weighted above "
+                "Culture-tier interests (heritage/temple/museum) weighted ~3:1 above "
                 "shopping/park/food unless those were the only requests."
             )
     if missing_interests:
@@ -828,18 +869,20 @@ def restamp_day_travel_and_clocks(
     return stamp_schedule_clocks([rebuilt], pace=pace)[0]
 
 
-# Packed floors: prefer at least this many stops when POIs exist.
-PACKED_BLOCK_FLOOR: dict[str, int] = {
-    "morning": 2,
-    "afternoon": 2,
-    "evening": 1,
+# Per-pace block floors (when POIs exist) and soft caps for densify.
+BLOCK_FLOOR_BY_PACE: dict[Pace, dict[str, int]] = {
+    "relaxed": {"morning": 1, "afternoon": 1, "evening": 1},
+    "moderate": {"morning": 2, "afternoon": 2, "evening": 1},
+    "packed": {"morning": 3, "afternoon": 3, "evening": 2},
 }
-# Soft per-block safety (avoid runaway loops); not a product "cap".
-PACKED_BLOCK_SOFT_CAP: dict[str, int] = {
-    "morning": 8,
-    "afternoon": 8,
-    "evening": 5,
+BLOCK_SOFT_CAP_BY_PACE: dict[Pace, dict[str, int]] = {
+    "relaxed": {"morning": 3, "afternoon": 3, "evening": 2},
+    "moderate": {"morning": 4, "afternoon": 4, "evening": 3},
+    "packed": {"morning": 8, "afternoon": 8, "evening": 5},
 }
+# Back-compat aliases used by packed densify.
+PACKED_BLOCK_FLOOR: dict[str, int] = BLOCK_FLOOR_BY_PACE["packed"]
+PACKED_BLOCK_SOFT_CAP: dict[str, int] = BLOCK_SOFT_CAP_BY_PACE["packed"]
 
 # Default travel guess when densifying before legs are stamped.
 _PACKED_DEFAULT_TRAVEL_MIN = 18
@@ -876,15 +919,18 @@ def densify_packed_am_pm(
     candidate_pois: list[POICandidate],
     pace: Pace = "packed",
 ) -> tuple[list[DayPlan], list[str]]:
-    """Packed only: fill morning/afternoon/evening by time window.
+    """Fill morning/afternoon/evening toward pace floors (and packed time windows).
 
-    Adds interest-matching live POIs until the block's clock window is roughly
-    full (no day-level stop cap). Leftover time is labeled as relax/rest later
-    by annotate_block_flex_time after clocks are stamped.
+    Moderate/relaxed densify up to soft caps to meet block floors.
+    Packed also fills until the block's clock window is roughly full.
+    Leftover time is labeled as relax/rest later by annotate_block_flex_time.
     """
     notes: list[str] = []
-    if pace != "packed" or not days:
+    if pace not in {"relaxed", "moderate", "packed"} or not days:
         return days, notes
+    floors = BLOCK_FLOOR_BY_PACE.get(pace, BLOCK_FLOOR_BY_PACE["moderate"])
+    soft_caps = BLOCK_SOFT_CAP_BY_PACE.get(pace, BLOCK_SOFT_CAP_BY_PACE["moderate"])
+    fill_by_time = pace == "packed"
 
     interest_keys = list(
         dict.fromkeys(
@@ -894,6 +940,7 @@ def densify_packed_am_pm(
         )
     )
     from agent.mcp.poi_search import _MUST_SEE_NAME_RE, _is_low_signal_poi
+    from agent.preferences import culture_soft_mix_active
 
     working = [d.model_copy(deep=True) for d in days]
     pool = [
@@ -903,25 +950,48 @@ def densify_packed_am_pm(
             p.name or "", p.tags or {}, (p.category or "").lower()
         )
     ]
-    # Prefer must-sees / heritage / parks when filling packed gaps.
+    # Prefer must-sees / heritage when filling packed gaps.
     culture_keys = {"heritage", "culture", "history", "temple", "museum", "art"}
     park_keys = {"park", "garden", "nature", "viewpoint", "outdoor"}
+    soft_cats = {"market", "shopping", "food", "cafe", "restaurant", "nightlife"}
+    culture_cats = {"heritage", "museum", "temple", "attraction"}
     want_culture = bool(set(interest_keys) & culture_keys)
     want_park = bool(set(interest_keys) & park_keys)
+    mixed_culture_soft = culture_soft_mix_active(interest_keys)
+
+    def _is_culture_poi(p: POICandidate) -> bool:
+        return (p.category or "").lower() in culture_cats
+
+    def _is_soft_poi(p: POICandidate) -> bool:
+        cat = (p.category or "").lower()
+        return cat in soft_cats or cat in {"park", "garden", "viewpoint"}
+
+    def _day_culture_soft_counts(day: DayPlan) -> tuple[int, int]:
+        cult = soft = 0
+        for s in day.all_stops:
+            cat = (s.category or "").lower()
+            if cat in culture_cats:
+                cult += 1
+            elif cat in soft_cats or cat in {"park", "garden", "viewpoint"}:
+                soft += 1
+        return cult, soft
 
     def _densify_rank(p: POICandidate) -> tuple:
         name = p.name or ""
         cat = (p.category or "").lower()
         must = 1 if _MUST_SEE_NAME_RE.search(name) else 0
-        heritage = 1 if cat in {"heritage", "museum", "temple", "attraction"} else 0
+        heritage = 1 if cat in culture_cats else 0
         park = 1 if cat in {"park", "garden", "viewpoint"} else 0
+        market = 1 if cat in {"market", "shopping"} else 0
         prefer = 0
         if want_culture and heritage:
-            prefer += 2
+            prefer += 4
         if want_park and park:
             prefer += 2
-        if must:
+        if must and not market:
             prefer += 3
+        if market and mixed_culture_soft:
+            prefer -= 2
         return (-prefer, -(p.rank_score or 0.0), name)
 
     pool = sorted(pool, key=_densify_rank)
@@ -933,39 +1003,52 @@ def densify_packed_am_pm(
                 seen.add(s)
         return seen
 
-    def _pick(used: PlaceSeen, *, block_stops: list[Stop]) -> POICandidate | None:
+    def _pick(
+        used: PlaceSeen, *, block_stops: list[Stop], day: DayPlan
+    ) -> POICandidate | None:
         prefer_non_food = _has_non_food_interest(interest_keys or interests)
         block_has_food = any(
             (s.category or "").lower() in {"food", "cafe", "restaurant"}
             for s in block_stops
         )
-        block_has_sight = any(
-            (s.category or "").lower()
-            in {"heritage", "museum", "temple", "attraction", "park", "garden"}
+        block_has_culture = any(
+            (s.category or "").lower() in culture_cats for s in block_stops
+        )
+        block_market_n = sum(
+            1
             for s in block_stops
+            if (s.category or "").lower() in {"market", "shopping"}
+        )
+        cult_n, soft_n = _day_culture_soft_counts(day)
+        # Mixed trips: keep ~3:1 culture:soft; max 1 market per block.
+        need_culture = mixed_culture_soft and want_culture and (
+            cult_n < 3 * max(1, soft_n) or cult_n <= soft_n
         )
         require_non_food = prefer_non_food and block_has_food
-        # Empty or food-only blocks: prefer a must-see / park / heritage first.
-        prefer_sight = prefer_non_food and not block_has_sight
+        prefer_sight = prefer_non_food and not block_has_culture
         non_food_keys = [k for k in interest_keys if k != "food"]
 
         def _ok(p: POICandidate) -> bool:
             cat = (p.category or "").lower()
             is_food = cat in {"food", "cafe", "restaurant"} or _is_food(p)
+            is_market = cat in {"market", "shopping"}
             if require_non_food and is_food:
                 return False
             if prefer_sight and is_food:
                 return False
+            if mixed_culture_soft and is_market and block_market_n >= 1:
+                return False
+            if need_culture and _is_soft_poi(p) and not _is_culture_poi(p):
+                return False
             if prefer_sight and (want_culture or want_park):
-                is_h = cat in {"heritage", "museum", "temple", "attraction"}
+                is_h = cat in culture_cats
                 is_p = cat in {"park", "garden", "viewpoint"}
                 if want_culture and is_h:
                     return True
                 if want_park and is_p:
                     return True
-                if _MUST_SEE_NAME_RE.search(p.name or ""):
+                if _MUST_SEE_NAME_RE.search(p.name or "") and not is_market:
                     return True
-                # Fall through if no sight left — allow other non-food.
             if require_non_food and non_food_keys:
                 return any(_stop_covers_interest(p, key) for key in non_food_keys)
             if interest_keys and not any(
@@ -979,12 +1062,20 @@ def densify_packed_am_pm(
                 continue
             if _ok(p):
                 return p
+        if need_culture:
+            for p in pool:
+                if used.contains(p):
+                    continue
+                if _is_culture_poi(p):
+                    return p
         if prefer_sight or require_non_food:
             for p in pool:
                 if used.contains(p):
                     continue
                 cat = (p.category or "").lower()
                 if cat not in {"food", "cafe", "restaurant"} and not _is_food(p):
+                    if mixed_culture_soft and cat in {"market", "shopping"}:
+                        continue
                     return p
         for p in pool:
             if not used.contains(p):
@@ -993,8 +1084,8 @@ def densify_packed_am_pm(
 
     for day in working:
         for bname in ("morning", "afternoon", "evening"):
-            floor = PACKED_BLOCK_FLOOR[bname]
-            soft_cap = PACKED_BLOCK_SOFT_CAP[bname]
+            floor = floors[bname]
+            soft_cap = soft_caps[bname]
             win_start, win_end = _packed_block_window(bname, pace)
             window_mins = max(60, win_end - win_start)
             # Leave a little slack so flex notes can still appear.
@@ -1003,19 +1094,23 @@ def densify_packed_am_pm(
             block: TimeBlock = getattr(day, bname)
             stops = list(block.stops)
 
-            # Grow until floor met (if POIs exist) and/or window is roughly full.
+            # Grow until floor met (if POIs exist); packed also fills by clock.
             while len(stops) < soft_cap:
                 used_mins = _estimate_block_fill_mins(stops)
                 need_floor = len(stops) < floor
-                need_time = used_mins < fill_target
+                need_time = fill_by_time and used_mins < fill_target
                 if not need_floor and not need_time:
                     break
                 # Next stop estimate (~dwell + travel)
                 next_cost = 45 + _PACKED_DEFAULT_TRAVEL_MIN
-                if not need_floor and used_mins + next_cost > window_mins + 10:
+                if (
+                    fill_by_time
+                    and not need_floor
+                    and used_mins + next_cost > window_mins + 10
+                ):
                     break
                 used = _used()
-                pick = _pick(used, block_stops=stops)
+                pick = _pick(used, block_stops=stops, day=day)
                 if pick is None:
                     notes.append(
                         f"Day {day.day_index} {bname}: no more interest POIs — "
@@ -1612,6 +1707,19 @@ def _pack_meal_template(
                         ]
                         used.add(_poi_key(food_pick))
                         continue
+                # Fill empty evening with any leftover (heritage/museum/food) so
+                # relaxed/balanced keep a 1·1·1 panel when POIs exist.
+                if not block and leftovers:
+                    fill = next(
+                        (p for p in leftovers if not _is_food(p)),
+                        leftovers[0],
+                    )
+                    block.append(fill)
+                    leftovers = [
+                        p for p in leftovers if _poi_key(p) != _poi_key(fill)
+                    ]
+                    used.add(_poi_key(fill))
+                    continue
                 break
 
             if block is morning and any(_is_food(p) for p in block):
@@ -2088,6 +2196,23 @@ def _assign_blocks(
             morning_pois = _dedupe_foods_in_block(morning_pois)
             afternoon_pois = _dedupe_foods_in_block(afternoon_pois)
             evening_pois = _dedupe_foods_in_block(evening_pois)
+        # Last resort: if evening still empty, move a spare afternoon/morning
+        # stop so relaxed days keep all three panels when ≥3 POIs exist.
+        if not evening_pois and len(unique) >= 3:
+            used = {
+                _poi_key(p)
+                for p in (*morning_pois, *afternoon_pois, *evening_pois)
+            }
+            spare = [p for p in unique if _poi_key(p) not in used]
+            if spare:
+                evening_pois.append(spare[0])
+                evening_note = None
+            elif len(afternoon_pois) >= 2:
+                evening_pois.append(afternoon_pois.pop())
+                evening_note = None
+            elif len(morning_pois) >= 2:
+                evening_pois.append(morning_pois.pop())
+                evening_note = None
     else:
         # No food interest: geo order + adaptive block budgets.
         ordered = _order_nearest(unique, start=None)
@@ -2144,10 +2269,17 @@ def _assign_blocks(
                 evening_pois.append(pick)
 
         if e_budget > 0 and not evening_pois:
-            evening_note = (
-                "Free evening / rest near your stay — no evening-friendly "
-                "grounded stop available for this day."
-            )
+            # Prefer evening-soft; else any leftover so panels aren't empty.
+            while len(evening_pois) < max(1, min(e_budget, 1)):
+                pick = _pull()
+                if pick is None:
+                    break
+                evening_pois.append(pick)
+            if not evening_pois:
+                evening_note = (
+                    "Free evening / rest near your stay — no evening-friendly "
+                    "grounded stop available for this day."
+                )
 
     morning_stops = [
         _make_stop(p, pace=pace, interests=interests, meal_slot=food_interest)
@@ -2300,15 +2432,42 @@ def build_itinerary(
             notes.append("Audience profile: couple-friendly — moderate scenic pacing.")
 
     # Drop avoided categories when profile asks
-    from agent.mcp.poi_search import _is_low_signal_poi
+    from agent.mcp.poi_search import (
+        _FAMOUS_BAZAAR_RE,
+        _is_low_signal_poi,
+        _looks_like_food_name,
+        normalize_poi_name,
+    )
 
-    filtered_pois = [
-        p
-        for p in candidate_pois
-        if not _is_low_signal_poi(
-            p.name or "", p.tags or {}, (p.category or "").lower()
-        )
-    ]
+    filtered_pois: list[POICandidate] = []
+    for p in candidate_pois:
+        cleaned = normalize_poi_name(p.name or "")
+        if cleaned and cleaned != (p.name or ""):
+            p = p.model_copy(update={"name": cleaned})
+        cat = (p.category or "").lower()
+        # Reclassify famous bazaars / market names wrongly tagged as heritage.
+        if _FAMOUS_BAZAAR_RE.search(p.name or "") or (
+            re.search(r"\b(bazaar|bazar|market)\b", p.name or "", re.I)
+            and not re.search(
+                r"\b(fort|palace|mahal|qila|garh|museum|mandir|temple)\b",
+                p.name or "",
+                re.I,
+            )
+            and cat in {"heritage", "attraction", "other", ""}
+        ):
+            p = p.model_copy(update={"category": "market"})
+            cat = "market"
+        if _looks_like_food_name(p.name or "") and cat in {
+            "heritage",
+            "museum",
+            "temple",
+            "attraction",
+        }:
+            p = p.model_copy(update={"category": "food"})
+            cat = "food"
+        if _is_low_signal_poi(p.name or "", p.tags or {}, cat):
+            continue
+        filtered_pois.append(p)
     if len(filtered_pois) < len(candidate_pois):
         notes.append(
             f"Dropped {len(candidate_pois) - len(filtered_pois)} low-signal POIs "
@@ -2417,10 +2576,12 @@ def build_itinerary(
                 f"Excluded {before - len(ranked)} place(s) already on preserved days."
             )
 
-    # Prefer ≥2 unique stops per day so Morning + Afternoon each get at least one.
-    # Cap per day by pace so relaxed/balanced/packed actually differ.
-    min_per_day = 2
-    max_total = num_days * stops_cap
+    # Prefer ≥1 stop in morning + afternoon + evening when the pool allows.
+    min_per_day = 3 if effective_pace in {"relaxed", "moderate", "packed"} else 2
+    if effective_pace == "relaxed":
+        # Explicit 1·1·1 floor for soft trips.
+        min_per_day = 3
+    max_total = max(num_days * stops_cap, num_days * min_per_day)
     if mode == "legacy":
         full_pool = list(ranked)
         ranked, diversity_notes = _diversify_for_interests(

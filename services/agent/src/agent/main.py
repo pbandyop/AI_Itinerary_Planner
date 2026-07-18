@@ -342,6 +342,9 @@ def _run_invoke(body: InvokeRequest) -> InvokeResponse:
         extra["pending_dialog"] = sess.get("pending_dialog")
 
     user_text = body.user_message.strip()
+    from agent.stt_normalize import normalize_stt_message
+
+    user_text = normalize_stt_message(user_text)
     if body.conversation:
         convo = [
             {"role": str(m.get("role", "user")), "content": str(m.get("content", ""))}

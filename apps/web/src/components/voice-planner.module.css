@@ -14,7 +14,7 @@
   position: sticky;
   top: 0;
   z-index: 50;
-  height: 5rem;
+  min-height: 5rem;
   flex-shrink: 0;
   background: var(--surface-lowest);
   box-shadow: 0 1px 0 rgba(11, 28, 48, 0.06);
@@ -23,7 +23,7 @@
 .topNavInner {
   max-width: var(--max-width);
   margin: 0 auto;
-  height: 100%;
+  min-height: 5rem;
   padding: 0 1.25rem;
   display: flex;
   align-items: center;
@@ -83,19 +83,13 @@
 }
 
 .navLinks {
-  display: none;
+  display: flex;
   align-items: center;
   gap: 0.25rem;
   height: 100%;
   margin: 0;
   padding: 0;
   list-style: none;
-}
-
-@media (min-width: 768px) {
-  .navLinks {
-    display: flex;
-  }
 }
 
 .navLink,
@@ -177,6 +171,165 @@
   transform: scale(0.97);
 }
 
+.ctaNavDisabled {
+  display: inline-flex;
+  align-items: center;
+  border: none;
+  background: color-mix(in srgb, var(--primary) 55%, var(--outline-variant));
+  color: var(--on-primary);
+  font-weight: 600;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.65rem 1.35rem;
+  border-radius: var(--radius-full);
+  opacity: 0.72;
+  cursor: not-allowed;
+  user-select: none;
+  pointer-events: none;
+  box-shadow: none;
+}
+
+.navNotice {
+  margin: 0;
+  padding: 0.45rem 1.25rem 0.65rem;
+  text-align: center;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary-fixed) 70%, var(--surface-lowest));
+  border-top: 1px solid color-mix(in srgb, var(--outline-variant) 35%, transparent);
+}
+
+@media (min-width: 768px) {
+  .navNotice {
+    padding-left: 2.5rem;
+    padding-right: 2.5rem;
+  }
+}
+
+/* —— Body: optional chat history + main grid —— */
+.bodyRow {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+}
+
+.chatSidebar {
+  flex: 0 0 min(16.5rem, 42vw);
+  max-width: 16.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.85rem 0.75rem;
+  background: var(--surface-lowest);
+  border-right: 1px solid color-mix(in srgb, var(--outline-variant) 40%, transparent);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sidebarHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0 0.25rem;
+}
+
+.sidebarHead h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--on-surface);
+}
+
+.sidebarClose {
+  border: none;
+  background: transparent;
+  color: var(--on-surface-variant);
+  font-size: 0.9rem;
+  padding: 0.25rem 0.4rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.sidebarClose:hover {
+  background: var(--surface-low);
+  color: var(--on-surface);
+}
+
+.sidebarNew {
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  color: var(--primary);
+  font-weight: 650;
+  font-size: 0.82rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  text-align: left;
+}
+
+.sidebarNew:hover {
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+}
+
+.sidebarList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.sidebarEmpty {
+  padding: 0.75rem 0.4rem;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--on-surface-variant);
+}
+
+.sidebarItem {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 0.55rem 0.6rem;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  color: var(--on-surface);
+}
+
+.sidebarItem:hover {
+  background: var(--surface-low);
+}
+
+.sidebarItemActive {
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+
+.sidebarItemTitle {
+  font-size: 0.84rem;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.sidebarItemMeta {
+  font-size: 0.72rem;
+  color: var(--on-surface-variant);
+}
+
 /* —— Main grid —— */
 .main {
   flex: 1;
@@ -188,6 +341,7 @@
   grid-template-columns: 1fr;
   gap: 1.25rem;
   min-height: 0;
+  min-width: 0;
   overflow: hidden;
 }
 

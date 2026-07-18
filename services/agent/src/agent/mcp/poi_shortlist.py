@@ -79,10 +79,14 @@ def active_itinerary_strategy() -> str:
 
 
 def shortlist_target_size(*, num_days: int, pace: Pace) -> int:
-    """Shortlist a bit larger than final stop count so travel/pack have slack."""
+    """Shortlist larger than final stops so each day can fill morning/afternoon/evening."""
     num_days = clamp_trip_days(num_days)
-    final = num_days * STOPS_PER_DAY.get(pace, 4)
-    return max(final + 4, 10, min(16, final + 6))
+    # Per-day seed so densify/pack can meet pace floors without inventing POIs.
+    per_day = {"relaxed": 6, "moderate": 10, "packed": 14}.get(pace, 8)
+    panel_floor = num_days * 3
+    final = max(panel_floor, num_days * max(STOPS_PER_DAY.get(pace, 4), per_day))
+    # Extra slack for travel clustering / meal swaps / low-signal drops.
+    return max(final + 12, panel_floor + 10, 18)
 
 
 def _poi_key(p: POICandidate) -> str:
@@ -147,10 +151,10 @@ def _quota_slots(shortlist_size: int, interest_keys: list[str]) -> dict[str, int
         if k not in CULTURE_TIER_INTERESTS and k not in SOFT_TIER_INTERESTS
     ]
 
-    # Mixed culture+soft trips: ~2× weight for heritage/temple/museum slots.
+    # Mixed culture+soft trips: ~3× weight for heritage/temple/museum slots.
     if culture_soft_mix_active(keys) and culture and (soft or rest):
         weights = {
-            k: (2.0 if k in CULTURE_TIER_INTERESTS else 1.0) for k in keys
+            k: (3.0 if k in CULTURE_TIER_INTERESTS else 1.0) for k in keys
         }
         total_w = sum(weights.values()) or 1.0
         quotas = {

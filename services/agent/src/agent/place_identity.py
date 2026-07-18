@@ -40,6 +40,14 @@ _GENERIC_CORES = frozenset(
     {"city", "pink", "art", "royal", "national", "state", "old", "new", "india"}
 )
 
+# Spelling variants that mean the same place (Amer Fort ↔ Amber Fort).
+_TOKEN_ALIASES: dict[str, str] = {
+    "amber": "amer",
+    "amer": "amer",
+    "jaighar": "jaigarh",
+    "nahargar": "nahargarh",
+}
+
 _REPEAT_RE = re.compile(
     r"\b("
     r"again|once more|one more time|return to|go back to|"
@@ -78,6 +86,7 @@ def core_place_name(name: str | None) -> str:
         if len(candidate) == 1 and candidate[0] in _GENERIC_CORES:
             break
         tokens.pop()
+    tokens = [_TOKEN_ALIASES.get(t, t) for t in tokens]
     return " ".join(tokens)
 
 
