@@ -49,42 +49,135 @@ logger = logging.getLogger(__name__)
 MAX_CLARIFY = 6
 MAX_ORCHESTRATOR_STEPS = 12
 
-_BLOCK_PATTERNS = [
-    r"\bignore (all |previous )?instructions\b",
+# Canonical refusal for jailbreaks, harm, and anything outside Jaipur 2–4 day planning.
+SCOPE_REFUSAL = (
+    f"I only plan {MIN_TRIP_DAYS}–{MAX_TRIP_DAYS} day trips to {SCOPED_CITY}."
+)
+
+_JAILBREAK_PATTERNS = [
+    r"\bignore (all |any |previous |prior |above |the )?instructions?\b",
+    r"\bforget (all |any |previous |prior |your |the )?(instructions?|rules?|prompts?|guidelines?)\b",
+    r"\bdisregard (all |any |previous |prior |your |the )?(instructions?|rules?|prompts?)\b",
+    r"\b(override|bypass|disable)\b.{"
+    r"0,40}\b(safety|rules?|guardrails?|instructions?|system)\b",
+    r"\b(new|different|custom|another)\s+prompts?\b",
+    r"\bi(?:'ll| will) tell (you )?(a |my |the )?new prompts?\b",
+    r"\btell (you )?(a |my |the )?new prompts?\s+now\b",
+    r"\byou are now\b",
+    r"\bact as (if|a|an|my)\b",
+    r"\bpretend (you(?:'re| are)|to be)\b",
+    r"\bdeveloper mode\b",
     r"\bjailbreak\b",
+    r"\bdo anything now\b",
+    r"\bDAN\b",
+    r"\bsystem\s*prompts?\b",
+    r"\breveal (your |the )?(system |hidden |secret )?prompts?\b",
+    r"\bshow (me )?(your |the )?(system |hidden )?prompts?\b",
+    r"\breset (your )?(instructions?|rules?|memory|context)\b",
+    r"\bfrom now on\b.{"
+    r"0,40}\b(ignore|forget|you are)\b",
+    r"\bunrestricted (mode|ai)\b",
+    r"\bwithout (any )?(restrictions?|limits?|rules?|guardrails?)\b",
+]
+
+_HARM_PATTERNS = [
     r"\bhow to make (a )?bomb\b",
-    r"\bkill\b.*\b(people|someone)\b",
+    r"\bkill\b.{"
+    r"0,30}\b(people|someone|them)\b",
     r"\bhack (into|a )\b",
     r"\bchild\s*porn\b",
     r"\bcsam\b",
+    r"\bmake (a )?(weapon|explosive)\b",
+    r"\bhow to (steal|rob|murder)\b",
 ]
 
-_OFF_SCOPE = [
-    r"\bstock tip\b",
-    r"\bcrypto signal\b",
-    r"\bwrite (my )?essay\b",
-    r"\bmedical diagnos",
+_OFF_TOPIC_PATTERNS = [
+    r"\bwhat(?:'s| is) my name\b",
+    r"\bwho am i\b",
+    r"\bwhat(?:'s| is) your name\b",
+    r"\btell me (a )?joke\b",
+    r"\bwrite (me )?(a |an )?(poem|essay|story|code|script|email)\b",
+    r"\b(solve|calculate)\b.{"
+    r"0,20}\b(math|equation|integral)\b",
+    r"\bwhat is (the )?(meaning of life|capital of)\b",
+    r"\bwho (won|is the president|is the prime minister)\b",
+    r"\bgenerate (a )?(password|image|logo)\b",
+    r"\btranslate (this|the following)\b",
+    r"\bplay (a )?game\b",
 ]
+
+
+def _scope_refusal() -> str:
+    return SCOPE_REFUSAL
+
+
+def _is_plausible_slot_answer(message: str) -> bool:
+    """Short answers that fill trip slots during clarify (days / pace / interests / yes)."""
+    lower = (message or "").strip().lower()
+    if not lower:
+        return False
+    if _find_any_day_count(message) is not None:
+        return True
+    if _find_pace(message) is not None:
+        return True
+    if _find_interests(message):
+        return True
+    if re.fullmatch(
+        r"(yes|yeah|yep|yup|y|ok|okay|sure|confirm|confirmed|firm|"
+        r"no|nope|nah|cancel)[\s.!?]*",
+        lower,
+    ):
+        return True
+    if re.fullmatch(r"(hi|hello|hey|hola)[\s.!?]*", lower):
+        return True
+    return False
+
+
+def _is_jaipur_travel_utterance(message: str) -> bool:
+    """True when the user is clearly talking about Jaipur trip plan / edit / tips."""
+    lower = (message or "").strip().lower()
+    if not lower:
+        return False
+    if _is_plausible_slot_answer(message):
+        return True
+    if re.search(
+        r"\b("
+        r"jaipur|rajasthan|pink\s*city|itinerary|weekend\s+trip|"
+        r"plan(?:\s+a)?\s+trip|plan\s+\d|days?\s+(?:in|to|for)|"
+        r"make\s+day|day\s+[1-4]|edit|swap|add|remove|trim|"
+        r"relax(?:ed)?|packed|balanced|moderate|pace|"
+        r"heritage|museum|temple|food|market|shopping|park|garden|"
+        r"weather|rains?|forecast|opening\s+hours?|etiquette|scam|"
+        r"doable|feasible|why\s+did\s+you|hawa\s+mahal|amber\s+fort|"
+        r"amer\s+fort|city\s+palace|jantar|nahargarh|jal\s+mahal|"
+        r"safe(?:ty)?|tips?|crowded|hours?|timings?"
+        r")\b",
+        lower,
+    ):
+        return True
+    # Standalone weather / tip helpers used elsewhere (keep Jaipur-scoped Q&A allowed).
+    if re.search(r"\b(what if it rains?|if it rains?|forecast)\b", lower):
+        return True
+    return False
 
 
 def _safety_check(message: str) -> tuple[str, str | None]:
-    lower = message.lower()
-    for pat in _BLOCK_PATTERNS:
-        if re.search(pat, lower):
-            return (
-                "blocked",
-                "I can't help with that request. I only plan safe travel itineraries "
-                "for cities in India.",
-            )
-    for pat in _OFF_SCOPE:
-        if re.search(pat, lower):
-            return (
-                "blocked",
-                "I'm a travel planner for "
-                f"**{SCOPED_CITY}** only "
-                f"({MIN_TRIP_DAYS}–{MAX_TRIP_DAYS} day trips). "
-                "Ask me to plan or edit a Jaipur itinerary instead.",
-            )
+    """Block jailbreaks, harm, and off-topic turns outside Jaipur 2–4 day planning."""
+    lower = (message or "").lower()
+    refusal = _scope_refusal()
+
+    for pat in _JAILBREAK_PATTERNS + _HARM_PATTERNS:
+        if re.search(pat, lower, flags=re.I):
+            return "blocked", refusal
+
+    for pat in _OFF_TOPIC_PATTERNS:
+        if re.search(pat, lower, flags=re.I):
+            return "blocked", refusal
+
+    # Anything that isn't a travel/slot utterance is out of scope for this demo.
+    if not _is_jaipur_travel_utterance(message):
+        return "blocked", refusal
+
     return "ok", None
 
 
@@ -3056,7 +3149,7 @@ def orchestrator_node(state: GraphState) -> dict[str, Any]:
             "next_agent": None,
             "orchestration_started": False,
             "user_reply": (
-                f"I plan **{SCOPED_CITY}** trips ({MIN_TRIP_DAYS}–{MAX_TRIP_DAYS} days). "
+                f"{SCOPE_REFUSAL} "
                 f"For example: “Plan a 3-day trip to {SCOPED_CITY}, food and culture, relaxed.”"
             ),
             "dispatch_plan": _dispatch_from_waves([]),
