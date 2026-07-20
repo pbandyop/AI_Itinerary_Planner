@@ -4,22 +4,24 @@ The companion UI lives in `apps/web`. Browser calls go to same-origin `/api/agen
 
 ## Project settings (important)
 
-This project is configured so the Vercel **Root Directory is empty (`.`)** and you deploy **from `apps/web`**.
+Vercel **Root Directory** must be **`apps/web`** (monorepo). That is required for GitHub / dashboard deploys from the repo root — otherwise `npm install` fails looking for `/package.json`.
 
-Do **not** set Root Directory to `apps/web`. That makes Vercel look for `apps/web/apps/web` when the CLI uploads from inside `apps/web`, and fails with:
+| Deploy method | Where to run | Root Directory |
+|---------------|--------------|----------------|
+| GitHub / dashboard Redeploy | repo root (automatic) | `apps/web` |
+| CLI | **repo root** (`npx vercel --prod`) | `apps/web` |
 
-> The specified Root Directory "apps/web" does not exist
+Do **not** run `vercel --prod` from inside `apps/web` while Root Directory is `apps/web` — Vercel will look for `apps/web/apps/web` and fail.
 
-GitHub auto-deploy is disabled for this project (monorepo root has no Next.js app). Use the CLI below after each web change.
+Agent-only commits are skipped when `apps/web` is unchanged (`ignoreCommand`).
 
 ## Quick path (CLI)
 
-From **`apps/web`**:
+From the **repo root**:
 
 ```bash
-cd apps/web
 npx vercel login
-npx vercel link   # itinerary-planner-web; Root Directory must stay empty / "."
+npx vercel link   # itinerary-planner-web; confirm Root Directory = apps/web
 
 # Production env (once)
 npx vercel env add AGENT_BASE_URL production
@@ -38,7 +40,7 @@ npx vercel --prod
 ## Dashboard path (first-time import)
 
 1. [vercel.com/new](https://vercel.com/new) → Import `AI_Itinerary_Planner`
-2. **Root Directory** → leave **empty**, or pick `apps/web` *only if* you will always deploy via Git from the monorepo (not via CLI from `apps/web`)
+2. **Root Directory** → **`apps/web`**
 3. Environment variables (Production + Preview):
 
 | Name | Value |
@@ -47,7 +49,7 @@ npx vercel --prod
 | `NEXT_PUBLIC_AGENT_BASE_URL` | same as above |
 | `N8N_WEBHOOK_URL` | optional n8n production webhook |
 
-4. Deploy (or use CLI from `apps/web` as above)
+4. Deploy (or use CLI from repo root as above)
 
 **Live (this project):** https://itinerary-planner-web-seven.vercel.app  
 **Agent:** https://agent-production-1675.up.railway.app
