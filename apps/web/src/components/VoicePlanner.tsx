@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { invokeAgent, type ConversationTurn } from "@/lib/agent";
+import {
+  appendLiveEvalRow,
+  inferSourceChannel,
+  sourcesToRetrievalContext,
+} from "@/lib/evalCsv";
 import { normalizeSttMessage } from "@/lib/sttNormalize";
 import {
   speakText,
@@ -13,6 +18,7 @@ import type { Itinerary, Source, TripConstraints } from "@/types/itinerary";
 import type { TravelTimeResult, WeatherResult } from "@/types/mcp";
 import type { PipelineLogStep } from "@/lib/agent";
 import AssistantReply, { speakableReply } from "./AssistantReply";
+import EvalPanel from "./EvalPanel";
 import PipelineTrace from "./PipelineTrace";
 import ItineraryView from "./ItineraryView";
 import SourcesPanel, { collectSources } from "./SourcesPanel";
@@ -117,6 +123,7 @@ export default function VoicePlanner() {
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [menuChatId, setMenuChatId] = useState<string | null>(null);
+  const [activeView, setActiveView] = useState<"planner" | "evals">("planner");
   const sttTextRef = useRef("");
   const abortRef = useRef<AbortController | null>(null);
   const itineraryRef = useRef<Itinerary | null>(null);
@@ -232,7 +239,10 @@ export default function VoicePlanner() {
     setSources([]);
     setConversation([]);
     setActiveChatId(null);
-    setSessionId(newSessionId());
+    // New Trip gets a fresh Session_Id; eval CSV is never cleared (append-only).
+    const nextSessionId = newSessionId();
+    sessionIdRef.current = nextSessionId;
+    setSessionId(nextSessionId);
     stopSpeaking();
     setAiSpeaking(false);
     if (tts) {
@@ -284,7 +294,9 @@ export default function VoicePlanner() {
       setAiSpeaking(false);
       setMenuChatId(null);
       setActiveChatId(chat.id);
-      setSessionId(chat.sessionId || chat.id);
+      const restoredSession = chat.sessionId || chat.id;
+      sessionIdRef.current = restoredSession;
+      setSessionId(restoredSession);
       setConversation(chat.conversation || []);
       setItinerary(chat.itinerary);
       setTravelTimes(chat.travelTimes);
@@ -388,6 +400,7 @@ export default function VoicePlanner() {
       abortRef.current?.abort();
       const ac = new AbortController();
       abortRef.current = ac;
+      const timestampUq = new Date().toISOString();
 
       try {
         const prev = itineraryRef.current;
@@ -407,7 +420,13 @@ export default function VoicePlanner() {
           },
           ac.signal
         );
-        setReply(result.user_reply || "");
+        const timestampR = new Date().toISOString();
+        const replyText = result.user_reply || "";
+        const replySources =
+          result.sources?.length
+            ? result.sources
+            : result.merged_itinerary?.sources || [];
+        setReply(replyText);
         setIntent(result.intent);
         setSafety(result.safety_status);
         setPipelineLog(result.pipeline_log || []);
@@ -433,9 +452,21 @@ export default function VoicePlanner() {
         }
         setConversation((c) => [
           ...c,
-          { role: "assistant", content: result.user_reply || "" },
+          { role: "assistant", content: replyText },
         ]);
-        speakText(speakableReply(result.user_reply || ""), tts, {
+        appendLiveEvalRow({
+          sessionId: sessionIdRef.current,
+          timestampUq,
+          timestampR,
+          question: text,
+          retrievalContext: sourcesToRetrievalContext(replySources),
+          sourceChannel: inferSourceChannel(
+            replySources,
+            result.agent_trace as Array<Record<string, unknown>> | undefined
+          ),
+          actualOutput: replyText,
+        });
+        speakText(speakableReply(replyText), tts, {
           onStart: () => setAiSpeaking(true),
           onEnd: () => setAiSpeaking(false),
         });
@@ -583,15 +614,9 @@ export default function VoicePlanner() {
     }, 4500);
   }, []);
 
-  const showEvalsComingSoon = useCallback(() => {
-    setNavNotice("Evals will appear here");
-    if (navNoticeTimerRef.current) {
-      window.clearTimeout(navNoticeTimerRef.current);
-    }
-    navNoticeTimerRef.current = window.setTimeout(() => {
-      setNavNotice(null);
-      navNoticeTimerRef.current = null;
-    }, 4500);
+  const showEvals = useCallback(() => {
+    setActiveView("evals");
+    setNavNotice(null);
   }, []);
 
   useEffect(() => {
@@ -603,6 +628,47 @@ export default function VoicePlanner() {
   }, []);
 
   void reply;
+
+  if (activeView === "evals") {
+    return (
+      <div className={styles.shell}>
+        <header className={styles.topNav}>
+          <div className={styles.topNavInner}>
+            <a className={styles.brandLink} href="/">
+              <span className={styles.brandMark} aria-hidden>
+                ✈
+              </span>
+              <span className={styles.brandText}>
+                <span className={styles.brandName}>VocalVoyage</span>
+                <span className={styles.brandSub}>Jaipur · 2–4 days</span>
+              </span>
+            </a>
+            <ul className={styles.navLinks}>
+              <li>
+                <button
+                  type="button"
+                  className={styles.navLink}
+                  onClick={() => setActiveView("planner")}
+                >
+                  Planner
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  className={`${styles.navLink} ${styles.navLinkActive}`}
+                  onClick={showEvals}
+                >
+                  Eval
+                </button>
+              </li>
+            </ul>
+          </div>
+        </header>
+        <EvalPanel onBack={() => setActiveView("planner")} />
+      </div>
+    );
+  }
 
   return (
     <div className={styles.shell}>
@@ -631,7 +697,7 @@ export default function VoicePlanner() {
               <button
                 type="button"
                 className={styles.navLink}
-                onClick={showEvalsComingSoon}
+                onClick={showEvals}
               >
                 Eval
               </button>

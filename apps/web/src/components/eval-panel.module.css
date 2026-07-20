@@ -1,0 +1,282 @@
+.panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: var(--max-width);
+  width: 100%;
+  margin: 0 auto;
+  padding: 1.25rem 1.25rem 2rem;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-shrink: 0;
+}
+
+.kicker {
+  margin: 0 0 0.25rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--on-surface-variant);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.35rem, 2vw, 1.75rem);
+  font-weight: 700;
+  color: var(--on-surface);
+}
+
+.lede {
+  margin: 0.45rem 0 0;
+  max-width: 42rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--on-surface-variant);
+}
+
+.backBtn {
+  flex-shrink: 0;
+  border: 1px solid color-mix(in srgb, var(--outline-variant) 55%, transparent);
+  background: var(--surface-lowest);
+  color: var(--on-surface);
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 0.55rem 0.85rem;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.backBtn:hover {
+  background: var(--surface-low);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.primaryBtn,
+.secondaryBtn,
+.linkBtn,
+.uploadBtn {
+  border-radius: var(--radius-md);
+  font-size: 0.84rem;
+  font-weight: 650;
+  padding: 0.55rem 0.85rem;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.primaryBtn {
+  border: none;
+  background: var(--primary);
+  color: var(--on-primary, #fff);
+}
+
+.primaryBtn:hover {
+  filter: brightness(1.05);
+}
+
+.secondaryBtn,
+.uploadBtn {
+  border: 1px solid color-mix(in srgb, var(--outline-variant) 55%, transparent);
+  background: var(--surface-lowest);
+  color: var(--on-surface);
+}
+
+.secondaryBtn:hover,
+.uploadBtn:hover {
+  background: var(--surface-low);
+}
+
+.linkBtn {
+  border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  color: var(--primary);
+}
+
+.linkBtn:hover {
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+}
+
+.hiddenFile {
+  display: none;
+}
+
+.addCol {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: auto;
+}
+
+.colInput {
+  border: 1px solid color-mix(in srgb, var(--outline-variant) 55%, transparent);
+  background: var(--surface-lowest);
+  color: var(--on-surface);
+  border-radius: var(--radius-md);
+  padding: 0.5rem 0.65rem;
+  font-size: 0.84rem;
+  min-width: 10rem;
+}
+
+.status {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.tableWrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid color-mix(in srgb, var(--outline-variant) 45%, transparent);
+  border-radius: var(--radius-md);
+  background: var(--surface-lowest);
+  overflow: hidden;
+}
+
+.tableScroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.table th,
+.table td {
+  border-bottom: 1px solid color-mix(in srgb, var(--outline-variant) 35%, transparent);
+  border-right: 1px solid color-mix(in srgb, var(--outline-variant) 25%, transparent);
+  padding: 0.65rem 0.75rem;
+  vertical-align: top;
+  text-align: left;
+}
+
+.table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-low);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.rowNum {
+  width: 2.5rem;
+  color: var(--on-surface-variant);
+  font-variant-numeric: tabular-nums;
+}
+
+.textCell {
+  max-width: 18rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
+.contextCell {
+  max-width: 20rem;
+}
+
+.contextPre {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--on-surface-variant);
+}
+
+.editCell {
+  min-width: 14rem;
+  max-width: 22rem;
+}
+
+.cellInput {
+  width: 100%;
+  min-height: 4.5rem;
+  resize: vertical;
+  border: 1px solid color-mix(in srgb, var(--primary) 28%, transparent);
+  background: color-mix(in srgb, var(--primary) 4%, var(--surface-lowest));
+  color: var(--on-surface);
+  border-radius: var(--radius-sm);
+  padding: 0.45rem 0.55rem;
+  font: inherit;
+  line-height: 1.35;
+}
+
+.cellInput::placeholder {
+  color: color-mix(in srgb, var(--on-surface-variant) 75%, transparent);
+}
+
+.emptyCell {
+  padding: 1.5rem 1rem;
+  text-align: center;
+  color: var(--on-surface-variant);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.editableTag,
+.extraTag {
+  font-size: 0.68rem;
+  font-weight: 600;
+  margin-left: 0.35rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 999px;
+}
+
+.editableTag {
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+
+.extraTag {
+  color: var(--on-surface-variant);
+  background: var(--surface);
+}
+
+.footnote {
+  margin: 0;
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  color: var(--on-surface-variant);
+}
+
+.footnote code {
+  font-size: 0.76rem;
+}
+
+@media (max-width: 720px) {
+  .addCol {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .colInput {
+    flex: 1;
+    min-width: 0;
+  }
+}
