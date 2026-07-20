@@ -145,6 +145,9 @@ def _is_jaipur_travel_utterance(message: str) -> bool:
         return False
     if _is_plausible_slot_answer(message):
         return True
+    # Tip / hours / place Q&A (RAG) — must pass safety before routing.
+    if _is_knowledge_query(message) or _is_weather_query(message):
+        return True
     if re.search(
         r"\b("
         r"jaipur|rajasthan|pink\s*city|itinerary|weekend\s+trip|"
@@ -152,10 +155,12 @@ def _is_jaipur_travel_utterance(message: str) -> bool:
         r"make\s+day|day\s+[1-4]|edit|swap|add|remove|trim|"
         r"relax(?:ed)?|packed|balanced|moderate|pace|"
         r"heritage|museum|temple|food|market|shopping|park|garden|"
+        r"cafe|café|restaurant|fort|palace|bazaar|mandir|"
         r"weather|rains?|forecast|opening\s+hours?|etiquette|scam|"
         r"doable|feasible|why\s+did\s+you|hawa\s+mahal|amber\s+fort|"
         r"amer\s+fort|city\s+palace|jantar|nahargarh|jal\s+mahal|"
         r"safe(?:ty)?|tips?|crowded|hours?|timings?|"
+        r"tell me (?:more )?about|more about|"
         r"flexible|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)"
         r"[a-z]*\s+\d{1,2}|20\d{2}-\d{1,2}-\d{1,2}"
         r")\b",
@@ -191,6 +196,22 @@ def _safety_check(
             trip is not None
             and not trip.confirmed
             and _missing_slot_question(trip) is not None
+        ):
+            return "ok", None
+        # "Tell me more about <stop>" after a plan — treat as in-scope tip Q&A.
+        has_itin = bool(
+            as_itinerary(
+                (state or {}).get("previous_itinerary")
+                or (state or {}).get("merged_itinerary")
+            )
+            if state
+            else None
+        )
+        if has_itin and re.search(
+            r"\b(tell me (?:more )?about|more about|what about|"
+            r"why (?:did you |do you )?(?:pick|choose|include)|"
+            r"opening hours?|hours? for|tips? for)\b",
+            lower,
         ):
             return "ok", None
         return "blocked", refusal
