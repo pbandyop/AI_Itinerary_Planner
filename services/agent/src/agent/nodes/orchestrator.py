@@ -122,6 +122,11 @@ def _is_plausible_slot_answer(message: str) -> bool:
         return True
     if _find_interests(message):
         return True
+    # Trip start date / flexible — otherwise safety blocks the date slot answer.
+    if _find_start_date(message) is not None:
+        return True
+    if _dates_flexible(message):
+        return True
     if re.fullmatch(
         r"(yes|yeah|yep|yup|y|ok|okay|sure|confirm|confirmed|firm|"
         r"no|nope|nah|cancel)[\s.!?]*",
@@ -150,7 +155,9 @@ def _is_jaipur_travel_utterance(message: str) -> bool:
         r"weather|rains?|forecast|opening\s+hours?|etiquette|scam|"
         r"doable|feasible|why\s+did\s+you|hawa\s+mahal|amber\s+fort|"
         r"amer\s+fort|city\s+palace|jantar|nahargarh|jal\s+mahal|"
-        r"safe(?:ty)?|tips?|crowded|hours?|timings?"
+        r"safe(?:ty)?|tips?|crowded|hours?|timings?|"
+        r"flexible|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)"
+        r"[a-z]*\s+\d{1,2}|20\d{2}-\d{1,2}-\d{1,2}"
         r")\b",
         lower,
     ):
@@ -161,7 +168,9 @@ def _is_jaipur_travel_utterance(message: str) -> bool:
     return False
 
 
-def _safety_check(message: str) -> tuple[str, str | None]:
+def _safety_check(
+    message: str, state: GraphState | None = None
+) -> tuple[str, str | None]:
     """Block jailbreaks, harm, and off-topic turns outside Jaipur 2–4 day planning."""
     lower = (message or "").lower()
     refusal = _scope_refusal()
@@ -176,6 +185,14 @@ def _safety_check(message: str) -> tuple[str, str | None]:
 
     # Anything that isn't a travel/slot utterance is out of scope for this demo.
     if not _is_jaipur_travel_utterance(message):
+        # Mid slot-fill (e.g. date answer) must not be refused as out-of-scope.
+        trip = as_trip(state.get("trip_constraints")) if state else None
+        if (
+            trip is not None
+            and not trip.confirmed
+            and _missing_slot_question(trip) is not None
+        ):
+            return "ok", None
         return "blocked", refusal
 
     return "ok", None
@@ -184,6 +201,8 @@ def _safety_check(message: str) -> tuple[str, str | None]:
 _FOREIGN_DEST_RE = re.compile(
     r"\b("
     r"paris|london|rome|tokyo|dubai|singapore|bangkok|bali|sydney|"
+    r"jakarta|indonesia|hong\s*kong|seoul|beijing|shanghai|manila|"
+    r"kuala\s*lumpur|phuket|istanbul|cairo|marrakech|"
     r"barcelona|amsterdam|berlin|venice|florence|new york|nyc|"
     r"france|italy|spain|europe|germany|greece|portugal|switzerland|"
     r"eiffel(?: tower)?|louvre|colosseum|big ben|times square"
@@ -3155,7 +3174,7 @@ def orchestrator_node(state: GraphState) -> dict[str, Any]:
             "dispatch_plan": _dispatch_from_waves([]),
         }
 
-    status, refusal = _safety_check(message)
+    status, refusal = _safety_check(message, state)
     if status == "blocked":
         logger.info("NODE orchestrator SAFETY blocked")
         return {

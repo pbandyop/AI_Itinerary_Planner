@@ -416,7 +416,8 @@ def extract_interests(message: str) -> list[str]:
     found: list[str] = []
 
     for term in INTEREST_CATALOG:
-        if term in lower:
+        # Word-boundary match — avoid "art" inside "Jakarta", "park" in "parking", etc.
+        if re.search(rf"(?<![a-z0-9]){re.escape(term)}(?![a-z0-9])", lower):
             found.append(normalize_interest(term))
 
     # Multi-word / alias phrases not covered by simple substring catalog matches.
