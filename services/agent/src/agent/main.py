@@ -384,11 +384,20 @@ def _run_invoke(body: InvokeRequest) -> InvokeResponse:
         itinerary = _jsonable(itinerary) if itinerary else None
     sources = None
     state_sources = _jsonable(result.get("sources"))
+    itin_sources = None
     if isinstance(itinerary, dict):
         raw_sources = itinerary.get("sources")
         if isinstance(raw_sources, list) and raw_sources:
-            sources = raw_sources
-    if sources is None and isinstance(state_sources, list) and state_sources:
+            itin_sources = raw_sources
+    intent = result.get("intent")
+    # Tip / explain turns must expose RAG (or weather) citations — never
+    # substitute the plan's OSM/weather References list.
+    if intent == "explain":
+        if isinstance(state_sources, list) and state_sources:
+            sources = state_sources
+    elif isinstance(itin_sources, list) and itin_sources:
+        sources = itin_sources
+    elif isinstance(state_sources, list) and state_sources:
         sources = state_sources
     reply = result.get("user_reply", "") or ""
     convo.append({"role": "assistant", "content": reply})

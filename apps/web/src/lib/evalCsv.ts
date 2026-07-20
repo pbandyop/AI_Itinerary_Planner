@@ -85,6 +85,48 @@ export function clearEvalSheet(): EvalSheet {
   return empty;
 }
 
+/** True for tip / POI / hours turns that should log knowledge citations. */
+export function isKnowledgeTurn(
+  intent: string | null | undefined,
+  agentTrace?: Array<Record<string, unknown>> | null
+): boolean {
+  if ((intent || "").toLowerCase() === "explain") return true;
+  for (const entry of agentTrace || []) {
+    const tool = String(entry.tool || entry.action || "").toLowerCase();
+    if (
+      tool.includes("knowledge_rag") ||
+      tool.includes("knowledge_qa") ||
+      (tool.includes("rag") && !tool.includes("frag"))
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Sources for eval CSV / tip grounding.
+ * Explain turns: RAG (or turn-level) sources only — never the itinerary MCP dump.
+ */
+export function sourcesForEvalLog(input: {
+  intent: string | null | undefined;
+  sources: Source[] | null | undefined;
+  itinerarySources?: Source[] | null | undefined;
+  agentTrace?: Array<Record<string, unknown>> | null;
+}): Source[] {
+  const top = Array.isArray(input.sources) ? input.sources : [];
+  const itin = Array.isArray(input.itinerarySources)
+    ? input.itinerarySources
+    : [];
+  if (isKnowledgeTurn(input.intent, input.agentTrace)) {
+    const rag = top.filter((s) => channelFromDataset(s.dataset) === "RAG");
+    if (rag.length) return rag;
+    if (top.length) return top;
+    return [];
+  }
+  return top.length ? top : itin;
+}
+
 /** Map a Source.dataset (or similar) to RAG vs MCP. */
 export function channelFromDataset(dataset: string | null | undefined): "RAG" | "MCP" | "other" {
   const ds = (dataset || "").toLowerCase().trim();
@@ -334,7 +376,8 @@ export function downloadCsv(
   columns: string[],
   rows: EvalRow[]
 ): void {
-  const blob = new Blob([toCsv(columns, rows)], {
+  // BOM so Excel opens UTF-8 correctly (avoids â€" / CafÃ© mojibake).
+  const blob = new Blob(["\uFEFF" + toCsv(columns, rows)], {
     type: "text/csv;charset=utf-8",
   });
   const url = URL.createObjectURL(blob);

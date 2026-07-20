@@ -6,6 +6,7 @@ import { invokeAgent, type ConversationTurn } from "@/lib/agent";
 import {
   appendLiveEvalRow,
   inferSourceChannel,
+  sourcesForEvalLog,
   sourcesToRetrievalContext,
 } from "@/lib/evalCsv";
 import { normalizeSttMessage } from "@/lib/sttNormalize";
@@ -422,15 +423,24 @@ export default function VoicePlanner() {
         );
         const timestampR = new Date().toISOString();
         const replyText = result.user_reply || "";
-        const replySources =
-          result.sources?.length
-            ? result.sources
-            : result.merged_itinerary?.sources || [];
+        const replySources = sourcesForEvalLog({
+          intent: result.intent,
+          sources: result.sources,
+          itinerarySources: result.merged_itinerary?.sources,
+          agentTrace: result.agent_trace as
+            | Array<Record<string, unknown>>
+            | undefined,
+        });
         setReply(replyText);
         setIntent(result.intent);
         setSafety(result.safety_status);
         setPipelineLog(result.pipeline_log || []);
-        setSources(result.sources || []);
+        // Tip turns: show turn citations (RAG). Plan turns: allow itinerary refs.
+        if (result.intent === "explain") {
+          setSources(replySources);
+        } else {
+          setSources(result.sources || []);
+        }
         if (result.trip_constraints) {
           setPendingTrip(result.trip_constraints);
         }
@@ -438,6 +448,7 @@ export default function VoicePlanner() {
           setItinerary(result.merged_itinerary);
           setPendingTrip(result.merged_itinerary.trip);
           if (
+            result.intent !== "explain" &&
             !result.sources?.length &&
             result.merged_itinerary.sources?.length
           ) {
@@ -1021,7 +1032,13 @@ export default function VoicePlanner() {
             }
           />
 
-          <SourcesPanel sources={collectSources(sources, itinerary)} />
+          <SourcesPanel
+            sources={
+              intent === "explain"
+                ? sources
+                : collectSources(sources, itinerary)
+            }
+          />
         </section>
       </div>
       </div>
