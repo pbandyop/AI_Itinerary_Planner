@@ -145,6 +145,9 @@ def _is_jaipur_travel_utterance(message: str) -> bool:
         return False
     if _is_plausible_slot_answer(message):
         return True
+    # Itinerary day index answers: "Day 1", "day two", "Day one", bare "2".
+    if _is_day_index_answer(message):
+        return True
     # Tip / hours / place Q&A (RAG) — must pass safety before routing.
     if _is_knowledge_query(message) or _is_weather_query(message):
         return True
@@ -152,7 +155,8 @@ def _is_jaipur_travel_utterance(message: str) -> bool:
         r"\b("
         r"jaipur|rajasthan|pink\s*city|itinerary|weekend\s+trip|"
         r"plan(?:\s+a)?\s+trip|plan\s+\d|days?\s+(?:in|to|for)|"
-        r"make\s+day|day\s+[1-4]|edit|swap|add|remove|trim|"
+        r"make\s+day|day\s+[1-4]|day\s+(?:one|two|three|four|first|second|third|fourth)|"
+        r"edit|swap|add|remove|trim|"
         r"relax(?:ed)?|packed|balanced|moderate|pace|"
         r"heritage|museum|temple|food|market|shopping|park|garden|"
         r"cafe|café|restaurant|fort|palace|bazaar|mandir|"
@@ -169,6 +173,28 @@ def _is_jaipur_travel_utterance(message: str) -> bool:
         return True
     # Standalone weather / tip helpers used elsewhere (keep Jaipur-scoped Q&A allowed).
     if re.search(r"\b(what if it rains?|if it rains?|forecast)\b", lower):
+        return True
+    return False
+
+
+def _is_day_index_answer(message: str) -> bool:
+    """True for short itinerary-day replies: Day 1, day two, first, 2, etc."""
+    lower = (message or "").strip().lower()
+    if not lower:
+        return False
+    # Prefer the shared parser used by rain/edit flows.
+    day_m, _ = _parse_target_day(message)
+    if day_m is not None and re.fullmatch(
+        r"(?:day\s*)?(?:[1-4]|one|two|three|four|first|second|third|fourth|"
+        r"1st|2nd|3rd|4th)[\s.!?]*",
+        lower,
+    ):
+        return True
+    if re.fullmatch(
+        r"day\s*(?:[1-4]|one|two|three|four|first|second|third|fourth|"
+        r"1st|2nd|3rd|4th)[\s.!?]*",
+        lower,
+    ):
         return True
     return False
 
@@ -198,6 +224,24 @@ def _safety_check(
             and _missing_slot_question(trip) is not None
         ):
             return "ok", None
+        # Rain / weather dialog follow-ups (day index, yes/no, date) stay in-scope.
+        pending = (state or {}).get("pending_dialog") if state else None
+        if isinstance(pending, dict):
+            kind = str(pending.get("type") or "")
+            if kind in {
+                "rain_day_ask",
+                "rain_monsoon_ask",
+                "rain_swap_offer",
+                "weather_date_ask",
+                "tip_confirm",
+            }:
+                if (
+                    _is_day_index_answer(message)
+                    or _yes_no(message) is not None
+                    or _find_start_date(message) is not None
+                    or re.search(r"\b(skip|later|not now)\b", lower)
+                ):
+                    return "ok", None
         # "Tell me more about <stop>" after a plan — treat as in-scope tip Q&A.
         has_itin = bool(
             as_itinerary(
