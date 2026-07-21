@@ -20,7 +20,9 @@ class ItineraryPlaceMatch:
 
 
 def _normalize(text: str) -> str:
-    return re.sub(r"\s+", " ", (text or "").lower().strip())
+    from agent.rag.retrieve import normalize_match_text
+
+    return normalize_match_text(text)
 
 
 def _tokens(text: str) -> set[str]:

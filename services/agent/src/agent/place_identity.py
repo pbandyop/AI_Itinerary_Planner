@@ -105,7 +105,11 @@ class _NamedPlace(Protocol):
 
 
 def normalize_place_name(name: str | None) -> str:
+    import unicodedata
+
     text = (name or "").lower().strip()
+    text = unicodedata.normalize("NFD", text)
+    text = "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
     text = text.replace("&", " and ")
     text = re.sub(r"[^\w\s]", " ", text)
     text = re.sub(r"\s+", " ", text).strip()

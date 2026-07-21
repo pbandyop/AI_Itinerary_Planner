@@ -603,6 +603,8 @@ def _answer_knowledge_query(
         extract_place_terms,
         is_thin_place_listing,
         knowledge_search,
+        place_mentioned,
+        places_mentioned,
         sources_from_knowledge,
     )
 
@@ -752,10 +754,8 @@ def _answer_knowledge_query(
         place_matched = False
         if places:
             def _snip_matches(s) -> bool:  # noqa: ANN001
-                hay = (s.text or "").lower()
-                return any(
-                    p in hay or excerpt_place_from_snippet(s.text or "", p)
-                    for p in places
+                return places_mentioned(s.text or "", places) or any(
+                    excerpt_place_from_snippet(s.text or "", p) for p in places
                 )
 
             preferred = [s for s in snippets if _snip_matches(s)]
@@ -857,7 +857,7 @@ def _answer_knowledge_query(
             timed = [
                 s
                 for s in pool
-                if any(p in (s.text or "").lower() for p in places)
+                if places_mentioned(s.text or "", places)
                 and _HOUR_CLOCK_RE.search(s.text or "")
             ]
             if not timed:
@@ -1192,9 +1192,11 @@ def _answer_knowledge_query(
             cite = format_source_cite(c0, text=snip.text)
             lines.append(f"• {text}{cite}")
         place_bit = f" about {places[0].title()}" if places else ""
-        grounded = any(
-            any(p in (s.text or "").lower() for p in places) for s in snippets
-        ) if places else True
+        grounded = (
+            any(places_mentioned(s.text or "", places) for s in snippets)
+            if places
+            else True
+        )
         if places and not grounded:
             reply = (
                 f"I found {city} guide material, but nothing specific{place_bit} "

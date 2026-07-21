@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import unicodedata
 from functools import lru_cache
 from typing import Any
 
@@ -64,6 +65,30 @@ TOPIC_TEXT_MARKERS: dict[str, tuple[str, ...]] = {
 
 def _normalize_city(city: str) -> str:
     return re.sub(r"\s+", " ", city.strip()).lower()
+
+
+def normalize_match_text(text: str | None) -> str:
+    """Lowercase + fold accents (Café → cafe) for place substring matching."""
+    s = (text or "").lower().strip()
+    s = unicodedata.normalize("NFD", s)
+    s = "".join(ch for ch in s if unicodedata.category(ch) != "Mn")
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def place_mentioned(haystack: str | None, place: str | None) -> bool:
+    """True if place appears in haystack, ignoring accents (cafe ≡ café)."""
+    h = normalize_match_text(haystack)
+    p = normalize_match_text(place)
+    if not h or not p:
+        return False
+    if p in h:
+        return True
+    tokens = [t for t in re.split(r"\s+", p) if t and t not in {"the", "a", "an"}]
+    return bool(tokens) and all(t in h for t in tokens)
+
+
+def places_mentioned(haystack: str | None, places: list[str] | None) -> bool:
+    return any(place_mentioned(haystack, p) for p in (places or []) if p)
 
 
 def _load_place_names(city: str) -> list[str]:
@@ -149,10 +174,13 @@ def extract_place_terms(query: str, city: str = "Jaipur") -> list[str]:
     from agent.rag.corpus import load_place_aliases
 
     lower = (query or "").lower()
+    fold_q = normalize_match_text(query)
     found: list[str] = []
     extras = ("pink city", "old city", "ram niwas", "albert hall")
     for name in list(_load_place_names(city)) + list(extras):
-        if name in lower and name not in found:
+        if (
+            name in lower or normalize_match_text(name) in fold_q
+        ) and name not in found:
             found.append(name)
     # Free-form: "tell me more about X", "opening hours for X",
     # "why did you pick X", "why choose X"
@@ -204,41 +232,42 @@ def _doc_matches_places(doc: Document, places: list[str]) -> bool:
             str(meta.get("title") or ""),
             " ".join(str(a) for a in (meta.get("aliases") or [])),
         ]
-    ).lower()
+    )
     # aliases may be stored as joined string for Chroma
     alias_field = meta.get("aliases")
     if isinstance(alias_field, str) and alias_field:
-        hay += " " + alias_field.lower()
-    return any(p in hay for p in places)
+        hay += " " + alias_field
+    return places_mentioned(hay, places)
 
 
 def _place_boost_score(text: str, places: list[str], doc: Document | None = None) -> int:
     if not places:
         return 0
-    low = text.lower()
+    low = normalize_match_text(text)
     if doc is not None:
         meta = doc.metadata or {}
-        low = (
+        low = normalize_match_text(
             low
             + " "
-            + str(meta.get("place_name") or "").lower()
+            + str(meta.get("place_name") or "")
             + " "
-            + str(meta.get("title") or "").lower()
+            + str(meta.get("title") or "")
             + " "
-            + " ".join(str(a).lower() for a in (meta.get("aliases") or []))
+            + " ".join(str(a) for a in (meta.get("aliases") or []))
         )
         alias_field = meta.get("aliases")
         if isinstance(alias_field, str) and alias_field:
-            low = low + " " + alias_field.lower()
+            low = normalize_match_text(low + " " + alias_field)
     score = 0
     matched = False
     for p in places:
-        if p not in low:
+        pf = normalize_match_text(p)
+        if pf not in low and not place_mentioned(low, p):
             continue
         matched = True
         score += 10
         # Prefer the guide listing entry for that place
-        if re.search(rf"(?:^|\n)\s*\d+\s+{re.escape(p)}\b", low):
+        if re.search(rf"(?:^|\n)\s*\d+\s+{re.escape(pf)}\b", low):
             score += 20
         if "am-" in low or "am–" in low or re.search(r"\d+\s*am\s*[-–]\s*\d+\s*pm", low):
             score += 3
@@ -259,19 +288,28 @@ def excerpt_place_from_snippet(text: str, place: str) -> str | None:
     """Pull the Wikivoyage listing/paragraph for one place from a mixed chunk."""
     if not text or not place:
         return None
-    p = place.lower().strip()
+    if not place_mentioned(text, place):
+        return None
     raw = text.strip()
     low = raw.lower()
-    tokens = [t for t in re.split(r"\s+", p) if t and t not in {"the", "a", "an"}]
-    if p not in low:
-        if not tokens or not all(t in low for t in tokens):
-            return None
-    if p in low:
-        idx = low.find(p)
+    fold_low = normalize_match_text(raw)
+    fold_p = normalize_match_text(place)
+    tokens = [t for t in re.split(r"\s+", fold_p) if t and t not in {"the", "a", "an"}]
+    # Prefer exact folded phrase; else first token (e.g. anokhi).
+    if fold_p in fold_low:
+        needle = tokens[0] if tokens else fold_p
     else:
-        idx = min((low.find(t) for t in tokens if t in low), default=-1)
+        needle = next((t for t in tokens if t in fold_low), "")
+    if not needle:
+        # Single-place Google chunks: return whole snippet.
+        excerpt = re.sub(r"\s+", " ", raw).strip()
+        return (excerpt[:419].rstrip() + "…") if len(excerpt) > 420 else excerpt
+
+    # Locate needle in original text (ASCII token usually present even when café ≠ cafe).
+    idx = low.find(needle)
     if idx < 0:
-        return None
+        excerpt = re.sub(r"\s+", " ", raw).strip()
+        return (excerpt[:419].rstrip() + "…") if len(excerpt) > 420 else excerpt
     start = raw.rfind("\n", 0, idx) + 1
     window = raw[start:]
     m = re.match(
@@ -281,14 +319,11 @@ def excerpt_place_from_snippet(text: str, place: str) -> str | None:
     )
     excerpt = (m.group(1) if m else window).strip()
     excerpt = re.sub(r"\s+", " ", excerpt).strip()
-    if not excerpt:
+    if not excerpt or not place_mentioned(excerpt, place):
         return None
-    elow = excerpt.lower()
-    if p in elow or (tokens and all(t in elow for t in tokens)):
-        if len(excerpt) > 420:
-            excerpt = excerpt[:419].rstrip() + "…"
-        return excerpt
-    return None
+    if len(excerpt) > 420:
+        excerpt = excerpt[:419].rstrip() + "…"
+    return excerpt
 
 
 def is_thin_place_listing(text: str) -> bool:
@@ -603,10 +638,10 @@ def _dataset_aware_rerank(
         s = 0.0
         matched = False
         for p in places:
-            if p in h:
+            if place_mentioned(h, p):
                 matched = True
                 s += 15.0
-                if p in str((d.metadata or {}).get("place_name") or "").lower():
+                if place_mentioned(str((d.metadata or {}).get("place_name") or ""), p):
                     s += 12.0
         if places and not matched:
             s -= 25.0
