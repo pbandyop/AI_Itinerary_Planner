@@ -662,15 +662,15 @@ def _answer_knowledge_query(
     )
 
     def _itinerary_miss_reply(*, place_label: str, city_name: str, hours: bool) -> str:
-        day_bit = f" (Day {itinerary_day})" if itinerary_day else ""
+        """Cite-or-refuse copy — no Day/itinerary framing (keeps RAG faithfulness clean)."""
         if hours:
             return (
-                f"**{place_label}**{day_bit} is on your itinerary, but I don't have cited "
-                f"opening hours for it in the {city_name} guide corpus — I won't invent them."
+                f"I don't have cited opening hours for **{place_label}** "
+                f"in the {city_name} guide — I won't invent them."
             )
         return (
-            f"**{place_label}**{day_bit} is on your itinerary, but I don't have cited "
-            f"guide tips for it in the {city_name} corpus yet — I won't invent details."
+            f"I don't have a cited guide tip for **{place_label}** "
+            f"in the {city_name} corpus — I won't invent details."
         )
 
     oos = _out_of_scope_tip_place(message)
@@ -799,7 +799,8 @@ def _answer_knowledge_query(
             )
         else:
             reply = (
-                f"I don’t have cited guide tips for that in the {city} corpus yet."
+                f"I don't have cited guide tips for that in the {city} corpus yet "
+                f"— I won't invent them."
                 + (f" ({note})" if note else "")
             )
     else:
@@ -847,8 +848,8 @@ def _answer_knowledge_query(
                     )
                 else:
                     reply = (
-                        f"I don’t have cited opening hours for {place_label} "
-                        f"in the {city} guide corpus — I won’t invent them or "
+                        f"I don't have cited opening hours for {place_label} "
+                        f"in the {city} guide — I won't invent them or "
                         f"borrow hours from other places."
                     )
                 return {
@@ -886,8 +887,8 @@ def _answer_knowledge_query(
                     )
                 else:
                     reply = (
-                        f"I don’t have a cited guide tip about {place_label} "
-                        f"in the {city} corpus — I won’t invent details."
+                        f"I don't have a cited guide tip about {place_label} "
+                        f"in the {city} corpus — I won't invent details."
                     )
                 return {
                     "safety_status": "ok",
@@ -933,7 +934,7 @@ def _answer_knowledge_query(
                 else:
                     reply = (
                         f"The {city} guide mentions {place_label}, but it does not "
-                        f"list opening hours for it — I won’t invent hours."
+                        f"list opening hours for it — I won't invent hours."
                     )
                 return {
                     "safety_status": "ok",
@@ -3695,6 +3696,11 @@ def orchestrator_node(state: GraphState) -> dict[str, Any]:
             message.lower(),
         ):
             explain_kickoff = "Checking how doable this itinerary looks…"
+        elif re.search(
+            r"\bwhy (did you |do you )?(pick|choose|include)\b",
+            message.lower(),
+        ):
+            explain_kickoff = "Checking why that stop is on your itinerary…"
         return _start_agent_loop(
             state,
             waves=[list(w) for w in waves],

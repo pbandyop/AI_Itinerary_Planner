@@ -7,6 +7,7 @@ import {
   appendLiveEvalRow,
   dayPacesFromItinerary,
   inferSourceChannel,
+  isKnowledgeTurn,
   shouldLogItineraryJson,
   sourcesForEvalLog,
   sourcesToRetrievalContext,
@@ -432,13 +433,13 @@ export default function VoicePlanner() {
           agentTrace: result.agent_trace as
             | Array<Record<string, unknown>>
             | undefined,
+          question: text,
         });
         const knowledgeTurn =
-          result.intent === "explain" ||
-          (result.agent_trace || []).some((e) =>
-            String(e.action || e.tool || "")
-              .toLowerCase()
-              .includes("knowledge_qa")
+          isKnowledgeTurn(
+            result.intent,
+            result.agent_trace as Array<Record<string, unknown>> | undefined,
+            text
           );
         setReply(replyText);
         setIntent(result.intent);
@@ -485,7 +486,8 @@ export default function VoicePlanner() {
           }),
           sourceChannel: inferSourceChannel(
             replySources,
-            result.agent_trace as Array<Record<string, unknown>> | undefined
+            result.agent_trace as Array<Record<string, unknown>> | undefined,
+            text
           ),
           actualOutput: replyText,
           itineraryJson:

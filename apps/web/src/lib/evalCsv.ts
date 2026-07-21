@@ -101,10 +101,32 @@ export function clearEvalSheet(): EvalSheet {
 }
 
 /** True for tip / POI / hours turns that should log knowledge citations. */
-export function isKnowledgeTurn(
-  intent: string | null | undefined,
+export function isItineraryExplainTurn(
+  question: string | null | undefined,
   agentTrace?: Array<Record<string, unknown>> | null
 ): boolean {
+  const q = (question || "").toLowerCase();
+  if (
+    /\bwhy\b[\s\S]{0,48}\b(pick|choose|include)\b/.test(q) ||
+    /\b(doable|feasible|too (?:much|packed)|can (?:i|we) (?:do|finish))\b/.test(q)
+  ) {
+    return true;
+  }
+  for (const entry of agentTrace || []) {
+    const mode = String(entry.mode || "").toLowerCase();
+    if (mode === "planner_why" || mode === "doability") return true;
+  }
+  return false;
+}
+
+/** True for tip / POI / hours turns that should log knowledge citations. */
+export function isKnowledgeTurn(
+  intent: string | null | undefined,
+  agentTrace?: Array<Record<string, unknown>> | null,
+  question?: string | null
+): boolean {
+  // Plan-why / doability answers are itinerary-owned, not RAG — even if intent=explain.
+  if (isItineraryExplainTurn(question, agentTrace)) return false;
   if ((intent || "").toLowerCase() === "explain") return true;
   for (const entry of agentTrace || []) {
     const tool = String(entry.tool || entry.action || "").toLowerCase();
@@ -187,9 +209,14 @@ function channelsFromAgentTrace(
 /** Turn-level channel: RAG, MCP, mixed, or none. */
 export function inferSourceChannel(
   sources: Source[] | null | undefined,
-  agentTrace?: Array<Record<string, unknown>> | null
+  agentTrace?: Array<Record<string, unknown>> | null,
+  question?: string | null
 ): SourceChannel {
-  const knowledgeTurn = isKnowledgeTurn(null, agentTrace);
+  // Why-pick / doability: itinerary justification path — not RAG.
+  if (isItineraryExplainTurn(question, agentTrace)) {
+    return "none";
+  }
+  const knowledgeTurn = isKnowledgeTurn(null, agentTrace, question);
   // Tip / knowledge turns are RAG even if a corpus OSM card was retrieved.
   if (
     knowledgeTurn ||
@@ -234,25 +261,32 @@ export function sourcesToRetrievalContext(
       text: text.trim(),
     });
   }
+  // Always emit JSON (including []) so the faithfulness judge can tell
+  // "no snippets retrieved" from a missing column.
   return JSON.stringify(chunks);
 }
 
 /**
  * Sources for eval CSV / tip grounding.
  * Explain turns: RAG (or turn-level) sources only — never the itinerary MCP dump.
+ * Why-pick / doability: no retrieval sources (itinerary-owned answer).
  */
 export function sourcesForEvalLog(input: {
   intent: string | null | undefined;
   sources: Source[] | null | undefined;
   itinerarySources?: Source[] | null | undefined;
   agentTrace?: Array<Record<string, unknown>> | null;
+  question?: string | null;
 }): Source[] {
   const top = Array.isArray(input.sources) ? input.sources : [];
   const itin = Array.isArray(input.itinerarySources)
     ? input.itinerarySources
     : [];
+  if (isItineraryExplainTurn(input.question, input.agentTrace)) {
+    return [];
+  }
   const knowledge =
-    isKnowledgeTurn(input.intent, input.agentTrace) ||
+    isKnowledgeTurn(input.intent, input.agentTrace, input.question) ||
     (input.agentTrace || []).some((e) =>
       String(e.action || e.tool || "")
         .toLowerCase()

@@ -821,6 +821,10 @@ def synthesis_node(state: GraphState) -> dict[str, Any]:
         used_rag_llm = False
 
         # “Why did you pick X?” — fuzzy-match itinerary stops (same helper as hours Q&A).
+        planner_why_q = bool(
+            re.search(r"\bwhy (did you |do you )?(pick|choose|include)\b", msg)
+        )
+        planner_why_answered = False
         if base and re.search(r"\bwhy\b", msg):
             from agent.rag.itinerary_place import match_itinerary_place
 
@@ -839,17 +843,18 @@ def synthesis_node(state: GraphState) -> dict[str, Any]:
                     f"Did you mean **{itin_match.stop_name}** on this itinerary? "
                     "Say yes and I’ll explain why it was included."
                 )
+                planner_why_answered = True
             if named:
                 # Plan-first only — no RAG paste on “why did you pick …”.
                 reply_parts.append(_planner_why_for_stop(named, base))
-            elif not reply_parts and re.search(
-                r"\bwhy (did you |do you )?(pick|choose|include)\b", msg
-            ):
+                planner_why_answered = True
+            elif not reply_parts and planner_why_q:
                 reply_parts.append(
                     "I don’t see that place on this itinerary — "
                     "ask about a stop that’s listed, or say "
                     "“tell me more about …” for a general guide tip."
                 )
+                planner_why_answered = True
 
         doability_q = bool(
             re.search(
@@ -974,6 +979,7 @@ def synthesis_node(state: GraphState) -> dict[str, Any]:
             snippets
             and not used_rag_llm
             and not doability_q
+            and not planner_why_answered
             and not re.search(r"\b(why|rain)\b", msg)
         ):
             rag_inputs = []
@@ -1015,19 +1021,29 @@ def synthesis_node(state: GraphState) -> dict[str, Any]:
                 "ask a safety/etiquette tip, or plan a trip first for stop justifications."
             )
 
+        itinerary_owned = doability_q or planner_why_answered
+        explain_mode = (
+            "doability"
+            if doability_q
+            else "planner_why"
+            if planner_why_answered
+            else "grounded"
+        )
         out: dict[str, Any] = {
             "user_reply": reply[:1200],
-            "sources": [] if doability_q else [dump(s) for s in sources],
+            # Why-pick / doability answers are itinerary-owned — do not log RAG sources.
+            "sources": [] if itinerary_owned else [dump(s) for s in sources],
+            "knowledge_results": None if itinerary_owned else state.get("knowledge_results"),
             "agent_trace": _trace_append(
                 state,
                 {
                     "agent": "synthesis",
-                    "mode": "doability" if doability_q else "grounded",
+                    "mode": explain_mode,
                     "action": "explain",
                     "used_itinerary": bool(base),
-                    "used_weather": bool(weather) and not doability_q,
-                    "used_rag_llm": used_rag_llm and not doability_q,
-                    "snippet_count": 0 if doability_q else len(snippets),
+                    "used_weather": bool(weather) and not itinerary_owned,
+                    "used_rag_llm": used_rag_llm and not itinerary_owned,
+                    "snippet_count": 0 if itinerary_owned else len(snippets),
                 },
             ),
         }

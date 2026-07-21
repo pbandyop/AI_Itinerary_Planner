@@ -147,6 +147,16 @@ def heuristic_agent_waves(
 ) -> list[list[AgentName]]:
     lower = message.lower()
     if intent == "explain":
+        # Itinerary-owned Q&A — no knowledge_agent / RAG wave.
+        if re.search(
+            r"\bwhy (did you |do you )?(pick|choose|include)\b",
+            lower,
+        ) or re.search(
+            r"\b(doable|feasible|too (?:much|packed)|can (?:i|we) (?:do|finish)|"
+            r"is (?:this|the|it) (?:plan|itinerary) (?:doable|feasible|realistic))\b",
+            lower,
+        ):
+            return []
         wave: list[AgentName] = ["knowledge_agent"]
         if "rain" in lower or "weather" in lower:
             wave.append("weather_agent")
