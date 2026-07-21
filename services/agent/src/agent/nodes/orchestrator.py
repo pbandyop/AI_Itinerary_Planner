@@ -573,6 +573,8 @@ def _knowledge_topics_for_message(message: str) -> list[str]:
         topics = ["crowd", "tips", "timing", "highlights"]
     elif re.search(r"\b(best time|morning|evening|hours?|timing|open(?:ing)?)\b", lower):
         topics = ["timing", "tips", "highlights"]
+    elif re.search(r"\b(tell me (?:more )?about|more about|what is|describe)\b", lower):
+        topics = ["why", "highlights", "culture", "tips"]
     elif re.search(r"\b(history|built|why|famous|pick|choose)\b", lower):
         topics = ["why", "highlights", "culture", "tips"]
     return topics
@@ -716,9 +718,18 @@ def _answer_knowledge_query(
             message.lower(),
         )
     )
-    # Hours need place listings; pull a wider set so the clock-time chunk is not truncated out.
+    # Hours need place listings; tip/about needs guide prose — pull a wider set.
+    about_q = bool(
+        re.search(
+            r"\b(tell me (?:more )?about|more about|what(?:'s| is)|describe)\b",
+            message.lower(),
+        )
+    )
     result = knowledge_search(
-        city=city, query=rag_query, topics=topics, k=8 if hours_q else 4
+        city=city,
+        query=rag_query,
+        topics=topics,
+        k=8 if (hours_q or about_q) else 4,
     )
     places = extract_place_terms(message, city)
     if itinerary_place:
@@ -1046,9 +1057,7 @@ def _answer_knowledge_query(
                     continue
                 for p in places:
                     excerpt = excerpt_place_from_snippet(snip.text or "", p)
-                    if not excerpt and any(
-                        p in (snip.text or "").lower() for p in [p]
-                    ):
+                    if not excerpt and place_mentioned(snip.text or "", p):
                         # Whole atomic card that mentions the place
                         excerpt = re.sub(r"\s+", " ", (snip.text or "")).strip()
                         if len(excerpt) > 420:
@@ -1059,35 +1068,52 @@ def _answer_knowledge_query(
                         (snip.citations[0].dataset if snip.citations else "")
                         or ""
                     ).lower()
-                    # Prefer wikipedia / curated / osm cards over mixed Wikivoyage blobs
+                    # Prefer wikipedia / wikivoyage guide prose for “tell me more”
                     rank = 0
                     if ds == "wikipedia":
-                        rank += 80
-                    elif is_thin_place_listing(excerpt) or len(excerpt) < 280:
-                        rank += 35
+                        rank += 120
                     elif ds == "wikivoyage":
-                        rank += 45
-                    elif ds in {"other"}:
-                        rank += 40
+                        rank += 90
+                    elif ds in {"tourism", "curated_places"}:
+                        rank += 50
+                    elif ds in {"other", "google_places"}:
+                        rank += 15
+                    elif ds == "openstreetmap":
+                        rank -= 80  # listing cards, not tip prose
                     else:
                         rank += min(len(excerpt), 400) // 20
-                    # Prefer OSM hours cards less for open-ended “tell me more”
+                    if is_thin_place_listing(excerpt) or len(excerpt) < 160:
+                        rank -= 25
                     title_l = (snip.citations[0].title or "").lower()
                     if "openstreetmap" in ds or "openstreetmap" in title_l:
-                        rank -= 15
+                        rank -= 40
                     if "curated" in (snip.citations[0].source_id or "") or "Moon Gate" in (
                         snip.citations[0].title or ""
                     ):
                         rank += 20
                     # Stronger if excerpt starts with the place or a listing number
-                    elow = excerpt.lower()
-                    if elow.startswith(p) or re.match(r"^\d+\s+", excerpt):
+                    from agent.rag.retrieve import normalize_match_text
+
+                    elow = normalize_match_text(excerpt)
+                    pf = normalize_match_text(p)
+                    if elow.startswith(pf) or re.match(r"^\d+\s+", excerpt):
                         rank += 25
-                    if p in elow[:80]:
+                    if pf and pf in elow[:100]:
                         rank += 10
                     candidates.append((rank, excerpt, snip, p))
                     break
             if candidates:
+                # If any guide-prose hit exists, drop OSM/Places listing cards.
+                guide_ds = {"wikipedia", "wikivoyage", "tourism", "curated_places"}
+                guide = [
+                    c
+                    for c in candidates
+                    if str((c[2].citations[0].dataset if c[2].citations else "") or "")
+                    .lower()
+                    in guide_ds
+                ]
+                if guide:
+                    candidates = guide
                 candidates.sort(key=lambda row: row[0], reverse=True)
                 _rank, excerpt, snip, p = candidates[0]
                 from agent.nodes.llm_utils import compose_grounded_reply

@@ -664,15 +664,20 @@ def _dataset_aware_rerank(
             elif ds == "wikipedia" and not has_hours:
                 s -= 15.0
         elif about_q:
+            # Open-ended tips: prefer guide prose over OSM/Places listing cards.
             weights = {
-                "wikipedia": 16.0,
-                "wikivoyage": 10.0,
-                "google_places": 10.0,
-                "tourism": 8.0,
-                "curated_places": 11.0,
-                "openstreetmap": 6.0,
+                "wikipedia": 55.0,
+                "wikivoyage": 45.0,
+                "tourism": 30.0,
+                "curated_places": 25.0,
+                "google_places": 8.0,
+                "openstreetmap": -25.0,
             }
             s += weights.get(ds, 0.0)
+            if matched and ds in {"wikipedia", "wikivoyage"}:
+                s += 20.0
+            if matched and ds == "openstreetmap":
+                s -= 15.0
         q_tokens = [t for t in re.split(r"\W+", (query or "").lower()) if len(t) > 3]
         s += sum(1.2 for t in q_tokens if t in h)
         return s

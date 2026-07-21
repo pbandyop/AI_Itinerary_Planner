@@ -197,6 +197,13 @@ def load_place_aliases(directory: Path | None = None) -> dict[str, list[str]]:
         "amarnath cafe": ["Amarnath Cafe"],
         "amarnath café": ["Amarnath Cafe"],
         "anoki museum": ["Anokhi Museum"],
+        # STT / spelling variants for Amer (Amber) Fort
+        "amir fort": ["Amer Fort", "Amber Fort"],
+        "amer fort": ["Amer Fort", "Amber Fort"],
+        "amber fort": ["Amer Fort", "Amber Fort"],
+        "amer": ["Amer Fort", "Amber Fort"],
+        "amber": ["Amer Fort", "Amber Fort"],
+        "amir": ["Amer Fort", "Amber Fort"],
     }
     for k, vals in builtins.items():
         alias_map.setdefault(k, [])

@@ -104,44 +104,39 @@ export function isKnowledgeTurn(
   return false;
 }
 
-/**
- * Sources for eval CSV / tip grounding.
- * Explain turns: RAG (or turn-level) sources only — never the itinerary MCP dump.
- */
-export function sourcesForEvalLog(input: {
-  intent: string | null | undefined;
-  sources: Source[] | null | undefined;
-  itinerarySources?: Source[] | null | undefined;
-  agentTrace?: Array<Record<string, unknown>> | null;
-}): Source[] {
-  const top = Array.isArray(input.sources) ? input.sources : [];
-  const itin = Array.isArray(input.itinerarySources)
-    ? input.itinerarySources
-    : [];
-  if (isKnowledgeTurn(input.intent, input.agentTrace)) {
-    const rag = top.filter((s) => channelFromDataset(s.dataset) === "RAG");
-    if (rag.length) return rag;
-    if (top.length) return top;
-    return [];
-  }
-  return top.length ? top : itin;
-}
-
 /** Map a Source.dataset (or similar) to RAG vs MCP. */
 export function channelFromDataset(dataset: string | null | undefined): "RAG" | "MCP" | "other" {
   const ds = (dataset || "").toLowerCase().trim();
-  if (ds === "wikivoyage" || ds === "wikipedia") return "RAG";
-  if (ds === "openstreetmap" || ds === "open-meteo") return "MCP";
-  // Travel-time MCP attribution uses source_id travel-time-mcp
+  // Guide / corpus retrieval (including Places cards in the RAG index)
+  if (
+    ds === "wikivoyage" ||
+    ds === "wikipedia" ||
+    ds === "google_places" ||
+    ds === "curated_places" ||
+    ds === "tourism"
+  ) {
+    return "RAG";
+  }
+  // Live MCP tools / itinerary OSM attribution
+  if (ds === "open-meteo") return "MCP";
+  if (ds === "openstreetmap") return "MCP";
   return "other";
 }
 
-function channelFromSource(s: Source): "RAG" | "MCP" | "other" {
+function channelFromSource(
+  s: Source,
+  opts?: { knowledgeTurn?: boolean }
+): "RAG" | "MCP" | "other" {
   const id = (s.source_id || "").toLowerCase();
   if (id.includes("travel-time") || id === "open-meteo") return "MCP";
+  // Knowledge RAG may retrieve OSM listing cards from the corpus — still retrieval.
+  if (opts?.knowledgeTurn) {
+    if (id.includes("travel-time") || s.dataset === "open-meteo") return "MCP";
+    return "RAG";
+  }
   const fromDs = channelFromDataset(s.dataset);
   if (fromDs !== "other") return fromDs;
-  // OSM-shaped ids → MCP POI grounding
+  // OSM-shaped ids → MCP POI grounding (plan References)
   if (/^(node|way|relation)\/\d+$/i.test(s.source_id || "")) return "MCP";
   return "other";
 }
@@ -179,9 +174,23 @@ export function inferSourceChannel(
   sources: Source[] | null | undefined,
   agentTrace?: Array<Record<string, unknown>> | null
 ): SourceChannel {
+  const knowledgeTurn = isKnowledgeTurn(null, agentTrace);
+  // Tip / knowledge turns are RAG even if a corpus OSM card was retrieved.
+  if (
+    knowledgeTurn ||
+    (agentTrace || []).some((e) =>
+      String(e.action || e.tool || "")
+        .toLowerCase()
+        .includes("knowledge_qa")
+    )
+  ) {
+    const fromTrace = channelsFromAgentTrace(agentTrace);
+    if (fromTrace.has("RAG") && !fromTrace.has("MCP")) return "RAG";
+    if (sources && sources.length) return "RAG";
+  }
   const fromSources = new Set<"RAG" | "MCP">();
   for (const s of sources || []) {
-    const ch = channelFromSource(s);
+    const ch = channelFromSource(s, { knowledgeTurn });
     if (ch === "RAG" || ch === "MCP") fromSources.add(ch);
   }
   const fromTrace = channelsFromAgentTrace(agentTrace);
@@ -193,7 +202,8 @@ export function inferSourceChannel(
 }
 
 export function sourcesToRetrievalContext(
-  sources: Source[] | null | undefined
+  sources: Source[] | null | undefined,
+  opts?: { knowledgeTurn?: boolean }
 ): string {
   const chunks: Array<{
     channel: string;
@@ -204,12 +214,47 @@ export function sourcesToRetrievalContext(
     const text = [s.title, s.snippet, s.url].filter(Boolean).join(" — ");
     if (!text.trim()) continue;
     chunks.push({
-      channel: channelFromSource(s),
+      channel: channelFromSource(s, opts),
       dataset: s.dataset || "other",
       text: text.trim(),
     });
   }
   return JSON.stringify(chunks);
+}
+
+/**
+ * Sources for eval CSV / tip grounding.
+ * Explain turns: RAG (or turn-level) sources only — never the itinerary MCP dump.
+ */
+export function sourcesForEvalLog(input: {
+  intent: string | null | undefined;
+  sources: Source[] | null | undefined;
+  itinerarySources?: Source[] | null | undefined;
+  agentTrace?: Array<Record<string, unknown>> | null;
+}): Source[] {
+  const top = Array.isArray(input.sources) ? input.sources : [];
+  const itin = Array.isArray(input.itinerarySources)
+    ? input.itinerarySources
+    : [];
+  const knowledge =
+    isKnowledgeTurn(input.intent, input.agentTrace) ||
+    (input.agentTrace || []).some((e) =>
+      String(e.action || e.tool || "")
+        .toLowerCase()
+        .includes("knowledge_qa")
+    );
+  if (knowledge) {
+    // Prefer guide prose datasets when present.
+    const guide = top.filter((s) =>
+      ["wikivoyage", "wikipedia", "tourism", "curated_places"].includes(
+        (s.dataset || "").toLowerCase()
+      )
+    );
+    if (guide.length) return guide;
+    if (top.length) return top;
+    return [];
+  }
+  return top.length ? top : itin;
 }
 
 /**

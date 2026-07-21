@@ -431,6 +431,13 @@ export default function VoicePlanner() {
             | Array<Record<string, unknown>>
             | undefined,
         });
+        const knowledgeTurn =
+          result.intent === "explain" ||
+          (result.agent_trace || []).some((e) =>
+            String(e.action || e.tool || "")
+              .toLowerCase()
+              .includes("knowledge_qa")
+          );
         setReply(replyText);
         setIntent(result.intent);
         setSafety(result.safety_status);
@@ -470,7 +477,9 @@ export default function VoicePlanner() {
           timestampUq,
           timestampR,
           question: text,
-          retrievalContext: sourcesToRetrievalContext(replySources),
+          retrievalContext: sourcesToRetrievalContext(replySources, {
+            knowledgeTurn,
+          }),
           sourceChannel: inferSourceChannel(
             replySources,
             result.agent_trace as Array<Record<string, unknown>> | undefined
