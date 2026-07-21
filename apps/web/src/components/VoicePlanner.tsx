@@ -32,7 +32,7 @@ const SAMPLE_PROMPTS = [
   "Plan a trip to Jaipur.",
   "3-day relaxed Jaipur trip — food, temples, and shopping.",
   "Plan 3 days in Jaipur for heritage, museums, and food.",
-  "Make Day 2 more relaxed.",
+  "Make Day 2 relaxed.",
   "Swap the Day 1 evening plan to something indoors.",
   "Add a bazaar or shopping stop.",
   "Why did you pick this place?",

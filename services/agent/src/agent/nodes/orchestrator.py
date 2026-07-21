@@ -234,9 +234,11 @@ def _safety_check(
                 "rain_swap_offer",
                 "weather_date_ask",
                 "tip_confirm",
+                "edit_clarify",
             }:
                 if (
                     _is_day_index_answer(message)
+                    or _is_edit_pace_answer(message)
                     or _yes_no(message) is not None
                     or _find_start_date(message) is not None
                     or re.search(r"\b(skip|later|not now)\b", lower)
@@ -460,7 +462,7 @@ def _detect_intent(message: str, state: GraphState) -> str:
     )
     edit_verb = bool(
         re.search(
-            r"\b(add|include|change|edit|make|relax|remove|swap|update|replace|"
+            r"\b(add|include|change|edit|make|relax(?:ed)?|remove|swap|update|replace|"
             r"move|trim|fewer|indoor|outdoor|reduce travel|less travel|"
             r"balance|balanced|mix)\b",
             lower,
@@ -485,6 +487,7 @@ def _detect_intent(message: str, state: GraphState) -> str:
     edit_phrase = bool(
         re.search(
             r"\b(make day|change day|edit|swap|relax day|more relaxed|"
+            r"make .{0,30}relax(?:ed)?|"
             r"more packed|less packed|balance|balanced|mix of|"
             r"instead of|reduce travel|less travel|indoor|"
             r"food stops?|something outdoor)\b",
@@ -498,6 +501,7 @@ def _detect_intent(message: str, state: GraphState) -> str:
 
     if re.search(
         r"\b(make day|change day|edit|swap|remove|relax day|more relaxed|"
+        r"make .{0,30}relax(?:ed)?|"
         r"more packed|less packed|balance|balanced|mix of|"
         r"instead of|reduce travel|less travel|add (a |one |an )?"
         r"(famous )?(local )?(food|restaurant|cafe)|indoor|"
@@ -540,6 +544,9 @@ def _detect_intent(message: str, state: GraphState) -> str:
         return "plan"
     # Bare day mention alone is not an edit (rain/why/tips handled above).
     if has_itin and day_mentioned and edit_verb:
+        return "edit"
+    # Pace-only follow-ups after an itinerary (e.g. "relaxed") → edit clarify.
+    if has_itin and _is_edit_pace_answer(message):
         return "edit"
     return "plan"
 
@@ -1587,6 +1594,18 @@ _COUNT_WORDS = {
     "only": 1,
 }
 
+# "relaxed" must match — bare \brelax\b does not (word boundary after "relax").
+_RELAX_EDIT_RE = re.compile(
+    r"\b(relax(?:ed)?|more\s+relaxed|less\s+packed|slow(?:er)?)\b",
+    re.I,
+)
+_EDIT_PACE_ONLY_RE = re.compile(
+    r"^\s*(?:make\s+(?:it\s+)?)?(?:more\s+)?"
+    r"(?:relax(?:ed)?|packed|balanced|moderate|less\s+packed|slow(?:er)?)"
+    r"(?:\s+pace)?\s*[.!]?\s*$",
+    re.I,
+)
+
 
 def _parse_count_token(raw: str) -> int | None:
     token = (raw or "").lower().strip()
@@ -1878,7 +1897,7 @@ def _parse_clause_patch(
         lower,
     ) or (
         re.search(r"\b(packed|packt|packet|pact|pac|pat|fact|pack)\b", lower)
-        and not re.search(r"\b(less|more\s+relaxed|relax)\b", lower)
+        and not re.search(r"\b(less|more\s+relaxed|relax(?:ed)?)\b", lower)
     ):
         return EditPatch(
             target=EditTarget(day=day, block=block),  # type: ignore[arg-type]
@@ -1907,7 +1926,7 @@ def _parse_clause_patch(
             user_utterance=full_message,
         )
 
-    if re.search(r"\b(relax|more relaxed|less packed|slow(er)?)\b", lower):
+    if _RELAX_EDIT_RE.search(lower):
         return EditPatch(
             target=EditTarget(day=day, block=block),  # type: ignore[arg-type]
             operation="relax_block",
@@ -1980,7 +1999,7 @@ def _parse_edits(message: str) -> list[EditPatch]:
         elif day_matched is not None and re.search(
             r"\b(more packed|pack(?:ed)?er|busier|more busy|packed)\b",
             message.lower(),
-        ) and not re.search(r"\b(less packed|relax|more relaxed)\b", message.lower()):
+        ) and not _RELAX_EDIT_RE.search(message.lower()):
             patches.append(
                 EditPatch(
                     target=EditTarget(day=day, block=default_block),  # type: ignore[arg-type]
@@ -2005,10 +2024,7 @@ def _parse_edits(message: str) -> list[EditPatch]:
                     user_utterance=message,
                 )
             )
-        elif day_matched is not None and re.search(
-            r"\b(relax|more relaxed|less packed|slow(er)?)\b",
-            message.lower(),
-        ):
+        elif day_matched is not None and _RELAX_EDIT_RE.search(message.lower()):
             # Only fall back to relax when the user actually asked for it.
             patches.append(
                 EditPatch(
@@ -2019,6 +2035,12 @@ def _parse_edits(message: str) -> list[EditPatch]:
                 )
             )
 
+    # Pace reshape must name a day — never silently default to Day 1.
+    if patches and day_matched is None:
+        pace_ops = {"relax_block", "pack_block", "balance_block"}
+        if all(p.operation in pace_ops for p in patches):
+            patches = []
+
     return patches
 
 
@@ -2026,6 +2048,93 @@ def _parse_edit(message: str) -> EditPatch | None:
     """Backward-compatible single-patch parse."""
     patches = _parse_edits(message)
     return patches[0] if patches else None
+
+
+def _is_edit_pace_answer(message: str) -> bool:
+    """True for short pace-only follow-ups: relaxed / more packed / balanced."""
+    return bool(_EDIT_PACE_ONLY_RE.fullmatch((message or "").strip()))
+
+
+def _compose_edit_from_pending(message: str, pending: dict[str, Any]) -> str:
+    """Combine a day-scoped pending clarify with a short pace/day follow-up."""
+    text = (message or "").strip()
+    day = pending.get("day")
+    try:
+        day_i = int(day) if day is not None else None
+    except (TypeError, ValueError):
+        day_i = None
+    day_m, parsed_day = _parse_target_day(text)
+    if day_m is not None:
+        day_i = parsed_day
+    if day_i is None:
+        return text
+    if _is_edit_pace_answer(text) or (
+        day_m is None and _RELAX_EDIT_RE.search(text.lower())
+    ):
+        pace_bit = text.strip(" .!")
+        return f"Make Day {day_i} {pace_bit}"
+    if _is_day_index_answer(text):
+        return text
+    if day_m is None and not re.search(r"\bday\b", text.lower()):
+        return f"Make Day {day_i} {text}"
+    return text
+
+
+def _edit_clarify_prompt(*, day: int | None = None) -> str:
+    if day is not None:
+        return (
+            f"What should change on Day {day}? "
+            "Example: “more relaxed”, “more packed”, “more balanced”, "
+            "or “remove market”."
+        )
+    return (
+        "Which day should I change (Day 1–4), and what should change? "
+        "Example: “Make Day 2 relaxed.” "
+        "“Make Day 3 more packed.” "
+        "“Make Day 2 more balanced.” "
+        "or “Remove market from Day 1.”"
+    )
+
+
+def _launch_edit_patches(
+    state: GraphState,
+    message: str,
+    prev: Any,
+    patches: list[EditPatch],
+) -> dict[str, Any]:
+    """Start the edit agent loop for one or more parsed patches."""
+    patch = patches[0]
+    waves, planner, criteria = plan_agent_waves(
+        intent="edit", message=message, state=dict(state)
+    )
+    days = sorted({p.target.day for p in patches})
+    section = (
+        f"day{days[0]}"
+        if len(days) == 1
+        else "days " + ", ".join(str(d) for d in days)
+    )
+    if len(patches) == 1 and patch.target.block:
+        section = f"day{patch.target.day}.{patch.target.block}"
+    ops = " and ".join(p.operation.replace("_", " ") for p in patches)
+    out = _start_agent_loop(
+        state,
+        waves=[list(w) for w in waves],
+        planner=planner,
+        success_criteria=criteria,
+        intent="edit",
+        trip=prev.trip,
+        user_reply=(
+            f"Updating {section} only ({ops}) — leaving other days unchanged."
+        ),
+        edit_patch=patch,
+        edit_patches=patches,
+        extra={
+            "previous_itinerary": dump(prev),
+            "merged_itinerary": dump(prev),
+            "pending_dialog": None,
+        },
+    )
+    return out
 
 
 def _merge_trip(
@@ -2852,6 +2961,27 @@ def _is_pending_dialog_escape(message: str, kind: str) -> bool:
     # Keep yes/no / dated / day answers inside the current dialog.
     if _yes_no(message) is not None:
         return False
+    if kind == "edit_clarify":
+        if _is_day_index_answer(message) or _is_edit_pace_answer(message):
+            return False
+        # Incomplete day+pace edits stay in the dialog; full parses also stay
+        # (handled by _continue_pending_dialog) so we don't fall into trip clarify.
+        if _parse_edits(message) or _parse_target_day(message)[0] is not None:
+            return False
+        if re.search(
+            r"\b(plan (?:a |my )?trip|new trip|start over|forget (?:it|that))\b",
+            lower,
+        ):
+            return True
+        # Tips / weather / doability leave edit clarify.
+        if _is_knowledge_query(message) or _is_weather_query(message):
+            return True
+        if re.search(
+            r"\b(doable|feasible|opening hours?|what if it rains|tell me (?:more )?about)\b",
+            lower,
+        ):
+            return True
+        return False
     if kind in {"rain_day_ask", "rain_monsoon_ask", "rain_swap_offer"}:
         day_m, _ = _parse_target_day(message)
         if day_m is not None and kind == "rain_day_ask":
@@ -2935,6 +3065,41 @@ def _continue_pending_dialog(
         " Would you like me to look up the Weather MCP forecast for a "
         "particular date? If yes, tell me the date (YYYY-MM-DD)."
     )
+
+    if kind == "edit_clarify":
+        if prev is None:
+            return _base(
+                intent="edit",
+                safety_status="needs_clarify",
+                user_reply=(
+                    "I don't have an itinerary to edit yet. "
+                    "Plan and confirm a trip first, then say e.g. "
+                    "“Make Day 2 relaxed.”"
+                ),
+                pending_dialog=None,
+            )
+        composed = _compose_edit_from_pending(message, pending)
+        patches = _parse_edits(composed)
+        if patches:
+            return _launch_edit_patches(state, composed, prev, patches)
+        day_m, day = _parse_target_day(composed)
+        pending_day = pending.get("day")
+        try:
+            known_day = int(pending_day) if pending_day is not None else None
+        except (TypeError, ValueError):
+            known_day = None
+        if day_m is not None:
+            known_day = day
+        return _base(
+            intent="edit",
+            safety_status="needs_clarify",
+            user_reply=_edit_clarify_prompt(day=known_day),
+            pending_dialog=(
+                {"type": "edit_clarify", "day": known_day}
+                if known_day is not None
+                else {"type": "edit_clarify"}
+            ),
+        )
 
     if kind == "knowledge_place_confirm":
         yn = _yes_no(message)
@@ -3561,11 +3726,16 @@ def orchestrator_node(state: GraphState) -> dict[str, Any]:
                 "user_reply": (
                     "I don't have an itinerary to edit yet. "
                     "Plan and confirm a trip first, then say e.g. "
-                    "“Make Day 2 more relaxed.”"
+                    "“Make Day 2 relaxed.”"
                 ),
+                "pending_dialog": None,
                 "dispatch_plan": _dispatch_from_waves([]),
             }
         if patch is None:
+            day_m, day = _parse_target_day(message)
+            pending: dict[str, Any] = {"type": "edit_clarify"}
+            if day_m is not None:
+                pending["day"] = day
             return {
                 "safety_status": "needs_clarify",
                 "intent": "edit",
@@ -3575,44 +3745,13 @@ def orchestrator_node(state: GraphState) -> dict[str, Any]:
                 "trip_constraints": dump(prev.trip),
                 "previous_itinerary": dump(prev),
                 "merged_itinerary": dump(prev),
-                "user_reply": (
-                    "Which day should I change (Day 1–4), and what should change? "
-                    "Example: “Make Day 2 more relaxed.” "
-                    "“Make Day 3 more packed.” "
-                    "“Make Day 2 more balanced.” "
-                    "or “Remove market from Day 1.”"
+                "user_reply": _edit_clarify_prompt(
+                    day=day if day_m is not None else None
                 ),
+                "pending_dialog": pending,
                 "dispatch_plan": _dispatch_from_waves([]),
             }
-        waves, planner, criteria = plan_agent_waves(
-            intent="edit", message=message, state=dict(state)
-        )
-        days = sorted({p.target.day for p in patches})
-        section = (
-            f"day{days[0]}"
-            if len(days) == 1
-            else "days " + ", ".join(str(d) for d in days)
-        )
-        if len(patches) == 1 and patch.target.block:
-            section = f"day{patch.target.day}.{patch.target.block}"
-        ops = " and ".join(p.operation.replace("_", " ") for p in patches)
-        return _start_agent_loop(
-            state,
-            waves=[list(w) for w in waves],
-            planner=planner,
-            success_criteria=criteria,
-            intent="edit",
-            trip=prev.trip,
-            user_reply=(
-                f"Updating {section} only ({ops}) — leaving other days unchanged."
-            ),
-            edit_patch=patch,
-            edit_patches=patches,
-            extra={
-                "previous_itinerary": dump(prev),
-                "merged_itinerary": dump(prev),
-            },
-        )
+        return _launch_edit_patches(state, message, prev, patches)
 
     if intent == "confirm" and existing_trip:
         if not existing_trip.slots_ready():

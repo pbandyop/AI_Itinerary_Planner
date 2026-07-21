@@ -143,6 +143,18 @@ CASES = [
         "check": "relaxed",
     },
     {
+        "msg": "Make day one relaxed",
+        "op": "relax_block",
+        "must_change": {1},
+        "check": "relaxed",
+    },
+    {
+        "msg": "Make day three relaxed.",
+        "op": "relax_block",
+        "must_change": {3},
+        "check": "relaxed",
+    },
+    {
         "msg": "Swap the Day 1 evening plan to something indoors.",
         "op": "make_indoor",
         "must_change": {1},

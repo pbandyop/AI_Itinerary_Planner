@@ -346,6 +346,9 @@ def nominatim_category_search(
                     "q": q,
                     "format": "jsonv2",
                     "addressdetails": 0,
+                    "namedetails": 1,
+                    "extratags": 1,
+                    "accept-language": "en",
                     "limit": 2,
                     "countrycodes": "in",
                 }
@@ -370,6 +373,9 @@ def nominatim_category_search(
                 "q": f"{amenity} in {info.name}, India",
                 "format": "jsonv2",
                 "addressdetails": 0,
+                "namedetails": 1,
+                "extratags": 1,
+                "accept-language": "en",
                 "limit": min(15, limit),
                 "countrycodes": "in",
             }
