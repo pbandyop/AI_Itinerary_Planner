@@ -2481,6 +2481,7 @@ def _assign_blocks(
     return DayPlan(
         day_index=day_index,
         theme=theme[:80],
+        pace=pace,
         morning=TimeBlock(
             time_of_day="morning", stops=morning_stops, notes=am_note
         ),
@@ -2662,6 +2663,7 @@ def build_itinerary(
         empty_days = [
             DayPlan(
                 day_index=i,
+                pace=effective_pace,
                 morning=TimeBlock(time_of_day="morning"),
                 afternoon=TimeBlock(time_of_day="afternoon"),
                 evening=TimeBlock(time_of_day="evening"),
@@ -2881,6 +2883,7 @@ def build_itinerary(
             days.append(
                 DayPlan(
                     day_index=i,
+                    pace=effective_pace,
                     theme="Light day — limited grounded POIs",
                     morning=TimeBlock(
                         time_of_day="morning",
@@ -3345,6 +3348,8 @@ def reassert_meal_pace_layout(
         new_day = DayPlan(
             day_index=day.day_index,
             theme=day.theme or packed.theme,
+            pace=pace,  # type: ignore[arg-type]
+            calendar_date=day.calendar_date,
             morning=TimeBlock(
                 time_of_day="morning",
                 stops=_remap(packed.morning),

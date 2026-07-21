@@ -14,6 +14,7 @@ export const CORE_COLUMNS = [
   "actual_output",
   "expected_output",
   "itinerary_json",
+  "day_paces_json",
 ] as const;
 
 export type SourceChannel = "RAG" | "MCP" | "mixed" | "none";
@@ -36,6 +37,7 @@ export function ensureCoreColumns(sheet: EvalSheet): EvalSheet {
     actual_output: 6,
     expected_output: 7,
     itinerary_json: 8,
+    day_paces_json: 9,
   };
   const columns = [...(sheet.columns || [])];
   for (const c of CORE_COLUMNS) {
@@ -284,6 +286,8 @@ export function appendLiveEvalRow(input: {
   actualOutput: string;
   /** Full merged itinerary JSON when a plan was created/updated this turn. */
   itineraryJson?: string;
+  /** Per-day pace map JSON, e.g. {"1":"relaxed","2":"moderate"}. */
+  dayPacesJson?: string;
 }): EvalRow {
   const sheet = loadEvalSheet();
   // Keep any extra columns the user added in the Eval UI.
@@ -293,6 +297,9 @@ export function appendLiveEvalRow(input: {
   }
   if (!sheet.columns.includes("itinerary_json")) {
     sheet.columns.push("itinerary_json");
+  }
+  if (!sheet.columns.includes("day_paces_json")) {
+    sheet.columns.push("day_paces_json");
   }
   const row: EvalRow = {};
   for (const c of sheet.columns) row[c] = "";
@@ -305,6 +312,7 @@ export function appendLiveEvalRow(input: {
   row.actual_output = input.actualOutput;
   row.expected_output = "";
   row.itinerary_json = input.itineraryJson || "";
+  row.day_paces_json = input.dayPacesJson || "";
   sheet.rows = [...sheet.rows, row];
   saveEvalSheet(sheet);
   if (typeof window !== "undefined") {
@@ -495,6 +503,42 @@ export function isReadOnlyColumn(col: string): boolean {
     col === "retrieval_context" ||
     col === "source_channel" ||
     col === "actual_output" ||
-    col === "itinerary_json"
+    col === "itinerary_json" ||
+    col === "day_paces_json"
   );
+}
+
+/**
+ * Intent gate (option B): only plan/edit turns log itinerary structure.
+ * Tip / hours / rain / clarify turns keep sticky merged_itinerary in the UI
+ * but must not flood the Eval CSV.
+ */
+export function shouldLogItineraryJson(
+  intent: string | null | undefined
+): boolean {
+  const i = (intent || "").toLowerCase().trim();
+  return i === "plan" || i === "edit";
+}
+
+/**
+ * Per-day pace map for feasibility, e.g. {"1":"relaxed","2":"moderate"}.
+ * Prefers day.pace when set (single-day voice edits); else trip.pace.
+ */
+export function dayPacesFromItinerary(
+  itinerary: {
+    trip?: { pace?: string | null } | null;
+    days?: Array<{ day_index?: number; pace?: string | null }> | null;
+  } | null | undefined
+): string {
+  if (!itinerary?.days?.length) return "";
+  const tripPace = itinerary.trip?.pace || null;
+  const map: Record<string, string> = {};
+  for (const d of itinerary.days) {
+    const idx = d.day_index;
+    if (idx == null) continue;
+    const p = (d.pace || tripPace || "").toString().toLowerCase().trim();
+    if (!p) continue;
+    map[String(idx)] = p === "balanced" ? "moderate" : p;
+  }
+  return Object.keys(map).length ? JSON.stringify(map) : "";
 }

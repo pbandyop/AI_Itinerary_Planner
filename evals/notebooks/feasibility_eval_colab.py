@@ -6,10 +6,13 @@
 #
 # **Load options (Cell 2):** `LOAD_MODE = "upload"` (file picker) or `"path"` (CSV_PATH).
 #
-# **Rules (Capstone):**
-# 1. Daily clock window — pace start → 21:00; load ≤ window minutes
-# 2. Travel legs ≤ 90 min; negative travel fails
-# 3. Pace: M/A/E present (stops and/or relax notes); soft ranges on real stops only
+# **Pace rules (aligned with live planner):**
+# | Pace | Start | Morning | Afternoon | Evening |
+# |------|-------|---------|-----------|---------|
+# | relaxed | 10:00 | 1 | 1 | 0–1 food/park/market if interest, else relax |
+# | balanced | 09:00 | 2 | 2 | same |
+# | packed | 08:30 | ≥3 | ≥3, done by **18:00** | same |
+# | All | — | — | — | day hard end **21:00**; travel ≤ 90 min |
 #
 # Paste cells into Colab top-to-bottom, or run this file with `# %%` cell support.
 
@@ -26,6 +29,7 @@ from typing import Any
 import pandas as pd
 
 DAY_END_MIN = 21 * 60  # 21:00 hard end
+PACKED_AFTERNOON_END_MIN = 18 * 60  # 18:00 packed afternoon hard end
 MAX_LEG_TRAVEL_MIN = 90
 
 # Planner day starts (minutes from midnight)
@@ -37,14 +41,18 @@ DAY_START_MIN = {
 }
 
 # Soft ranges on real POI stops only (not relax fillers).
-# packed: (min, None) = floor only
+# packed morning/afternoon: (min, None) = floor only
 SOFT_RANGES: dict[str, dict[str, tuple[int, int | None]]] = {
-    # Matches planner: M/A fixed; E 0 (relax) or 1 (food/park/market).
     "relaxed": {"morning": (1, 1), "afternoon": (1, 1), "evening": (0, 1)},
     "moderate": {"morning": (2, 2), "afternoon": (2, 2), "evening": (0, 1)},
     "balanced": {"morning": (2, 2), "afternoon": (2, 2), "evening": (0, 1)},
     "packed": {"morning": (3, None), "afternoon": (3, None), "evening": (0, 1)},
 }
+
+# Evening stops must be lifestyle categories (heritage/temple/museum never OK).
+EVENING_OK_CATEGORIES = frozenset(
+    {"food", "cafe", "restaurant", "park", "garden", "viewpoint", "market", "shopping"}
+)
 
 BLOCKS = ("morning", "afternoon", "evening")
 
@@ -112,6 +120,11 @@ def iter_day_stops(day: dict) -> list[dict]:
     return out
 
 
+def is_evening_ok_stop(stop: dict) -> bool:
+    cat = str(stop.get("category") or "").strip().lower()
+    return cat in EVENING_OK_CATEGORIES
+
+
 @dataclass
 class CheckResult:
     ok: bool
@@ -128,9 +141,6 @@ def evaluate_day(day: dict, pace: str) -> CheckResult:
     ranges = SOFT_RANGES.get(pace, SOFT_RANGES["moderate"])
 
     # --- Pace: M/A/E presence + soft stop ranges ---
-    # Presence: real stops and/or explicit relax/free note.
-    # Soft ranges apply to real POI counts only. A relax-only block is present
-    # and skips the soft min (relax fills the slot without counting as a stop).
     for bname in BLOCKS:
         block = day.get(bname) if isinstance(day.get(bname), dict) else None
         if not block_present(block):
@@ -157,6 +167,35 @@ def evaluate_day(day: dict, pace: str) -> CheckResult:
             )
         else:
             result.notes.append(f"{label} {bname}: {n} stops ok")
+
+        # Evening: only food / park / market (etc.)
+        if bname == "evening" and n > 0:
+            for s in (block or {}).get("stops") or []:
+                if not is_evening_ok_stop(s):
+                    result.ok = False
+                    result.failures.append(
+                        f"{label} evening: '{s.get('name')}' category "
+                        f"'{s.get('category')}' not allowed "
+                        f"(need food/park/market or relax)"
+                    )
+
+        # Packed afternoon hard end 18:00
+        if bname == "afternoon" and pace == "packed" and n > 0:
+            for s in (block or {}).get("stops") or []:
+                dep = parse_clock_min(s.get("depart_time"))
+                arr = parse_clock_min(s.get("arrive_time"))
+                if dep is not None and arr is not None and dep < arr:
+                    result.ok = False
+                    result.failures.append(
+                        f"{label} afternoon: '{s.get('name')}' past midnight "
+                        f"(packed PM must end by 18:00)"
+                    )
+                elif dep is not None and dep > PACKED_AFTERNOON_END_MIN:
+                    result.ok = False
+                    result.failures.append(
+                        f"{label} afternoon: '{s.get('name')}' departs "
+                        f"{fmt_clock(dep)} > 18:00 (packed PM hard end)"
+                    )
 
     stops = iter_day_stops(day)
 
@@ -221,7 +260,6 @@ def evaluate_day(day: dict, pace: str) -> CheckResult:
     if departs:
         last_end = max(departs)
     elif arrives:
-        # fallback: last arrive + its duration
         last_stop = None
         last_a = -1
         for s in stops:
@@ -232,6 +270,17 @@ def evaluate_day(day: dict, pace: str) -> CheckResult:
         if last_stop is not None:
             last_end = last_a + max(0, int(last_stop.get("duration_min") or 0))
 
+    # Past-midnight depart vs arrive → fail day end
+    for s in stops:
+        a = parse_clock_min(s.get("arrive_time"))
+        d = parse_clock_min(s.get("depart_time"))
+        if a is not None and d is not None and d < a:
+            result.ok = False
+            result.failures.append(
+                f"{label}: '{s.get('name')}' past midnight "
+                f"({s.get('arrive_time')}→{s.get('depart_time')})"
+            )
+
     if last_end is not None:
         if last_end > DAY_END_MIN:
             result.ok = False
@@ -241,7 +290,6 @@ def evaluate_day(day: dict, pace: str) -> CheckResult:
         else:
             result.notes.append(f"{label}: ends {fmt_clock(last_end)} ≤ 21:00 ok")
     elif stops:
-        # No clocks — synthetic span from day start using durations + travel
         cursor = start_min
         for i, s in enumerate(stops):
             cursor += max(0, int(s.get("duration_min") or 0))
@@ -264,26 +312,54 @@ def evaluate_day(day: dict, pace: str) -> CheckResult:
     return result
 
 
-def evaluate_itinerary(itin: dict) -> CheckResult:
+def evaluate_itinerary(itin: dict, day_paces_override: dict[str, str] | None = None) -> CheckResult:
     trip = itin.get("trip") or {}
-    pace = normalize_pace(trip.get("pace"))
+    trip_pace = normalize_pace(trip.get("pace"))
     days = itin.get("days") or []
     if not days:
         return CheckResult(ok=False, failures=["no days in itinerary"])
 
     merged = CheckResult(ok=True)
-    merged.notes.append(f"pace={pace}")
+    merged.notes.append(f"trip_pace={trip_pace}")
     for day in days:
         if not isinstance(day, dict):
             merged.ok = False
             merged.failures.append("invalid day object")
             continue
-        day_res = evaluate_day(day, pace)
+        day_i = str(day.get("day_index", ""))
+        # Prefer CSV day_paces_json → day.pace → trip.pace
+        day_pace = trip_pace
+        if day_paces_override and day_i in day_paces_override:
+            day_pace = normalize_pace(day_paces_override[day_i])
+        elif day.get("pace"):
+            day_pace = normalize_pace(day.get("pace"))
+        merged.notes.append(f"day{day_i}_pace={day_pace}")
+        day_res = evaluate_day(day, day_pace)
         if not day_res.ok:
             merged.ok = False
         merged.failures.extend(day_res.failures)
         merged.notes.extend(day_res.notes)
     return merged
+
+
+def parse_day_paces_cell(raw: Any) -> dict[str, str] | None:
+    if raw is None or (isinstance(raw, float) and pd.isna(raw)):
+        return None
+    text = str(raw).strip()
+    if not text or text.lower() in {"nan", "none", "—", "-"}:
+        return None
+    try:
+        obj = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(obj, dict):
+        return None
+    out: dict[str, str] = {}
+    for k, v in obj.items():
+        if v is None:
+            continue
+        out[str(k)] = normalize_pace(v)
+    return out or None
 
 
 def parse_itinerary_cell(raw: Any) -> dict | None:
@@ -305,7 +381,16 @@ def parse_itinerary_cell(raw: Any) -> dict | None:
 
 print("Rules loaded.")
 print("Day starts:", {k: fmt_clock(v) for k, v in DAY_START_MIN.items() if k != "balanced"})
-print("Day end:", fmt_clock(DAY_END_MIN), "| max travel:", MAX_LEG_TRAVEL_MIN, "min")
+print(
+    "Day end:",
+    fmt_clock(DAY_END_MIN),
+    "| packed PM end:",
+    fmt_clock(PACKED_AFTERNOON_END_MIN),
+    "| max travel:",
+    MAX_LEG_TRAVEL_MIN,
+    "min",
+)
+print("Soft ranges:", SOFT_RANGES)
 
 # %%
 # Cell 2 — load Eval CSV (upload or path)
@@ -452,15 +537,21 @@ for idx, row in plans_df.iterrows():
         continue
 
     trip = itin.get("trip") or {}
-    pace = normalize_pace(trip.get("pace"))
-    res = evaluate_itinerary(itin)
+    day_paces = parse_day_paces_cell(row.get("day_paces_json"))
+    res = evaluate_itinerary(itin, day_paces_override=day_paces)
+    pace_label = ""
+    if day_paces:
+        pace_label = ",".join(f"D{k}:{v}" for k, v in sorted(day_paces.items(), key=lambda x: int(x[0]) if str(x[0]).isdigit() else 0))
+    else:
+        pace_label = normalize_pace(trip.get("pace"))
     rows_out.append(
         {
             "row_index": idx,
             "Session_Id": session,
             "Timestamp_R": ts,
             "question": question,
-            "pace": pace,
+            "pace": pace_label,
+            "day_paces_json": row.get("day_paces_json") or "",
             "num_days": trip.get("num_days") or len(itin.get("days") or []),
             "verdict": "PASS" if res.ok else "FAIL",
             "failures": " | ".join(res.failures),
@@ -474,7 +565,7 @@ n_fail = int((results["verdict"] == "FAIL").sum())
 print(f"\n=== Feasibility summary ===")
 print(f"Plans checked: {len(results)}  |  PASS: {n_pass}  |  FAIL: {n_fail}")
 print()
-display_cols = ["Session_Id", "pace", "num_days", "verdict", "failures"]
+display_cols = ["Session_Id", "pace", "day_paces_json", "num_days", "verdict", "failures"]
 print(results[display_cols].to_string(index=False))
 
 # Show first failing detail

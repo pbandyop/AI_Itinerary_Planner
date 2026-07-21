@@ -5,7 +5,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invokeAgent, type ConversationTurn } from "@/lib/agent";
 import {
   appendLiveEvalRow,
+  dayPacesFromItinerary,
   inferSourceChannel,
+  shouldLogItineraryJson,
   sourcesForEvalLog,
   sourcesToRetrievalContext,
 } from "@/lib/evalCsv";
@@ -472,6 +474,7 @@ export default function VoicePlanner() {
           ...c,
           { role: "assistant", content: replyText },
         ]);
+        const logItinerary = shouldLogItineraryJson(result.intent);
         appendLiveEvalRow({
           sessionId: sessionIdRef.current,
           timestampUq,
@@ -485,9 +488,14 @@ export default function VoicePlanner() {
             result.agent_trace as Array<Record<string, unknown>> | undefined
           ),
           actualOutput: replyText,
-          itineraryJson: result.merged_itinerary
-            ? JSON.stringify(result.merged_itinerary)
-            : "",
+          itineraryJson:
+            logItinerary && result.merged_itinerary
+              ? JSON.stringify(result.merged_itinerary)
+              : "",
+          dayPacesJson:
+            logItinerary && result.merged_itinerary
+              ? dayPacesFromItinerary(result.merged_itinerary)
+              : "",
         });
         speakText(speakableReply(replyText), tts, {
           onStart: () => setAiSpeaking(true),

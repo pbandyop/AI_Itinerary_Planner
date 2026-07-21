@@ -89,6 +89,14 @@ class DayPlan(BaseModel):
     day_index: int = Field(..., ge=1, le=4)
     calendar_date: date | None = None
     theme: str | None = None
+    """Per-day pace when a voice edit changes only this day; else mirrors trip.pace."""
+    pace: Pace | None = Field(
+        default=None,
+        description=(
+            "Effective packing pace for this day (relaxed/moderate/packed). "
+            "Set on build and when a single-day pace edit runs; null falls back to trip.pace."
+        ),
+    )
     morning: TimeBlock = Field(default_factory=lambda: TimeBlock(time_of_day="morning"))
     afternoon: TimeBlock = Field(
         default_factory=lambda: TimeBlock(time_of_day="afternoon")

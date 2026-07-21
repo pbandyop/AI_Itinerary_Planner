@@ -535,7 +535,11 @@ def apply_edit_patch(
 
     for day in itinerary.days:
         if day.day_index != target_day:
-            days_out.append(day.model_copy(deep=True))
+            kept = day.model_copy(deep=True)
+            # Ensure untouched days carry an explicit pace for eval/logging.
+            if kept.pace is None and itinerary.trip and itinerary.trip.pace:
+                kept = kept.model_copy(update={"pace": itinerary.trip.pace})
+            days_out.append(kept)
             continue
 
         new_day = day.model_copy(deep=True)
@@ -1283,6 +1287,18 @@ def apply_edit_patch(
                 f"Applied fallback scoped edit ({op}) on Day {target_day}."
             )
 
+        # Record per-day pace so single-day relax/balance/pack edits are evaluable.
+        day_pace: str | None = None
+        if op == "relax_block" and not target_block:
+            day_pace = "relaxed"
+        elif op == "balance_block":
+            day_pace = "moderate"
+        elif op == "pack_block" and not target_block:
+            day_pace = "packed"
+        if day_pace:
+            new_day = new_day.model_copy(update={"pace": day_pace})
+            notes.append(f"Day {target_day} pace set to {day_pace}.")
+
         days_out.append(new_day)
 
     if not touched:
@@ -1300,8 +1316,8 @@ def apply_edit_patch(
         days_out, dedupe_notes = dedupe_day_plans(days_out)
         notes.extend(dedupe_notes)
 
-    # Pace-changing edits must update trip.pace so Synthesis restamps with
-    # soft block anchors + relax/free notes (not continuous packed clocks).
+    # Pace-changing edits: update trip.pace for Synthesis restamp of the
+    # edited day; per-day pace on DayPlan is the source of truth for evals.
     trip_update: dict[str, Any] = {}
     if itinerary.trip is not None:
         if op == "relax_block" and not target_block:

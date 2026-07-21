@@ -230,7 +230,7 @@ export default function EvalPanel({ onBack }: Props) {
                           </td>
                         );
                       }
-                      if (col === "itinerary_json") {
+                      if (col === "itinerary_json" || col === "day_paces_json") {
                         const preview = value
                           ? `${value.slice(0, 120)}${value.length > 120 ? "…" : ""}`
                           : "";

@@ -48,6 +48,8 @@ export interface DayPlan {
   day_index: number;
   calendar_date?: string | null;
   theme?: string | null;
+  /** Per-day pace after single-day edits; falls back to trip.pace when absent. */
+  pace?: Pace | null;
   morning: TimeBlock;
   afternoon: TimeBlock;
   evening: TimeBlock;
