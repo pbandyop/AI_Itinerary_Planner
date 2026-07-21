@@ -228,6 +228,20 @@ export default function EvalPanel({ onBack }: Props) {
                           </td>
                         );
                       }
+                      if (col === "itinerary_json") {
+                        const preview = value
+                          ? `${value.slice(0, 120)}${value.length > 120 ? "…" : ""}`
+                          : "";
+                        return (
+                          <td
+                            key={col}
+                            className={styles.textCell}
+                            title={value ? `${value.length} chars` : undefined}
+                          >
+                            {preview || "—"}
+                          </td>
+                        );
+                      }
                       if (!isReadOnlyColumn(col)) {
                         return (
                           <td key={col} className={styles.editCell}>

@@ -485,6 +485,9 @@ export default function VoicePlanner() {
             result.agent_trace as Array<Record<string, unknown>> | undefined
           ),
           actualOutput: replyText,
+          itineraryJson: result.merged_itinerary
+            ? JSON.stringify(result.merged_itinerary)
+            : "",
         });
         speakText(speakableReply(replyText), tts, {
           onStart: () => setAiSpeaking(true),

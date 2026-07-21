@@ -13,6 +13,7 @@ export const CORE_COLUMNS = [
   "source_channel",
   "actual_output",
   "expected_output",
+  "itinerary_json",
 ] as const;
 
 export type SourceChannel = "RAG" | "MCP" | "mixed" | "none";
@@ -48,6 +49,7 @@ export function loadEvalSheet(): EvalSheet {
       source_channel: 5,
       actual_output: 6,
       expected_output: 7,
+      itinerary_json: 8,
     };
     for (const c of CORE_COLUMNS) {
       if (!columns.includes(c)) {
@@ -269,12 +271,17 @@ export function appendLiveEvalRow(input: {
   retrievalContext: string;
   sourceChannel: string;
   actualOutput: string;
+  /** Full merged itinerary JSON when a plan was created/updated this turn. */
+  itineraryJson?: string;
 }): EvalRow {
   const sheet = loadEvalSheet();
   // Keep any extra columns the user added in the Eval UI.
   if (!sheet.columns.includes("source_channel")) {
     const idx = sheet.columns.indexOf("retrieval_context");
     sheet.columns.splice(idx >= 0 ? idx + 1 : sheet.columns.length, 0, "source_channel");
+  }
+  if (!sheet.columns.includes("itinerary_json")) {
+    sheet.columns.push("itinerary_json");
   }
   const row: EvalRow = {};
   for (const c of sheet.columns) row[c] = "";
@@ -286,6 +293,7 @@ export function appendLiveEvalRow(input: {
   row.source_channel = input.sourceChannel;
   row.actual_output = input.actualOutput;
   row.expected_output = "";
+  row.itinerary_json = input.itineraryJson || "";
   sheet.rows = [...sheet.rows, row];
   saveEvalSheet(sheet);
   if (typeof window !== "undefined") {
@@ -470,6 +478,7 @@ export function isReadOnlyColumn(col: string): boolean {
     col === "question" ||
     col === "retrieval_context" ||
     col === "source_channel" ||
-    col === "actual_output"
+    col === "actual_output" ||
+    col === "itinerary_json"
   );
 }
