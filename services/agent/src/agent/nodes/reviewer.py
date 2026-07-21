@@ -103,18 +103,51 @@ def _heuristic_issues(state: GraphState) -> tuple[list[ReviewIssue], list[str]]:
                 )
             )
             affected.append(f"day{day.day_index}")
-        if trip and trip.pace == "relaxed" and len(day.all_stops) > 4:
+        if trip and trip.pace == "relaxed" and len(day.all_stops) > 3:
             issues.append(
                 ReviewIssue(
                     code="feasibility_pace",
                     message=(
                         f"Day {day.day_index} has {len(day.all_stops)} stops "
-                        "for relaxed pace."
+                        "for relaxed pace (target ~1 morning + 1 afternoon + "
+                        "optional evening food/park/market)."
                     ),
                     section=f"day{day.day_index}",
                 )
             )
             affected.append(f"day{day.day_index}")
+        # Hard day-end: any stop departing after 21:00 (or past midnight).
+        for s in day.all_stops:
+            dep = getattr(s, "depart_time", None)
+            arr = getattr(s, "arrive_time", None)
+            if not dep:
+                continue
+            try:
+                dh, dm = str(dep).split(":")[:2]
+                dep_min = int(dh) * 60 + int(dm)
+            except (TypeError, ValueError):
+                continue
+            past_midnight = False
+            if arr:
+                try:
+                    ah, am = str(arr).split(":")[:2]
+                    arr_min = int(ah) * 60 + int(am)
+                    past_midnight = dep_min < arr_min
+                except (TypeError, ValueError):
+                    past_midnight = False
+            if past_midnight or dep_min > 21 * 60:
+                issues.append(
+                    ReviewIssue(
+                        code="feasibility_duration",
+                        message=(
+                            f"Day {day.day_index} stop '{s.name}' ends after "
+                            "21:00 hard day end."
+                        ),
+                        section=f"day{day.day_index}",
+                    )
+                )
+                affected.append(f"day{day.day_index}")
+                break
         if not day.all_stops:
             issues.append(
                 ReviewIssue(

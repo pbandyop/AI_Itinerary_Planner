@@ -39,36 +39,39 @@ DEFAULT_DURATION: dict[str, int] = {
     "other": 60,
 }
 
-# Soft day-size hints. Packed densifies by clock windows beyond the floor.
+# Soft day-size hints. Packed densifies AM/PM by clock; evening is at most one.
 STOPS_PER_DAY: dict[Pace, int] = {
-    "relaxed": 6,  # morning 1–3 · afternoon 1–3 · evening 1–2
-    "moderate": 10,  # morning 2–4 · afternoon 2–4 · evening 1–3
-    "packed": 24,  # floor 3·3·2 then densify until windows fill
+    "relaxed": 3,  # morning 1 · afternoon 1 · evening 0–1
+    "moderate": 5,  # morning 2 · afternoon 2 · evening 0–1
+    "packed": 24,  # floor ≥3 · ≥3 · 0–1 then densify AM/PM until windows fill
 }
 
-# Non-food evening extras allowed before dinner (dinner stays last).
+# At most one non-food evening lifestyle stop (food/park/market) before optional dinner.
 MAX_EVENING_EXTRAS: dict[Pace, int] = {
     "relaxed": 1,
-    "moderate": 2,
-    "packed": 2,
+    "moderate": 1,
+    "packed": 1,
 }
 
 def _ideal_block_targets(pace: Pace) -> tuple[int, int, int]:
-    """Preferred (morning, afternoon, evening) counts when the day pool is rich enough."""
+    """Preferred (morning, afternoon, evening) counts when the day pool is rich enough.
+
+    Evening count is a *slot* budget: filled only with food/park/market when the
+    user selected that interest; otherwise the evening panel stays relax-only.
+    """
     if pace == "relaxed":
-        return (2, 2, 1)  # within 1–3 / 1–3 / 1–2
+        return (1, 1, 1)
     if pace == "packed":
-        return (3, 3, 2)  # floor; densify grows further by time window
-    return (3, 3, 2)  # moderate / balanced within 2–4 / 2–4 / 1–3
+        return (3, 3, 1)  # AM/PM floors; densify may grow AM/PM further by time
+    return (2, 2, 1)  # balanced / moderate
 
 
 def _adaptive_block_targets(pace: Pace, n: int) -> tuple[int, int, int]:
     """Soft-fill toward pace ideals; never invent stops.
 
-    Shrink order when short: evening extras (e>1) → afternoon → morning
-    (keep morning protected). Prefer keeping one evening slot when possible.
-    With exactly 3 POIs, prefer 1-1-1 so all three panels show rather than 2-1-0.
-    Packed grows AM/PM/evening freely (no small hard cap); densify fills by time.
+    Shrink order when short: evening → afternoon → morning (keep morning
+    protected). Relaxed/balanced never grow past their ideals. Packed keeps
+    evening at most 1 and grows only morning/afternoon when the pool is rich.
     """
     if n <= 0:
         return (0, 0, 0)
@@ -76,42 +79,28 @@ def _adaptive_block_targets(pace: Pace, n: int) -> tuple[int, int, int]:
         return (1, 0, 0)
     if n == 2:
         return (1, 1, 0)
-    if n == 3:
-        return (1, 1, 1)
+
+    ideal_m, ideal_a, ideal_e = _ideal_block_targets(pace)
 
     if pace == "packed":
-        # Start at packed floor 3-3-2; stretch across blocks while POIs last.
-        m, a, e = 3, 3, 2
-        cap_m, cap_a, cap_e = 8, 8, 5
+        # Floor 3-3-1; stretch AM/PM only (evening stays ≤1).
+        m, a, e = 3, 3, 1
+        cap_m, cap_a, cap_e = 8, 8, 1
         use = min(n, cap_m + cap_a + cap_e)
-        spare = use - (m + a + e)
-        order = ["m", "a", "e"]
-        oi = 0
-        while spare > 0:
-            slot = order[oi % 3]
-            oi += 1
-            if slot == "m" and m < cap_m:
+        while m + a + e < use:
+            if m < cap_m:
                 m += 1
-                spare -= 1
-            elif slot == "a" and a < cap_a:
+            elif a < cap_a:
                 a += 1
-                spare -= 1
-            elif slot == "e" and e < cap_e:
-                e += 1
-                spare -= 1
-            elif m >= cap_m and a >= cap_a and e >= cap_e:
-                break
             else:
-                continue
+                break
         while m + a + e > use:
-            if e > 2:
+            if e > 0:
                 e -= 1
             elif a > 3:
                 a -= 1
             elif m > 3:
                 m -= 1
-            elif e > 1:
-                e -= 1
             elif a > 0:
                 a -= 1
             elif m > 1:
@@ -120,65 +109,18 @@ def _adaptive_block_targets(pace: Pace, n: int) -> tuple[int, int, int]:
                 break
         return (m, a, e)
 
-    if pace == "moderate":
-        # Balanced: floor toward 2-2-1, ideal 3-3-2, caps 4-4-3.
-        m, a, e = 2, 2, 1
-        cap_m, cap_a, cap_e = 4, 4, 3
-        use = min(n, cap_m + cap_a + cap_e)
-        while m + a + e < use:
-            if m < 3:
-                m += 1
-            elif a < 3:
-                a += 1
-            elif e < 2:
-                e += 1
-            elif m < cap_m:
-                m += 1
-            elif a < cap_a:
-                a += 1
-            elif e < cap_e:
-                e += 1
-            else:
-                break
-        while m + a + e > use:
-            if e > 1:
-                e -= 1
-            elif a > 2:
-                a -= 1
-            elif m > 2:
-                m -= 1
-            elif a > 1:
-                a -= 1
-            elif m > 1:
-                m -= 1
-            else:
-                break
-        return (m, a, e)
-
-    # Relaxed: prefer 2-2-1 within 1–3 / 1–3 / 1–2.
-    ideal_m, ideal_a, ideal_e = _ideal_block_targets(pace)
-    use = min(n, 3 + 3 + 2)
+    # Relaxed (1-1-1) and balanced (2-2-1): fixed ideals, shrink only.
     m, a, e = ideal_m, ideal_a, ideal_e
+    use = min(n, m + a + e)
     while m + a + e > use:
-        if e > 1:
+        if e > 0:
             e -= 1
-        elif a > 1:
+        elif a > (1 if pace == "moderate" else 0):
             a -= 1
         elif m > 1:
             m -= 1
-        elif e > 0:
-            e -= 1
         elif a > 0:
             a -= 1
-        else:
-            break
-    while m + a + e < use:
-        if m < 3:
-            m += 1
-        elif a < 3:
-            a += 1
-        elif e < 2:
-            e += 1
         else:
             break
     return (m, a, e)
@@ -737,8 +679,10 @@ BLOCK_START_MIN: dict[str, int] = {
     "evening": 17 * 60,  # 5:00 PM
 }
 
-# Soft end of evening window (for packed densify + flex notes).
-EVENING_FLEX_END_MIN = 21 * 60  # 9:00 PM
+# Soft end of evening window (for densify + flex notes).
+EVENING_FLEX_END_MIN = 21 * 60  # 9:00 PM hard day end
+# Packed afternoon must finish by 6:00 PM before evening lifestyle stop.
+PACKED_AFTERNOON_HARD_END_MIN = 18 * 60
 
 # Semantic block ends for relax notes (= next block start).
 BLOCK_FLEX_END_MIN: dict[str, int] = {
@@ -840,6 +784,92 @@ def stamp_schedule_clocks(
     return out
 
 
+def _block_hard_end_min(bname: str, pace: Pace) -> int:
+    """Latest allowed depart minute for a block."""
+    if bname == "afternoon" and pace == "packed":
+        return PACKED_AFTERNOON_HARD_END_MIN
+    if bname in {"afternoon", "evening"}:
+        return EVENING_FLEX_END_MIN
+    return BLOCK_START_MIN["afternoon"]
+
+
+def trim_day_to_hard_ends(
+    day: DayPlan, *, pace: Pace = "moderate"
+) -> tuple[DayPlan, list[str]]:
+    """Drop stops that finish after hard clock ends; clear overnight spill.
+
+    - All paces: no stop may depart after 21:00.
+    - Packed afternoon: no stop may depart after 18:00.
+    """
+    notes: list[str] = []
+    d = day.model_copy(deep=True)
+    dropped_any = False
+    for bname in ("morning", "afternoon", "evening"):
+        block: TimeBlock = getattr(d, bname)
+        hard = min(_block_hard_end_min(bname, pace), EVENING_FLEX_END_MIN)
+        kept: list[Stop] = []
+        for s in block.stops:
+            depart = _parse_clock_min(s.depart_time)
+            arrive = _parse_clock_min(s.arrive_time)
+            # Past-midnight stamps (e.g. 00:21) are always over day end.
+            if depart is not None and arrive is not None and depart < arrive:
+                notes.append(
+                    f"Day {day.day_index} {bname}: dropped {s.name} "
+                    f"(past midnight / after {_format_clock(hard)})."
+                )
+                dropped_any = True
+                continue
+            if depart is not None and depart > hard:
+                notes.append(
+                    f"Day {day.day_index} {bname}: dropped {s.name} "
+                    f"(departs {_format_clock(depart)} > {_format_clock(hard)})."
+                )
+                dropped_any = True
+                continue
+            if arrive is not None and arrive >= hard:
+                notes.append(
+                    f"Day {day.day_index} {bname}: dropped {s.name} "
+                    f"(arrives {_format_clock(arrive)} ≥ {_format_clock(hard)})."
+                )
+                dropped_any = True
+                continue
+            kept.append(s)
+        if len(kept) != len(block.stops):
+            if kept:
+                kept[-1] = kept[-1].model_copy(
+                    update={
+                        "travel_to_next_min": None,
+                        "travel_to_next_km": None,
+                        "travel_to_next_mode": None,
+                    }
+                )
+            setattr(
+                d,
+                bname,
+                TimeBlock(
+                    time_of_day=bname,  # type: ignore[arg-type]
+                    stops=kept,
+                    notes=block.notes,
+                ),
+            )
+    if dropped_any:
+        d = stamp_schedule_clocks([d], pace=pace)[0]
+    return d, notes
+
+
+def trim_schedule_to_hard_ends(
+    days: list[DayPlan], *, pace: Pace = "moderate"
+) -> tuple[list[DayPlan], list[str]]:
+    """Apply ``trim_day_to_hard_ends`` across all days."""
+    out: list[DayPlan] = []
+    notes: list[str] = []
+    for day in days:
+        trimmed, n = trim_day_to_hard_ends(day, pace=pace)
+        out.append(trimmed)
+        notes.extend(n)
+    return out, notes
+
+
 def restamp_day_travel_and_clocks(
     day: DayPlan, *, pace: Pace = "moderate"
 ) -> DayPlan:
@@ -873,12 +903,12 @@ def restamp_day_travel_and_clocks(
 BLOCK_FLOOR_BY_PACE: dict[Pace, dict[str, int]] = {
     "relaxed": {"morning": 1, "afternoon": 1, "evening": 1},
     "moderate": {"morning": 2, "afternoon": 2, "evening": 1},
-    "packed": {"morning": 3, "afternoon": 3, "evening": 2},
+    "packed": {"morning": 3, "afternoon": 3, "evening": 1},
 }
 BLOCK_SOFT_CAP_BY_PACE: dict[Pace, dict[str, int]] = {
-    "relaxed": {"morning": 3, "afternoon": 3, "evening": 2},
-    "moderate": {"morning": 4, "afternoon": 4, "evening": 3},
-    "packed": {"morning": 8, "afternoon": 8, "evening": 5},
+    "relaxed": {"morning": 1, "afternoon": 1, "evening": 1},
+    "moderate": {"morning": 2, "afternoon": 2, "evening": 1},
+    "packed": {"morning": 8, "afternoon": 8, "evening": 1},
 }
 # Back-compat aliases used by packed densify.
 PACKED_BLOCK_FLOOR: dict[str, int] = BLOCK_FLOOR_BY_PACE["packed"]
@@ -894,7 +924,8 @@ def _packed_block_window(bname: str, pace: Pace) -> tuple[int, int]:
     if bname == "morning":
         return day_start, BLOCK_START_MIN["afternoon"]
     if bname == "afternoon":
-        return BLOCK_START_MIN["afternoon"], BLOCK_START_MIN["evening"]
+        # Packed afternoon hard-ends at 18:00 (not evening anchor 17:00).
+        return BLOCK_START_MIN["afternoon"], PACKED_AFTERNOON_HARD_END_MIN
     return BLOCK_START_MIN["evening"], EVENING_FLEX_END_MIN
 
 
@@ -1334,7 +1365,17 @@ def annotate_block_flex_time(
                 depart -= int(last.travel_to_next_min or 0)
 
             travel = max(0, int(last.travel_to_next_min or 0))
-            gap_until_next = int(window_end) - int(depart)
+            # Past-midnight depart (e.g. 00:21) must not invent huge "free time".
+            depart_cmp = int(depart)
+            if (
+                bname == "evening"
+                and depart_cmp < BLOCK_START_MIN["evening"]
+                and depart_cmp < int(window_end)
+            ):
+                # Treat as after midnight → no leftover flex.
+                gap_until_next = -1
+            else:
+                gap_until_next = int(window_end) - depart_cmp
             if gap_until_next < 30:
                 cleaned = _strip_flex_note(block.notes)
                 if cleaned != block.notes:
@@ -1415,8 +1456,8 @@ _FORT_PALACE_INTERIOR_RE = re.compile(
 )
 
 _FREE_EVENING_NOTE = (
-    "Relax / free time after 5:00 PM — no evening-appropriate stop "
-    "(markets/food when chosen, or temple / garden / sunset heritage)."
+    "Relax / free evening — no food, park, or market stop scheduled "
+    "(evening only fills those when you chose them as interests)."
 )
 
 
@@ -1444,14 +1485,12 @@ def _interest_key_set(interests: list[str] | None) -> set[str]:
     }
 
 
-def _is_sunset_heritage_name(name: str | None) -> bool:
+def _is_sunset_heritage_name(name: str) -> bool:
     return bool(_SUNSET_HERITAGE_RE.search(name or ""))
 
 
-def _looks_like_fort_palace_interior(name: str | None) -> bool:
+def _looks_like_fort_palace_interior(name: str) -> bool:
     n = name or ""
-    if _is_sunset_heritage_name(n):
-        return False
     return bool(_FORT_PALACE_INTERIOR_RE.search(n))
 
 
@@ -1460,13 +1499,14 @@ def _is_evening_eligible_fields(
     category: str | None,
     interests: list[str] | None = None,
 ) -> bool:
-    """After-5:00 PM pack policy on raw name/category."""
+    """Evening pack policy: food / park / market only, interest-gated.
+
+    Heritage, temple, museum, fort, and other sights are never evening stops.
+    If nothing eligible, leave the evening panel as relax time.
+    """
+    del name  # name not used; category + interests decide
     cat = (category or "other").lower()
     keys = _interest_key_set(interests)
-    n = name or ""
-
-    if cat in {"museum", "art"}:
-        return False
 
     if cat in {"food", "cafe", "restaurant"}:
         return "food" in keys
@@ -1474,48 +1514,10 @@ def _is_evening_eligible_fields(
     if cat in {"market", "shopping"}:
         return bool(keys & {"shopping", "market"})
 
-    if cat == "nightlife":
-        return "nightlife" in keys
-
-    if cat == "temple":
-        return bool(keys & {"temple", "culture", "spiritual"})
-
     if cat in {"park", "garden", "viewpoint"}:
         return bool(
-            keys
-            & {
-                "park",
-                "garden",
-                "nature",
-                "viewpoint",
-                "outdoor",
-                "heritage",
-                "culture",
-            }
+            keys & {"park", "garden", "nature", "viewpoint", "outdoor"}
         )
-
-    if cat in {"heritage", "attraction"}:
-        want_soft_heritage = bool(
-            keys
-            & {
-                "heritage",
-                "culture",
-                "history",
-                "architecture",
-                "park",
-                "garden",
-                "nature",
-                "viewpoint",
-                "outdoor",
-            }
-        )
-        if not want_soft_heritage:
-            return False
-        if _is_sunset_heritage_name(n):
-            return True
-        if _looks_like_fort_palace_interior(n):
-            return False
-        return False
 
     return False
 
@@ -1526,11 +1528,10 @@ def _is_evening_eligible(
     """After-5:00 PM pack policy.
 
     | Category | Rule |
-    | Museum / art | Never |
-    | Fort / palace interiors | Prefer not (closing times) |
-    | Market / food | Only if user chose them |
-    | Temple | Allow if temple interest |
-    | Garden / viewpoint / sunset heritage | Soft-allow if park or heritage |
+    | Food / cafe | Only if user chose food |
+    | Market / shopping | Only if user chose market/shopping |
+    | Park / garden / viewpoint | Only if user chose park/outdoor/nature |
+    | Heritage / temple / museum / fort | Never |
     | Nothing eligible | Leave evening empty (relax) |
     """
     return _is_evening_eligible_fields(
@@ -1551,24 +1552,8 @@ def _evening_soft_categories(interests: list[str] | None) -> frozenset[str]:
     keys = _interest_key_set(interests)
     if keys & {"shopping", "market"}:
         cats.update({"market", "shopping"})
-    if "nightlife" in keys:
-        cats.add("nightlife")
-    if keys & {"park", "garden", "nature", "viewpoint", "outdoor", "heritage", "culture"}:
+    if keys & {"park", "garden", "nature", "viewpoint", "outdoor"}:
         cats.update({"park", "garden", "viewpoint"})
-    if keys & {"temple", "culture", "spiritual"}:
-        cats.add("temple")
-    if keys & {
-        "heritage",
-        "culture",
-        "history",
-        "architecture",
-        "park",
-        "garden",
-        "nature",
-        "viewpoint",
-        "outdoor",
-    }:
-        cats.add("heritage")
     return frozenset(cats)
 
 
@@ -2337,9 +2322,9 @@ def _assign_blocks(
     """Pack a day with Morning + Afternoon + Evening always present.
 
     Targets by pace (soft, adaptive to available POIs):
-      relaxed  → 2 · 1 · 1
-      moderate → 2 · 2 · 1  (balanced)
-      packed   → ≥2 · ≥2 · 2  (stretch to 3 · 2 · 2 when pool allows)
+      relaxed  → 1 · 1 · 0–1  (E = food/park/market if interest, else relax)
+      moderate → 2 · 2 · 0–1  (balanced)
+      packed   → ≥3 · ≥3 · 0–1  (PM hard-ends 18:00; densify by time)
 
     When food is paired with other interests, use a meal-slot template and
     allow at most one food stop per block. Food-only trips may stack foods.
@@ -2948,13 +2933,22 @@ def build_itinerary(
     days = [
         restamp_day_travel_and_clocks(d, pace=effective_pace) for d in days
     ]
+    days, trim_notes = trim_schedule_to_hard_ends(days, pace=effective_pace)
+    notes.extend(trim_notes)
     notes.append(
         f"Schedule clocks stamped from "
         f"{_format_clock(DAY_START_MIN.get(effective_pace, 9 * 60))} "
-        f"({effective_pace} day start) using duration + travel_to_next."
+        f"({effective_pace} day start) using duration + travel_to_next; "
+        f"hard day end {_format_clock(EVENING_FLEX_END_MIN)}"
+        + (
+            f", packed afternoon end {_format_clock(PACKED_AFTERNOON_HARD_END_MIN)}"
+            if effective_pace == "packed"
+            else ""
+        )
+        + "."
     )
 
-    # Relaxed/balanced: explicit relax/buffer for leftover AM/PM window time.
+    # Explicit relax/buffer for leftover AM/PM/evening window time.
     days, flex_notes = annotate_block_flex_time(days, pace=effective_pace)
     notes.extend(flex_notes)
     days = refresh_day_themes(days)
@@ -3118,6 +3112,10 @@ def ensure_interest_coverage(
                 )
             )
             for bname, idx, s in slots:
+                if bname == "evening" and not _is_evening_eligible_fields(
+                    pick.name, pick.category, interest_keys
+                ):
+                    continue
                 if _sole_cover_interests(s, flat, interest_keys):
                     continue
                 if _stop_covers_interest(s, key):
@@ -3133,7 +3131,7 @@ def ensure_interest_coverage(
                 changed = True
                 return True
 
-        # 2) Append on the thinnest day under the pace cap.
+        # 2) Append on the thinnest day under the pace cap (never evening for sights).
         for day in sorted(working, key=lambda d: (len(d.all_stops), d.day_index)):
             if len(day.all_stops) >= cap:
                 continue
@@ -3145,6 +3143,10 @@ def ensure_interest_coverage(
                 target = "morning"
             else:
                 target = "afternoon"
+            if target == "evening" and not _is_evening_eligible_fields(
+                pick.name, pick.category, interest_keys
+            ):
+                continue
             block = day.block(target)  # type: ignore[arg-type]
             _set_block(day, target, [*block.stops, new_stop], block.notes)
             notes.append(
@@ -3367,6 +3369,8 @@ def reassert_meal_pace_layout(
             f"E{len(new_day.evening.stops)})."
         )
 
+    out, trim_notes = trim_schedule_to_hard_ends(out, pace=pace)
+    notes.extend(trim_notes)
     out, flex_notes = annotate_block_flex_time(out, pace=pace)
     notes.extend(flex_notes)
     out = refresh_day_themes(out)

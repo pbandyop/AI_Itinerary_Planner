@@ -243,8 +243,15 @@ def nominatim_category_search(
         nonlocal pois
         if len(pois) >= limit:
             return
-        name = normalize_poi_name(
-            str(row.get("name") or row.get("display_name") or "").split(",")[0].strip()
+        namedetails = row.get("namedetails") if isinstance(row.get("namedetails"), dict) else {}
+        extratags = row.get("extratags") if isinstance(row.get("extratags"), dict) else {}
+        name = prefer_english_poi_name(
+            namedetails.get("name:en") if namedetails else None,
+            extratags.get("name:en") if extratags else None,
+            namedetails,
+            extratags,
+            row.get("name"),
+            row.get("display_name"),
         )
         if not name:
             return
@@ -306,6 +313,9 @@ def nominatim_category_search(
                     "q": q,
                     "format": "jsonv2",
                     "addressdetails": 0,
+                    "namedetails": 1,
+                    "extratags": 1,
+                    "accept-language": "en",
                     "limit": 3,
                     "countrycodes": "in",
                 }
@@ -439,6 +449,33 @@ def normalize_poi_name(name: str) -> str:
     return n
 
 
+def is_latin_display_name(name: str) -> bool:
+    """True when the visible name is mostly Latin script (English UI only)."""
+    letters = [c for c in (name or "") if c.isalpha()]
+    if not letters:
+        return False
+    latin = sum(1 for c in letters if ord(c) < 128)
+    return (latin / len(letters)) >= 0.7
+
+
+def prefer_english_poi_name(*candidates: Any) -> str | None:
+    """Pick the first mostly-Latin name from OSM / Nominatim fields."""
+    for raw in candidates:
+        if raw is None:
+            continue
+        if isinstance(raw, dict):
+            # namedetails / extratags style
+            for key in ("name:en", "int_name", "name"):
+                val = raw.get(key)
+                if val and is_latin_display_name(str(val)):
+                    return normalize_poi_name(str(val))
+            continue
+        text = str(raw).split(",")[0].strip()
+        if text and is_latin_display_name(text):
+            return normalize_poi_name(text)
+    return None
+
+
 def _category_from_tags(tags: dict[str, str]) -> str:
     amenity = tags.get("amenity", "")
     tourism = tags.get("tourism", "")
@@ -464,6 +501,13 @@ def _category_from_tags(tags: dict[str, str]) -> str:
     if amenity in {"bar", "pub", "nightclub", "biergarten"} or leisure == "dance":
         return "nightlife"
     if amenity == "place_of_worship":
+        religion = (tags.get("religion") or "").lower()
+        if (
+            religion in {"christian", "muslim", "jewish", "sikh", "buddhist", "jain"}
+            or re.search(r"\b(church|cathedral|chapel|mosque|masjid|gurudwara|gurdwara|synagogue)\b", name, re.I)
+        ):
+            # Not a Hindu temple — exclude from temple-interest packing.
+            return "other"
         return "temple"
     if tourism in {"museum", "gallery"}:
         return "museum"
@@ -1285,10 +1329,15 @@ def _parse_elements(
     pois: list[POICandidate] = []
     for el in elements:
         tags = el.get("tags") or {}
-        raw_name = tags.get("name:en") or tags.get("name")
+        raw_name = prefer_english_poi_name(
+            tags.get("name:en"),
+            tags.get("int_name"),
+            tags.get("name"),
+            tags,
+        )
         if not raw_name:
             continue
-        name = normalize_poi_name(str(raw_name))
+        name = raw_name
         if not name:
             continue
         osm_type = el.get("type")

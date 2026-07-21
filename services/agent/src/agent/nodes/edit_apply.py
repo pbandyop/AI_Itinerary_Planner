@@ -633,8 +633,8 @@ def apply_edit_patch(
                     p.name or "",
                 ),
             )
-            # Balanced densify: morning 2–4 · afternoon 2–4 · evening 1–3 (~7–8).
-            target_n = max(7, min(cap, 8))
+            # Balanced densify: morning 2 · afternoon 2 · evening 0–1 (~4–5).
+            target_n = max(4, min(cap, 5))
             added_names: list[str] = []
 
             def _take_from_pool(pred=None) -> bool:

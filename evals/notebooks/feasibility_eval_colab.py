@@ -39,10 +39,11 @@ DAY_START_MIN = {
 # Soft ranges on real POI stops only (not relax fillers).
 # packed: (min, None) = floor only
 SOFT_RANGES: dict[str, dict[str, tuple[int, int | None]]] = {
-    "relaxed": {"morning": (1, 3), "afternoon": (1, 3), "evening": (1, 2)},
-    "moderate": {"morning": (2, 4), "afternoon": (2, 4), "evening": (1, 3)},
-    "balanced": {"morning": (2, 4), "afternoon": (2, 4), "evening": (1, 3)},
-    "packed": {"morning": (3, None), "afternoon": (3, None), "evening": (2, None)},
+    # Matches planner: M/A fixed; E 0 (relax) or 1 (food/park/market).
+    "relaxed": {"morning": (1, 1), "afternoon": (1, 1), "evening": (0, 1)},
+    "moderate": {"morning": (2, 2), "afternoon": (2, 2), "evening": (0, 1)},
+    "balanced": {"morning": (2, 2), "afternoon": (2, 2), "evening": (0, 1)},
+    "packed": {"morning": (3, None), "afternoon": (3, None), "evening": (0, 1)},
 }
 
 BLOCKS = ("morning", "afternoon", "evening")

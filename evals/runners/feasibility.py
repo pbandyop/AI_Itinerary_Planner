@@ -8,7 +8,18 @@ from agent.mcp.itinerary_builder import STOPS_PER_DAY
 from agent.schemas.validation import load_and_validate_itinerary
 
 # Heuristic legs should stay within a same-city day (not intercity hops).
-MAX_LEG_TRAVEL_MIN = 120
+MAX_LEG_TRAVEL_MIN = 90
+DAY_HARD_END_MIN = 21 * 60
+
+
+def _parse_clock(value: str | None) -> int | None:
+    if not value:
+        return None
+    try:
+        hh, mm = str(value).split(":")[:2]
+        return int(hh) * 60 + int(mm)
+    except (TypeError, ValueError):
+        return None
 
 
 def run_feasibility_eval(fixtures_dir: Path) -> tuple[str, bool, str]:
@@ -61,6 +72,18 @@ def run_feasibility_eval(fixtures_dir: Path) -> tuple[str, bool, str]:
                         f"> {MAX_LEG_TRAVEL_MIN}m (unreasonable for same-city day)"
                     )
 
+                depart = _parse_clock(getattr(stop, "depart_time", None))
+                arrive = _parse_clock(getattr(stop, "arrive_time", None))
+                if depart is not None and arrive is not None and depart < arrive:
+                    failures.append(
+                        f"{label}: {stop.name} past midnight "
+                        f"({stop.arrive_time}→{stop.depart_time})"
+                    )
+                elif depart is not None and depart > DAY_HARD_END_MIN:
+                    failures.append(
+                        f"{label}: {stop.name} departs {stop.depart_time} > 21:00"
+                    )
+
     if not checked:
         return ("feasibility", False, "No itinerary fixtures found")
     if failures:
@@ -69,5 +92,5 @@ def run_feasibility_eval(fixtures_dir: Path) -> tuple[str, bool, str]:
         "feasibility",
         True,
         f"OK — {checked} fixture(s); duration≤window, stops≤pace cap, "
-        f"legs≤{MAX_LEG_TRAVEL_MIN}m",
+        f"legs≤{MAX_LEG_TRAVEL_MIN}m, day≤21:00",
     )
