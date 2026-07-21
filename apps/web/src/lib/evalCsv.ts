@@ -24,6 +24,36 @@ export type EvalRow = Record<string, string>;
 
 export type EvalSheet = { columns: string[]; rows: EvalRow[] };
 
+/** Ensure every CORE_COLUMNS entry exists (older logs / uploaded CSVs). */
+export function ensureCoreColumns(sheet: EvalSheet): EvalSheet {
+  const preferredIndex: Record<string, number> = {
+    Session_Id: 0,
+    Timestamp_UQ: 1,
+    Timestamp_R: 2,
+    question: 3,
+    retrieval_context: 4,
+    source_channel: 5,
+    actual_output: 6,
+    expected_output: 7,
+    itinerary_json: 8,
+  };
+  const columns = [...(sheet.columns || [])];
+  for (const c of CORE_COLUMNS) {
+    if (!columns.includes(c)) {
+      const prefer = preferredIndex[c] ?? columns.length;
+      columns.splice(Math.min(prefer, columns.length), 0, c);
+    }
+  }
+  const rows = (sheet.rows || []).map((r) => {
+    const row: EvalRow = { ...r };
+    for (const c of columns) {
+      if (row[c] == null) row[c] = "";
+    }
+    return row;
+  });
+  return { columns, rows };
+}
+
 /** Empty sheet — no dummy rows; filled only by live UI turns. */
 export function emptyEvalSheet(): EvalSheet {
   return { columns: [...CORE_COLUMNS], rows: [] };
@@ -39,34 +69,15 @@ export function loadEvalSheet(): EvalSheet {
       Array.isArray(parsed.columns) && parsed.columns.length
         ? parsed.columns
         : [...CORE_COLUMNS];
-    // Ensure core columns exist (older logs / uploads).
-    const preferredIndex: Record<string, number> = {
-      Session_Id: 0,
-      Timestamp_UQ: 1,
-      Timestamp_R: 2,
-      question: 3,
-      retrieval_context: 4,
-      source_channel: 5,
-      actual_output: 6,
-      expected_output: 7,
-      itinerary_json: 8,
-    };
-    for (const c of CORE_COLUMNS) {
-      if (!columns.includes(c)) {
-        const prefer = preferredIndex[c] ?? columns.length;
-        columns.splice(Math.min(prefer, columns.length), 0, c);
-      }
+    const rows = Array.isArray(parsed.rows) ? parsed.rows : [];
+    const sheet = ensureCoreColumns({ columns, rows: rows as EvalRow[] });
+    // Persist migration so downloads / reloads keep itinerary_json.
+    const before = Array.isArray(parsed.columns) ? parsed.columns.join("\0") : "";
+    const after = sheet.columns.join("\0");
+    if (before !== after) {
+      saveEvalSheet(sheet);
     }
-    const rows = Array.isArray(parsed.rows)
-      ? parsed.rows.map((r) => {
-          const row: EvalRow = { ...r };
-          for (const c of columns) {
-            if (row[c] == null) row[c] = "";
-          }
-          return row;
-        })
-      : [];
-    return { columns, rows };
+    return sheet;
   } catch {
     return emptyEvalSheet();
   }
@@ -413,13 +424,15 @@ export function parseCsv(text: string): EvalSheet {
     });
     dataRows.push(obj);
   }
-  return { columns, rows: dataRows };
+  // Always keep core eval columns (including itinerary_json) after upload.
+  return ensureCoreColumns({ columns, rows: dataRows });
 }
 
 export function toCsv(columns: string[], rows: EvalRow[]): string {
-  const lines = [columns.map(escapeCell).join(",")];
-  for (const r of rows) {
-    lines.push(columns.map((c) => escapeCell(r[c] ?? "")).join(","));
+  const sheet = ensureCoreColumns({ columns, rows });
+  const lines = [sheet.columns.map(escapeCell).join(",")];
+  for (const r of sheet.rows) {
+    lines.push(sheet.columns.map((c) => escapeCell(r[c] ?? "")).join(","));
   }
   return lines.join("\n") + "\n";
 }
@@ -429,8 +442,11 @@ export function downloadCsv(
   columns: string[],
   rows: EvalRow[]
 ): void {
+  const sheet = ensureCoreColumns({ columns, rows });
+  // Persist so the Eval table / next download keep itinerary_json.
+  saveEvalSheet(sheet);
   // BOM so Excel opens UTF-8 correctly (avoids â€" / CafÃ© mojibake).
-  const blob = new Blob(["\uFEFF" + toCsv(columns, rows)], {
+  const blob = new Blob(["\uFEFF" + toCsv(sheet.columns, sheet.rows)], {
     type: "text/csv;charset=utf-8",
   });
   const url = URL.createObjectURL(blob);

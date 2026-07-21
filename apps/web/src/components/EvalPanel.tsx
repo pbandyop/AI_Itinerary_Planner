@@ -80,8 +80,10 @@ export default function EvalPanel({ onBack }: Props) {
   const handleDownload = useCallback(() => {
     const sheet = loadEvalSheet();
     downloadCsv("rag_eval.csv", sheet.columns, sheet.rows);
-    setColumns(sheet.columns);
-    setRows(sheet.rows);
+    // Re-load after downloadCsv persists ensureCoreColumns (itinerary_json).
+    const refreshed = loadEvalSheet();
+    setColumns(refreshed.columns);
+    setRows(refreshed.rows);
     flash("Downloaded rag_eval.csv");
   }, [flash]);
 

@@ -4,6 +4,8 @@
 # **Input:** Eval CSV from the companion UI (`rag_eval.csv`) with an `itinerary_json` column
 # on plan turns. Tip / RAG-only rows are ignored.
 #
+# **Load options (Cell 2):** `LOAD_MODE = "upload"` (file picker) or `"path"` (CSV_PATH).
+#
 # **Rules (Capstone):**
 # 1. Daily clock window — pace start → 21:00; load ≤ window minutes
 # 2. Travel legs ≤ 90 min; negative travel fails
@@ -305,34 +307,109 @@ print("Day starts:", {k: fmt_clock(v) for k, v in DAY_START_MIN.items() if k != 
 print("Day end:", fmt_clock(DAY_END_MIN), "| max travel:", MAX_LEG_TRAVEL_MIN, "min")
 
 # %%
-# Cell 2 — upload / load Eval CSV
-# Colab: uses files.upload(). Local Jupyter: set CSV_PATH below.
+# Cell 2 — load Eval CSV (upload or path)
+#
+# Set LOAD_MODE:
+#   "upload" — pick rag_eval.csv with a file chooser (default; Colab or Jupyter)
+#   "path"   — read from CSV_PATH (or type a path when prompted)
 
-CSV_PATH = ""  # e.g. r"C:\path\to\rag_eval.csv"  (leave empty for Colab upload)
+LOAD_MODE = "upload"  # "upload" | "path"
+CSV_PATH = ""  # e.g. r"C:\path\to\rag_eval.csv" when LOAD_MODE == "path"
+# Persist FileUpload widget across re-runs (local Jupyter).
+if "_CSV_UPLOADER" not in globals():
+    _CSV_UPLOADER = None
 
-df: pd.DataFrame | None = None
 
-try:
-    from google.colab import files  # type: ignore
+def _load_csv_from_upload() -> pd.DataFrame:
+    """Open a file picker and return the uploaded Eval CSV as a DataFrame."""
+    # Google Colab
+    try:
+        from google.colab import files  # type: ignore
 
-    print("Upload rag_eval.csv from the Eval tab…")
-    uploaded = files.upload()
-    if not uploaded:
-        raise SystemExit("No file uploaded.")
-    name = next(iter(uploaded))
-    df = pd.read_csv(name)
-    print(f"Loaded {name}: {len(df)} rows, columns={list(df.columns)}")
-except ImportError:
-    path = CSV_PATH.strip() or input("Path to rag_eval.csv: ").strip().strip('"')
-    df = pd.read_csv(path)
-    print(f"Loaded {path}: {len(df)} rows, columns={list(df.columns)}")
+        print("Click Choose Files and select rag_eval.csv from the Eval tab…")
+        uploaded = files.upload()
+        if not uploaded:
+            raise SystemExit("No file uploaded.")
+        name = next(iter(uploaded))
+        print(f"Uploaded: {name}")
+        return pd.read_csv(name)
+    except ImportError:
+        pass
 
-assert df is not None
+    # Local Jupyter / VS Code — ipywidgets FileUpload
+    try:
+        import io
+
+        import ipywidgets as widgets
+        from IPython.display import display
+
+        # Keep widget across re-runs so the second Run picks up the chosen file.
+        global _CSV_UPLOADER  # noqa: PLW0603
+        if _CSV_UPLOADER is None:
+            _CSV_UPLOADER = widgets.FileUpload(
+                accept=".csv",
+                multiple=False,
+                description="Upload CSV",
+            )
+        display(_CSV_UPLOADER)
+        value = _CSV_UPLOADER.value
+        if not value:
+            raise SystemExit(
+                "No file yet — click Upload CSV, choose rag_eval.csv, "
+                "then re-run this cell."
+            )
+
+        # ipywidgets v7: dict keyed by name; v8: tuple of UploadedFile
+        if isinstance(value, dict):
+            name, meta = next(iter(value.items()))
+            content = meta["content"]
+        else:
+            item = value[0]
+            name = getattr(item, "name", None) or item["name"]
+            content = getattr(item, "content", None) or item["content"]
+        print(f"Uploaded: {name}")
+        return pd.read_csv(io.BytesIO(content))
+    except ImportError:
+        raise SystemExit(
+            "Upload requires Google Colab or ipywidgets. "
+            "Install with: pip install ipywidgets\n"
+            'Or set LOAD_MODE = "path" and CSV_PATH to your file.'
+        ) from None
+
+
+def _load_csv_from_path() -> pd.DataFrame:
+    path = (CSV_PATH or "").strip().strip('"')
+    if not path:
+        path = input("Path to rag_eval.csv: ").strip().strip('"')
+    if not path:
+        raise SystemExit("No CSV path provided.")
+    print(f"Reading: {path}")
+    return pd.read_csv(path)
+
+
+mode = (LOAD_MODE or "upload").strip().lower()
+if mode == "upload":
+    df = _load_csv_from_upload()
+elif mode == "path":
+    df = _load_csv_from_path()
+else:
+    raise SystemExit(f'Unknown LOAD_MODE={LOAD_MODE!r}. Use "upload" or "path".')
+
+print(f"Loaded {len(df)} rows, columns={list(df.columns)}")
+
 if "itinerary_json" not in df.columns:
-    raise SystemExit(
-        "CSV has no itinerary_json column. Redeploy/use the updated Eval tab, "
-        "create a plan turn, then re-download rag_eval.csv."
+    print(
+        "\n⚠️  CSV has no itinerary_json column.\n"
+        "This usually means the file was downloaded before that column shipped,\n"
+        "or from a cached old Eval tab build.\n\n"
+        "Fix on the live site (https://itinerary-planner-web-seven.vercel.app):\n"
+        "  1. Hard refresh (Ctrl+Shift+R)\n"
+        "  2. Open Eval — confirm you see an itinerary_json column (may be empty)\n"
+        "  3. Go back to the planner and create/update a plan (so a plan turn logs JSON)\n"
+        "  4. Eval → Download again, then re-upload here\n"
     )
+    df["itinerary_json"] = ""
+    print("Added empty itinerary_json so you can inspect the table — feasibility needs real plan JSON.\n")
 
 plan_mask = df["itinerary_json"].astype(str).str.strip().str.len() > 0
 plan_mask &= ~df["itinerary_json"].astype(str).str.strip().str.lower().isin(
@@ -342,8 +419,9 @@ plans_df = df.loc[plan_mask].copy()
 print(f"Plan rows (non-empty itinerary_json): {len(plans_df)} / {len(df)}")
 if plans_df.empty:
     raise SystemExit(
-        "No plan rows found. Generate/update an itinerary in the planner, "
-        "then download Eval CSV again."
+        "No plan rows with itinerary_json yet.\n"
+        "Hard-refresh the Eval UI, generate or edit a plan, re-download rag_eval.csv, "
+        "and upload again. Tip/RAG-only turns leave itinerary_json blank (expected)."
     )
 
 # %%
