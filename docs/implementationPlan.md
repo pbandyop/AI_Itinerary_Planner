@@ -15,6 +15,53 @@ This plan is derived from `docs/problemStatement.md` and the design decisions ag
 
 ## Architecture snapshot
 
+### End-to-end flow (user → agents → UI)
+
+Simple path for a **confirmed plan**. Agents in the same wave run **in parallel** via LangGraph `Send`; waves run **in order**.
+
+```mermaid
+flowchart TB
+  U[User voice / text] --> UI[Companion UI]
+  UI -->|POST /stt if mic| STT[STT + normalize]
+  STT --> INV[POST /invoke]
+  UI -->|typed / confirm| INV
+
+  INV --> O[Orchestrator<br/>safety · intent · slots · confirm]
+
+  O -->|needs clarify / confirm| REPLY1[Short reply → UI / TTS]
+  O -->|tip / hours / weather Q&A| FAST[Fast path<br/>RAG tip or Open-Meteo]
+  FAST --> REPLY1
+
+  O -->|intent: plan confirmed| W1
+
+  subgraph W1["Wave 1 — parallel"]
+    direction LR
+    POI[POI Agent<br/>Overpass / OSM]
+    WX[Weather Agent<br/>Open-Meteo]
+  end
+
+  W1 --> W2[Wave 2<br/>Travel-Time Agent]
+  W2 --> W3[Wave 3<br/>Itinerary Agent<br/>build · densify · optimize]
+  W3 --> SYN[Synthesis<br/>present plan + sources]
+  SYN --> REV{Reviewer}
+
+  REV -->|approve| OUT[UI: day blocks · travel · Sources · TTS]
+  REV -->|revise ≤2| O
+
+  OUT -->|optional email| N8N[n8n → HTML / PDF email]
+```
+
+**Other intents (no full 3-wave plan):**
+
+| Intent | Agents |
+|--------|--------|
+| **Edit** | Optional POI top-up → Itinerary (`apply_edit_patch`) → Synthesis → Reviewer |
+| **Tip / hours** | Knowledge (RAG) → Synthesis cite-or-refuse |
+| **Rain explain** | Knowledge ∥ Weather (parallel) → Synthesis |
+| **Why-pick / doable** | Itinerary / planner path (not RAG) → Synthesis |
+
+### Service layout (deployed stack)
+
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │  Companion UI (Next.js · Vercel)                                        │
