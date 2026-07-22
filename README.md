@@ -2,7 +2,7 @@
 
 Voice-first AI travel planning assistant for **India** (one city per trip, 2–4 day itineraries). Capstone project: multi-agent GenAI system with MCP tools, RAG grounding, voice UX, evals, and n8n PDF/email.
 
-**Repo:** [pbandyop/AI_Itinerary_Planner](https://github.com/pbandyop/AI_Itinerary_Planner)
+**Website:** [VocalVoyage]([(https://itinerary-planner-web-seven.vercel.app/])
 
 ## Architecture (locked)
 
