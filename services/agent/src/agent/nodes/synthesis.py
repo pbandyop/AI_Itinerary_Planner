@@ -1029,10 +1029,26 @@ def synthesis_node(state: GraphState) -> dict[str, Any]:
             if planner_why_answered
             else "grounded"
         )
+        grounding_docs: list[dict[str, Any]] = []
+        if not itinerary_owned:
+            for snip in snippets[:4]:
+                if not snip.citations:
+                    continue
+                cite = snip.citations[0]
+                grounding_docs.append(
+                    {
+                        "title": cite.title,
+                        "url": cite.url,
+                        "dataset": cite.dataset,
+                        "source_id": cite.source_id,
+                        "text": re.sub(r"\s+", " ", (snip.text or "")).strip(),
+                    }
+                )
         out: dict[str, Any] = {
             "user_reply": reply[:1200],
             # Why-pick / doability answers are itinerary-owned — do not log RAG sources.
             "sources": [] if itinerary_owned else [dump(s) for s in sources],
+            "grounding_documents": [] if itinerary_owned else grounding_docs,
             "knowledge_results": None if itinerary_owned else state.get("knowledge_results"),
             "agent_trace": _trace_append(
                 state,

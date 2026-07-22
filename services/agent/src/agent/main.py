@@ -104,9 +104,116 @@ class InvokeResponse(BaseModel):
     weather_results: dict[str, Any] | None = None
     poi_results: dict[str, Any] | None = None
     sources: list[dict[str, Any]] | None = None
+    # Full RAG candidate pool for eval (tip turns). UI citations stay in sources.
+    retrieved_documents: list[dict[str, Any]] = Field(default_factory=list)
+    # Full selected grounding text(s) for Eval retrieval_context (not truncated).
+    grounding_documents: list[dict[str, Any]] = Field(default_factory=list)
     agent_trace: list[dict[str, Any]] = Field(default_factory=list)
     pipeline_log: list[dict[str, Any]] = Field(default_factory=list)
     raw_state: dict[str, Any] | None = None
+
+
+def _shorten_source_snippets(
+    sources: list[dict[str, Any]] | None, *, limit: int = 280
+) -> list[dict[str, Any]] | None:
+    """Keep UI Sources panel compact; eval uses grounding_documents for full text."""
+    if not sources:
+        return sources
+    out: list[dict[str, Any]] = []
+    for src in sources:
+        if not isinstance(src, dict):
+            continue
+        row = dict(src)
+        snip = str(row.get("snippet") or "").strip()
+        if len(snip) > limit:
+            row["snippet"] = snip[: max(0, limit - 1)].rstrip() + "…"
+        out.append(row)
+    return out
+
+
+def _grounding_from_selected_pool(
+    retrieved_documents: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Fallback: selected pool entries as grounding docs."""
+    out: list[dict[str, Any]] = []
+    for doc in retrieved_documents:
+        if not isinstance(doc, dict) or not doc.get("selected"):
+            continue
+        text = str(doc.get("text") or "").strip()
+        if not text:
+            continue
+        out.append(
+            {
+                "title": doc.get("title") or "source",
+                "url": doc.get("url"),
+                "dataset": doc.get("dataset") or "other",
+                "source_id": doc.get("source_id"),
+                "text": text,
+            }
+        )
+    return out
+
+
+def _serialize_retrieved_documents(
+    knowledge_results: Any,
+    selected_sources: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    """Flatten KnowledgeResult snippets for Eval CSV (full retrieval pool)."""
+    kr = knowledge_results
+    if hasattr(kr, "model_dump"):
+        kr = kr.model_dump(mode="json")
+    if not isinstance(kr, dict):
+        return []
+    snippets = kr.get("snippets") or []
+    if not isinstance(snippets, list) or not snippets:
+        return []
+
+    selected_ids: set[str] = set()
+    selected_titles: set[str] = set()
+    selected_urls: set[str] = set()
+    for src in selected_sources or []:
+        if not isinstance(src, dict):
+            continue
+        sid = str(src.get("source_id") or "").strip()
+        if sid:
+            selected_ids.add(sid)
+        title = str(src.get("title") or "").strip().lower()
+        if title:
+            selected_titles.add(title)
+        url = str(src.get("url") or "").strip()
+        if url:
+            selected_urls.add(url)
+
+    out: list[dict[str, Any]] = []
+    for snip in snippets:
+        if not isinstance(snip, dict):
+            continue
+        cites = snip.get("citations") or []
+        c0 = cites[0] if cites and isinstance(cites[0], dict) else {}
+        sid = str(c0.get("source_id") or "").strip()
+        title = str(c0.get("title") or snip.get("topic") or "source").strip()
+        url = str(c0.get("url") or "").strip() or None
+        dataset = str(c0.get("dataset") or "other")
+        text = str(snip.get("text") or c0.get("snippet") or "").strip()
+        if not text:
+            continue
+        selected = bool(
+            (sid and sid in selected_ids)
+            or (title.lower() in selected_titles)
+            or (url and url in selected_urls)
+        )
+        out.append(
+            {
+                "rank": len(out) + 1,
+                "title": title,
+                "dataset": dataset,
+                "url": url,
+                "source_id": sid or None,
+                "selected": selected,
+                "text": text,
+            }
+        )
+    return out
 
 
 class POISearchRequest(BaseModel):
@@ -420,6 +527,37 @@ def _run_invoke(body: InvokeRequest) -> InvokeResponse:
         result=result,
         agent_trace=trace if isinstance(trace, list) else [],
     )
+    # Tip / knowledge turns: expose full retrieval pool for Eval CSV.
+    # Plan/edit keep this empty. Sticky knowledge_results must not leak onto
+    # weather / why-pick explain turns (reducer keeps prior non-null).
+    retrieved_documents: list[dict[str, Any]] = []
+    grounding_documents: list[dict[str, Any]] = []
+    if intent == "explain":
+        is_knowledge_qa = any(
+            str(e.get("action") or e.get("tool") or "").lower().find("knowledge")
+            >= 0
+            for e in trace
+            if isinstance(e, dict)
+        )
+        if is_knowledge_qa:
+            selected_for_match = sources if isinstance(sources, list) else []
+            retrieved_documents = _serialize_retrieved_documents(
+                result.get("knowledge_results"),
+                selected_for_match,
+            )
+            raw_ground = _jsonable(result.get("grounding_documents")) or []
+            if isinstance(raw_ground, list) and raw_ground:
+                grounding_documents = [
+                    g
+                    for g in raw_ground
+                    if isinstance(g, dict) and str(g.get("text") or "").strip()
+                ]
+            if not grounding_documents:
+                grounding_documents = _grounding_from_selected_pool(
+                    retrieved_documents
+                )
+    # UI Sources stay short; full text lives in grounding_documents / retrieved_documents.
+    sources = _shorten_source_snippets(sources if isinstance(sources, list) else None)
     return InvokeResponse(
         user_reply=reply,
         intent=result.get("intent"),
@@ -431,6 +569,8 @@ def _run_invoke(body: InvokeRequest) -> InvokeResponse:
         weather_results=_jsonable(result.get("weather_results")),
         poi_results=_jsonable(result.get("poi_results")),
         sources=sources,
+        retrieved_documents=retrieved_documents,
+        grounding_documents=grounding_documents,
         agent_trace=trace if isinstance(trace, list) else [],
         pipeline_log=pipeline,
         raw_state=_jsonable(dict(result)),

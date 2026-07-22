@@ -6,11 +6,13 @@ import { invokeAgent, type ConversationTurn } from "@/lib/agent";
 import {
   appendLiveEvalRow,
   dayPacesFromItinerary,
+  fullGroundingToRetrievalContext,
   inferSourceChannel,
+  isItineraryExplainTurn,
   isKnowledgeTurn,
+  retrievedDocumentsToJson,
   shouldLogItineraryJson,
   sourcesForEvalLog,
-  sourcesToRetrievalContext,
 } from "@/lib/evalCsv";
 import { normalizeSttMessage } from "@/lib/sttNormalize";
 import {
@@ -481,9 +483,25 @@ export default function VoicePlanner() {
           timestampUq,
           timestampR,
           question: text,
-          retrievalContext: sourcesToRetrievalContext(replySources, {
+          retrievalContext: fullGroundingToRetrievalContext({
+            groundingDocuments: isItineraryExplainTurn(
+              text,
+              result.agent_trace as Array<Record<string, unknown>> | undefined
+            )
+              ? []
+              : result.grounding_documents,
+            retrievedDocuments: result.retrieved_documents,
+            fallbackSources: replySources,
             knowledgeTurn,
           }),
+          retrievedDocuments: retrievedDocumentsToJson(
+            isItineraryExplainTurn(
+              text,
+              result.agent_trace as Array<Record<string, unknown>> | undefined
+            )
+              ? []
+              : result.retrieved_documents
+          ),
           sourceChannel: inferSourceChannel(
             replySources,
             result.agent_trace as Array<Record<string, unknown>> | undefined,

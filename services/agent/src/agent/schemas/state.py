@@ -65,6 +65,8 @@ class GraphState(TypedDict, total=False):
     merged_itinerary: Annotated[Itinerary | dict[str, Any], _last_value]
     previous_itinerary: Annotated[Itinerary | dict[str, Any], _last_value]
     sources: Annotated[list[Source] | list[dict[str, Any]], _last_value]
+    # Full selected grounding text(s) for Eval CSV — UI still uses short sources.snippet.
+    grounding_documents: Annotated[list[dict[str, Any]], _overwrite_value]
     reviewer_verdict: Annotated[ReviewerVerdict | dict[str, Any] | None, _last_value]
     revision_count: Annotated[int, _last_value]
     # Structured Reviewer → Orchestrator revision packet (survives verdict clear)
@@ -96,6 +98,7 @@ def empty_graph_state(*, user_message: str = "") -> GraphState:
         "revision_count": 0,
         "revision_feedback": None,
         "sources": [],
+        "grounding_documents": [],
         "orchestration_started": False,
         "ready_for_synthesis": False,
         "ready_for_merger": False,

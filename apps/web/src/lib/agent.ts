@@ -32,9 +32,31 @@ export interface InvokeResponse {
   weather_results?: WeatherResult | null;
   poi_results?: POISearchResult | null;
   sources: Source[] | null;
+  /** Full RAG candidate pool for tip turns (Eval CSV). */
+  retrieved_documents?: RetrievedDocument[];
+  /** Full selected grounding text(s) for Eval retrieval_context. */
+  grounding_documents?: GroundingDocument[];
   agent_trace?: AgentTraceEntry[];
   pipeline_log?: PipelineLogStep[];
   raw_state?: Record<string, unknown> | null;
+}
+
+export interface RetrievedDocument {
+  rank?: number;
+  title?: string;
+  dataset?: string;
+  url?: string | null;
+  source_id?: string | null;
+  selected?: boolean;
+  text?: string;
+}
+
+export interface GroundingDocument {
+  title?: string;
+  dataset?: string;
+  url?: string | null;
+  source_id?: string | null;
+  text?: string;
 }
 
 export interface AgentTraceEntry {

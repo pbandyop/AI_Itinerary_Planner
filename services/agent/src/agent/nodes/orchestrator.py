@@ -639,6 +639,35 @@ def _out_of_scope_tip_place(message: str) -> str | None:
     return _foreign_destination(message)
 
 
+def _grounding_documents(*pairs: tuple[Any, str]) -> list[dict[str, Any]]:
+    """Full selected grounding text(s) for Eval CSV (UI keeps short Source.snippet)."""
+    out: list[dict[str, Any]] = []
+    for cite, text in pairs:
+        full = re.sub(r"\s+", " ", (text or "")).strip()
+        if not full or cite is None:
+            continue
+        if isinstance(cite, dict):
+            title = str(cite.get("title") or "source")
+            url = cite.get("url")
+            dataset = str(cite.get("dataset") or "other")
+            sid = cite.get("source_id")
+        else:
+            title = str(getattr(cite, "title", None) or "source")
+            url = getattr(cite, "url", None)
+            dataset = str(getattr(cite, "dataset", None) or "other")
+            sid = getattr(cite, "source_id", None)
+        out.append(
+            {
+                "title": title,
+                "url": url,
+                "dataset": dataset,
+                "source_id": sid,
+                "text": full,
+            }
+        )
+    return out
+
+
 def _answer_knowledge_query(
     state: GraphState,
     message: str,
@@ -788,6 +817,8 @@ def _answer_knowledge_query(
         if canon and canon not in places:
             places.insert(0, canon)
     sources = sources_from_knowledge(result)
+    snippets: list[Any] = list(result.snippets or [])
+    reply = ""
 
     if result.missing_data or not result.snippets:
         note = (result.notes or "").strip()
@@ -1021,6 +1052,13 @@ def _answer_knowledge_query(
                     else None,
                     "knowledge_results": dump(result),
                     "sources": [dump(src_out)] if src_out else [],
+                    "grounding_documents": _grounding_documents(
+                        *[
+                            (snip.citations[0], str(inp.get("text") or ""))
+                            for snip, inp in zip(snippets, rag_inputs)
+                            if snip.citations
+                        ]
+                    ),
                     "user_reply": reply,
                     "dispatch_plan": _dispatch_from_waves([]),
                     "agent_trace": _trace_append(
@@ -1089,6 +1127,9 @@ def _answer_knowledge_query(
                         else None,
                         "knowledge_results": dump(result),
                         "sources": [dump(src_out)],
+                        "grounding_documents": _grounding_documents(
+                            (c0, excerpt or snip.text or "")
+                        ),
                         "user_reply": reply,
                         "dispatch_plan": _dispatch_from_waves([]),
                         "agent_trace": _trace_append(
@@ -1213,6 +1254,7 @@ def _answer_knowledge_query(
                     else None,
                     "knowledge_results": dump(result),
                     "sources": [dump(src_out)],
+                    "grounding_documents": _grounding_documents((c0, excerpt)),
                     "user_reply": reply,
                     "dispatch_plan": _dispatch_from_waves([]),
                     "agent_trace": _trace_append(
@@ -1322,6 +1364,21 @@ def _answer_knowledge_query(
                     + "\n".join(lines)
                 )
 
+    grounding_docs: list[dict[str, Any]] = []
+    if not (result.missing_data or not result.snippets):
+        # Prefer the same texts fed to the answer LLM when available.
+        for snip in snippets[:4]:
+            if not snip.citations:
+                continue
+            text = snip.text or ""
+            if places:
+                for p in places:
+                    excerpt = excerpt_place_from_snippet(snip.text or "", p)
+                    if excerpt:
+                        text = excerpt
+                        break
+            grounding_docs.extend(_grounding_documents((snip.citations[0], text)))
+
     return {
         "safety_status": "ok",
         "intent": "explain",
@@ -1332,6 +1389,7 @@ def _answer_knowledge_query(
         "trip_constraints": dump(existing_trip) if existing_trip else None,
         "knowledge_results": dump(result),
         "sources": [dump(s) for s in sources],
+        "grounding_documents": grounding_docs,
         "user_reply": reply,
         "dispatch_plan": _dispatch_from_waves([]),
         "pending_dialog": None,

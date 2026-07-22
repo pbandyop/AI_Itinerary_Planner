@@ -230,7 +230,11 @@ export default function EvalPanel({ onBack }: Props) {
                           </td>
                         );
                       }
-                      if (col === "itinerary_json" || col === "day_paces_json") {
+                      if (
+                        col === "retrieved_documents" ||
+                        col === "itinerary_json" ||
+                        col === "day_paces_json"
+                      ) {
                         const preview = value
                           ? `${value.slice(0, 120)}${value.length > 120 ? "…" : ""}`
                           : "";
@@ -280,9 +284,10 @@ export default function EvalPanel({ onBack }: Props) {
       <p className={styles.footnote}>
         Core columns: <code>Session_Id</code>, <code>Timestamp_UQ</code>,{" "}
         <code>Timestamp_R</code>, <code>question</code>,{" "}
-        <code>retrieval_context</code>, <code>source_channel</code>,{" "}
-        <code>actual_output</code>, <code>expected_output</code>. Logged in
-        this browser only.
+        <code>retrieval_context</code> (full selected grounding),{" "}
+        <code>retrieved_documents</code> (full RAG pool),{" "}
+        <code>source_channel</code>, <code>actual_output</code>,{" "}
+        <code>expected_output</code>. Logged in this browser only.
       </p>
     </div>
   );

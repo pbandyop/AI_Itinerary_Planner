@@ -1,13 +1,22 @@
 # %% [markdown]
 # # RAG LLM-as-a-Judge (Faithfulness + Relevance)
 #
-# **Faithfulness** is scored **only against `retrieval_context`** (not the live web,
-# not the itinerary JSON). That is the intended Capstone definition.
+# **Faithfulness** is scored against the **selected / winner document only** —
+# not the live web, not the itinerary, and **not** the full retrieval pool.
 #
 # | Metric | Uses |
 # |--------|------|
-# | faithfulness | `question` + `retrieval_context` + `actual_output` |
+# | faithfulness | `question` + selected grounding text + `actual_output` |
 # | relevance | `question` + `actual_output` |
+#
+# **Selected grounding text (preferred order):**
+# 1. `retrieval_context` — full selected grounding text from the live app
+#    (after deploy: not the truncated UI snippet)
+# 2. Else `retrieved_documents` rows with `selected: true` → full `text`
+# 3. Else legacy truncated `retrieval_context` if that is all the CSV has
+#
+# The full pool in `retrieved_documents` is for debugging Hit@k / sibling pages;
+# faithfulness never sees non-selected candidates.
 #
 # **Empty retrieval rules (no Gemini needed):**
 # - Cite-or-refuse answer → **PASS** (faithful refusal)
@@ -23,6 +32,7 @@
 
 import ast
 import getpass
+import json
 import os
 import re
 import time
@@ -71,57 +81,95 @@ _REFUSAL_RE = re.compile(
 )
 
 
-def format_retrieval_context(val) -> str:
-    """Normalize Eval CSV retrieval_context into numbered snippet text for the judge."""
+def _parse_cell_value(val):
+    """Parse CSV cell that may be JSON, Py' as a reason.thon-literal, or plain text."""
     if val is None:
-        return ""
+        return None
     if isinstance(val, float) and np.isnan(val):
-        return ""
+        return None
     try:
         if not isinstance(val, (list, tuple, dict, np.ndarray, pd.Series)) and pd.isna(
             val
         ):
-            return ""
+            return None
     except (ValueError, TypeError):
         pass
 
-    chunks: list[str] = []
-
     if isinstance(val, pd.Series):
-        val = val.tolist()
+        return val.tolist()
     if isinstance(val, np.ndarray):
-        val = val.tolist()
-
-    if isinstance(val, list):
-        chunks = [
-            str(i.get("text") or i) if isinstance(i, dict) else str(i) for i in val
-        ]
-    elif isinstance(val, dict):
-        chunks = [str(val.get("text") or val)]
-    elif isinstance(val, str):
+        return val.tolist()
+    if isinstance(val, (list, dict)):
+        return val
+    if isinstance(val, str):
         s = val.strip()
-        if not s or s.lower() in {"nan", "none", "[]"}:
-            return ""
+        if not s or s.lower() in {"nan", "none"}:
+            return None
+        if s == "[]":
+            return []
         try:
-            parsed = ast.literal_eval(s)
-            if isinstance(parsed, list):
-                chunks = [
-                    str(i.get("text") or i) if isinstance(i, dict) else str(i)
-                    for i in parsed
-                ]
-            elif isinstance(parsed, dict):
-                chunks = [str(parsed.get("text") or parsed)]
-            else:
-                chunks = [str(parsed)]
+            return json.loads(s)
         except Exception:
-            chunks = [s]
+            pass
+        try:
+            return ast.literal_eval(s)
+        except Exception:
+            return s
+    return val
+
+
+def format_retrieval_context(val) -> str:
+    """Normalize a list/dict/string of snippets into numbered judge context."""
+    parsed = _parse_cell_value(val)
+    if parsed is None:
+        return ""
+
+    chunks: list[str] = []
+    if isinstance(parsed, list):
+        for item in parsed:
+            if isinstance(item, dict):
+                text = str(item.get("text") or "").strip()
+                if text:
+                    chunks.append(text)
+                else:
+                    chunks.append(str(item))
+            else:
+                chunks.append(str(item))
+    elif isinstance(parsed, dict):
+        chunks = [str(parsed.get("text") or parsed)]
     else:
-        chunks = [str(val)]
+        chunks = [str(parsed)]
 
     chunks = [c.strip() for c in chunks if c and str(c).strip()]
     if not chunks:
         return ""
     return "\n".join(f"[{i + 1}] {c}" for i, c in enumerate(chunks))
+
+
+def _is_selected_flag(val) -> bool:
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, (int, float)) and not isinstance(val, bool):
+        return val == 1
+    return str(val).strip().lower() in {"true", "1", "yes"}
+
+
+def selected_docs_from_retrieved(val) -> list[dict]:
+    """Keep only retrieved_documents entries marked selected=true."""
+    parsed = _parse_cell_value(val)
+    if not isinstance(parsed, list):
+        return []
+    selected: list[dict] = []
+    for item in parsed:
+        if not isinstance(item, dict):
+            continue
+        if not _is_selected_flag(item.get("selected")):
+            continue
+        text = str(item.get("text") or "").strip()
+        if not text:
+            continue
+        selected.append(item)
+    return selected
 
 
 def retrieval_is_empty(formatted: str) -> bool:
@@ -134,12 +182,46 @@ def retrieval_is_empty(formatted: str) -> bool:
     }
 
 
+def faithfulness_context_for_row(row: pd.Series) -> tuple[str, str]:
+    """Build faithfulness context: full retrieval_context preferred, else selected docs.
+
+    Returns (formatted_context, source_label).
+    """
+    # Live app now logs full selected grounding into retrieval_context.
+    raw = row.get("context_parsed", row.get("retrieval_context", ""))
+    formatted = format_retrieval_context(raw)
+    if formatted and not retrieval_is_empty(formatted):
+        # Prefer this unless it looks like a truncated UI card (ends with ellipsis
+        # mid-hours). In that case try selected retrieved_documents full text.
+        looks_truncated = bool(
+            re.search(r"(Thur|Wednes|Tues|Mon|Fri|Satur|Sun)…\s*—", formatted)
+        ) or bool(re.search(r"\bA…\s*—", formatted))
+        if not looks_truncated:
+            return formatted, "retrieval_context"
+
+    if "retrieved_documents" in row.index:
+        selected = selected_docs_from_retrieved(row.get("retrieved_documents"))
+        if selected:
+            chunks = []
+            for i, doc in enumerate(selected, start=1):
+                title = str(doc.get("title") or "source").strip()
+                url = str(doc.get("url") or "").strip()
+                text = str(doc.get("text") or "").strip()
+                head = f"{title}" + (f" — {url}" if url else "")
+                chunks.append(f"[{i}] {head}\n{text}")
+            return "\n\n".join(chunks), "retrieved_documents.selected"
+
+    if formatted:
+        return formatted, "retrieval_context"
+    return "", "retrieval_context"
+
+
 def looks_like_refusal(answer: str) -> bool:
     return bool(_REFUSAL_RE.search(answer or ""))
 
 
 def empty_context_faithfulness(answer: str) -> tuple[str, str]:
-    """Deterministic faithfulness when retrieval_context has no snippets."""
+    """Deterministic faithfulness when selected grounding context is empty."""
     if looks_like_refusal(answer):
         return (
             "PASS",
@@ -156,7 +238,7 @@ def empty_context_faithfulness(answer: str) -> tuple[str, str]:
 print("Helpers ready.")
 
 # %%
-# Cell 3 — Gemini client + prompts (faithfulness = retrieval only)
+# Cell 3 — Gemini client + prompts (faithfulness = selected grounding only)
 
 key = getpass.getpass("Paste AI Studio API key: ").strip()
 os.environ["GOOGLE_API_KEY"] = key
@@ -215,6 +297,10 @@ def build_metric_prompt(
 Faithfulness means: every factual claim in the GENERATED ANSWER must be supported
 by the RETRIEVAL CONTEXT below. Do NOT use outside knowledge. Do NOT use an itinerary
 unless that text appears inside the retrieval context.
+
+The retrieval context is the selected grounding document(s) for this answer.
+Page title mismatch is OK if the claims are supported by the context text.
+Do NOT fail only because the source title differs from the place named in the question.
 
 [DATA TO EVALUATE]
 - USER QUESTION: {question}
@@ -296,15 +382,15 @@ def judge_llm(rows: pd.DataFrame, metrics: list[str]) -> list[dict]:
     for idx, row in rows.iterrows():
         question = str(row.get("question", "") or "")
         actual_output = str(row.get("actual_output", "") or "")
-        retrieval_raw = row.get("context_parsed", row.get("retrieval_context", ""))
-        retrieval_context = format_retrieval_context(retrieval_raw)
+        # Prefer full selected text from retrieved_documents; else retrieval_context.
+        retrieval_context, ctx_source = faithfulness_context_for_row(row)
         empty_ctx = retrieval_is_empty(retrieval_context)
         display_ctx = (
             "(no retrieved snippets)" if empty_ctx else retrieval_context
         )
 
         print(f"\n--- row {idx}: {question[:100]}")
-        print(f"    retrieval empty={empty_ctx}")
+        print(f"    context_source={ctx_source} empty={empty_ctx}")
 
         for metric in metrics:
             metric_l = metric.lower().strip()
@@ -331,6 +417,7 @@ def judge_llm(rows: pd.DataFrame, metrics: list[str]) -> list[dict]:
                     "question": question,
                     "actual_output": actual_output,
                     "retrieval_context": display_ctx,
+                    "context_source": ctx_source,
                     "retrieval_empty": empty_ctx,
                     "evaluation_metric_name": metric_l,
                     "LLM_Judge_Response": verdict == "PASS",
@@ -351,12 +438,19 @@ judge_results = judge_llm(sample_rows, METRICS)
 judge_results_df = pd.DataFrame(judge_results)
 
 print("\n" + "=" * 50)
-print("LLM-AS-A-JUDGE (faithfulness vs retrieval_context)")
+print("LLM-AS-A-JUDGE (faithfulness vs selected grounding)")
 print("=" * 50)
 for m in METRICS:
     sub = judge_results_df[judge_results_df["evaluation_metric_name"] == m]
     rate = float(sub["LLM_Judge_Response"].mean()) if len(sub) else 0.0
     print(f"{m} pass rate: {rate:.2%} ({int(sub['LLM_Judge_Response'].sum())}/{len(sub)})")
+if "context_source" in judge_results_df.columns:
+    print("context_source counts:")
+    print(
+        judge_results_df.drop_duplicates("row_index")["context_source"]
+        .value_counts()
+        .to_string()
+    )
 print("=" * 50)
 display(judge_results_df)
 

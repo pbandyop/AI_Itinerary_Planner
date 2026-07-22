@@ -10,6 +10,7 @@ export const CORE_COLUMNS = [
   "Timestamp_R",
   "question",
   "retrieval_context",
+  "retrieved_documents",
   "source_channel",
   "actual_output",
   "expected_output",
@@ -33,11 +34,12 @@ export function ensureCoreColumns(sheet: EvalSheet): EvalSheet {
     Timestamp_R: 2,
     question: 3,
     retrieval_context: 4,
-    source_channel: 5,
-    actual_output: 6,
-    expected_output: 7,
-    itinerary_json: 8,
-    day_paces_json: 9,
+    retrieved_documents: 5,
+    source_channel: 6,
+    actual_output: 7,
+    expected_output: 8,
+    itinerary_json: 9,
+    day_paces_json: 10,
   };
   const columns = [...(sheet.columns || [])];
   for (const c of CORE_COLUMNS) {
@@ -267,6 +269,89 @@ export function sourcesToRetrievalContext(
 }
 
 /**
+ * Eval retrieval_context: prefer full selected grounding text (not truncated UI snippets).
+ * Fallback order: grounding_documents → selected retrieved_documents → short sources.
+ */
+export function fullGroundingToRetrievalContext(input: {
+  groundingDocuments?: Array<{
+    title?: string;
+    dataset?: string;
+    url?: string | null;
+    text?: string;
+  }> | null;
+  retrievedDocuments?: Array<{
+    selected?: boolean;
+    title?: string;
+    dataset?: string;
+    url?: string | null;
+    text?: string;
+  }> | null;
+  fallbackSources?: Source[] | null;
+  knowledgeTurn?: boolean;
+}): string {
+  const fromGrounding = (input.groundingDocuments || [])
+    .map((d) => ({
+      title: d.title || "source",
+      dataset: d.dataset || "other",
+      url: d.url || null,
+      text: String(d.text || "").trim(),
+    }))
+    .filter((d) => d.text);
+  const fromSelected = (input.retrievedDocuments || [])
+    .filter((d) => Boolean(d.selected))
+    .map((d) => ({
+      title: d.title || "source",
+      dataset: d.dataset || "other",
+      url: d.url || null,
+      text: String(d.text || "").trim(),
+    }))
+    .filter((d) => d.text);
+
+  const docs = fromGrounding.length ? fromGrounding : fromSelected;
+  if (docs.length) {
+    return JSON.stringify(
+      docs.map((d) => ({
+        channel: "RAG",
+        dataset: d.dataset,
+        text: [d.title, d.text, d.url].filter(Boolean).join(" — "),
+      }))
+    );
+  }
+  return sourcesToRetrievalContext(input.fallbackSources, {
+    knowledgeTurn: input.knowledgeTurn,
+  });
+}
+
+/**
+ * Serialize the full RAG candidate pool for Eval CSV.
+ * Always emit JSON (including []) so empty retrieval is distinguishable.
+ */
+export function retrievedDocumentsToJson(
+  docs: Array<{
+    rank?: number;
+    title?: string;
+    dataset?: string;
+    url?: string | null;
+    source_id?: string | null;
+    selected?: boolean;
+    text?: string;
+  }> | null | undefined
+): string {
+  const rows = (docs || [])
+    .map((d, i) => ({
+      rank: d.rank ?? i + 1,
+      title: d.title || "source",
+      dataset: d.dataset || "other",
+      url: d.url || null,
+      source_id: d.source_id || null,
+      selected: Boolean(d.selected),
+      text: String(d.text || "").trim(),
+    }))
+    .filter((d) => d.text);
+  return JSON.stringify(rows);
+}
+
+/**
  * Sources for eval CSV / tip grounding.
  * Explain turns: RAG (or turn-level) sources only — never the itinerary MCP dump.
  * Why-pick / doability: no retrieval sources (itinerary-owned answer).
@@ -316,6 +401,8 @@ export function appendLiveEvalRow(input: {
   timestampR: string;
   question: string;
   retrievalContext: string;
+  /** Full RAG candidate pool JSON (all retrieved docs for the tip turn). */
+  retrievedDocuments?: string;
   sourceChannel: string;
   actualOutput: string;
   /** Full merged itinerary JSON when a plan was created/updated this turn. */
@@ -328,6 +415,10 @@ export function appendLiveEvalRow(input: {
   if (!sheet.columns.includes("source_channel")) {
     const idx = sheet.columns.indexOf("retrieval_context");
     sheet.columns.splice(idx >= 0 ? idx + 1 : sheet.columns.length, 0, "source_channel");
+  }
+  if (!sheet.columns.includes("retrieved_documents")) {
+    const idx = sheet.columns.indexOf("retrieval_context");
+    sheet.columns.splice(idx >= 0 ? idx + 1 : sheet.columns.length, 0, "retrieved_documents");
   }
   if (!sheet.columns.includes("itinerary_json")) {
     sheet.columns.push("itinerary_json");
@@ -342,6 +433,7 @@ export function appendLiveEvalRow(input: {
   row.Timestamp_R = input.timestampR;
   row.question = input.question;
   row.retrieval_context = input.retrievalContext;
+  row.retrieved_documents = input.retrievedDocuments ?? "[]";
   row.source_channel = input.sourceChannel;
   row.actual_output = input.actualOutput;
   row.expected_output = "";
@@ -535,6 +627,7 @@ export function isReadOnlyColumn(col: string): boolean {
     col === "Timestamp_R" ||
     col === "question" ||
     col === "retrieval_context" ||
+    col === "retrieved_documents" ||
     col === "source_channel" ||
     col === "actual_output" ||
     col === "itinerary_json" ||
