@@ -67,6 +67,25 @@
   flex-shrink: 0;
 }
 
+.csvActions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+
+.colabLink {
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: var(--primary);
+  text-decoration: none;
+  padding-left: 0.1rem;
+}
+
+.colabLink:hover {
+  text-decoration: underline;
+}
+
 .primaryBtn,
 .secondaryBtn,
 .linkBtn,

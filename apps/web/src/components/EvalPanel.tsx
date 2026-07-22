@@ -22,6 +22,9 @@ type Props = {
   onBack: () => void;
 };
 
+const RAG_EVAL_COLAB_URL =
+  "https://colab.research.google.com/drive/18GUCXdBtvRObzegBo3bm_lYgeojYkS8B?usp=sharing";
+
 export default function EvalPanel({ onBack }: Props) {
   const [columns, setColumns] = useState<string[]>([...CORE_COLUMNS]);
   const [rows, setRows] = useState<EvalRow[]>([]);
@@ -140,9 +143,19 @@ export default function EvalPanel({ onBack }: Props) {
       </header>
 
       <div className={styles.toolbar}>
-        <button type="button" className={styles.primaryBtn} onClick={handleDownload}>
-          Download CSV
-        </button>
+        <div className={styles.csvActions}>
+          <button type="button" className={styles.primaryBtn} onClick={handleDownload}>
+            Download CSV
+          </button>
+          <a
+            className={styles.colabLink}
+            href={RAG_EVAL_COLAB_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Open Colab notebook ↗
+          </a>
+        </div>
         <button type="button" className={styles.secondaryBtn} onClick={refreshFromStore}>
           Refresh
         </button>
