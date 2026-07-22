@@ -127,7 +127,7 @@ export default function VoicePlanner() {
   const [navNotice, setNavNotice] = useState<string | null>(null);
   const [chatHistory, setChatHistory] = useState<SavedChat[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [menuChatId, setMenuChatId] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<"planner" | "evals">("planner");
   const sttTextRef = useRef("");
@@ -588,10 +588,6 @@ export default function VoicePlanner() {
       (pendingTrip.interests?.length ?? 0) > 0
   );
 
-  const awaitingConfirm =
-    safety === "needs_clarify" &&
-    (intent === "confirm" || Boolean(pendingTrip && !pendingTrip.confirmed));
-
   const clarifying =
     safety === "needs_clarify" &&
     Boolean(pendingTrip && !pendingTrip.confirmed && !slotsReady);
@@ -624,9 +620,7 @@ export default function VoicePlanner() {
               : "Listening…"
             : voiceUnlocked
               ? "Ready to send"
-              : awaitingConfirm && slotsReady
-                ? "Say yes to confirm"
-                : clarifying
+              : clarifying
                   ? "Clarifying your trip"
                   : "Tap to speak";
 
@@ -780,9 +774,10 @@ export default function VoicePlanner() {
                 type="button"
                 className={styles.sidebarClose}
                 onClick={() => setSidebarOpen(false)}
-                aria-label="Close conversation list"
+                aria-label="Collapse conversation list"
+                title="Collapse"
               >
-                ✕
+                ‹
               </button>
             </div>
             <button
@@ -861,7 +856,18 @@ export default function VoicePlanner() {
               )}
             </ul>
           </aside>
-        ) : null}
+        ) : (
+          <button
+            type="button"
+            className={styles.sidebarCollapsedRail}
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Show conversation list"
+            title="Show conversations"
+          >
+            <span className={styles.sidebarCollapsedLabel}>Chats</span>
+            <span aria-hidden>›</span>
+          </button>
+        )}
 
       <div className={styles.main}>
         <section className={styles.chatColumn} aria-label="Voice conversation">
@@ -972,24 +978,6 @@ export default function VoicePlanner() {
                   onClick={() => void submit(draft)}
                 >
                   {pending ? "Working…" : "Send"}
-                </button>
-              )}
-              {awaitingConfirm && slotsReady && (
-                <button
-                  type="button"
-                  className={styles.ghost}
-                  disabled={pending || speech.listening || speech.transcribing}
-                  onClick={() => {
-                    setSpeakHint("yes, confirm");
-                    setError(null);
-                    speech.resetTranscript();
-                    setDraft("");
-                    sttTextRef.current = "";
-                    setVoiceUnlocked(false);
-                    speech.start();
-                  }}
-                >
-                  Mic: say yes
                 </button>
               )}
               <button
