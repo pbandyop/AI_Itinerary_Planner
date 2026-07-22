@@ -126,7 +126,17 @@ export default function EvalPanel({ onBack }: Props) {
       <header className={styles.header}>
         <div>
           <p className={styles.kicker}>Capstone · Grounding & hallucination</p>
-          <h1 className={styles.title}>RAG Eval worksheet</h1>
+          <div className={styles.titleRow}>
+            <h1 className={styles.title}>RAG Eval worksheet</h1>
+            <a
+              className={styles.colabLink}
+              href={RAG_EVAL_COLAB_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Open Colab notebook ↗
+            </a>
+          </div>
           <p className={styles.lede}>
             Rows accumulate across every planner session (New Trip included) —
             nothing is wiped until you Clear log.{" "}
@@ -143,19 +153,9 @@ export default function EvalPanel({ onBack }: Props) {
       </header>
 
       <div className={styles.toolbar}>
-        <div className={styles.csvActions}>
-          <button type="button" className={styles.primaryBtn} onClick={handleDownload}>
-            Download CSV
-          </button>
-          <a
-            className={styles.colabLink}
-            href={RAG_EVAL_COLAB_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Open Colab notebook ↗
-          </a>
-        </div>
+        <button type="button" className={styles.primaryBtn} onClick={handleDownload}>
+          Download CSV
+        </button>
         <button type="button" className={styles.secondaryBtn} onClick={refreshFromStore}>
           Refresh
         </button>
