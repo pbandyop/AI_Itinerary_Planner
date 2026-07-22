@@ -7,7 +7,7 @@
 
 This plan is derived from `docs/problemStatement.md` and the design decisions agreed during brainstorming. Build in order; do not skip ahead to UI/voice until the itinerary contract and MCP loop are solid.
 
-**Last synced with code:** Jul 17, 2026 (Phases 0–7 done; Phase 8 app wiring done; Phase 9 agent+UI deployed — n8n PDF/email + demo video remaining).
+**Last synced with code:** Jul 22, 2026 (Phases 0–7 done incl. offline Colab evals + Eval CSV grounding logs; Phase 8 app wiring done; Phase 9 agent+UI deployed — n8n PDF/email + demo video remaining).
 
 **Live demos:** Agent [Railway](https://agent-production-1675.up.railway.app) · UI [Vercel](https://itinerary-planner-web-seven.vercel.app)
 
@@ -18,8 +18,8 @@ This plan is derived from `docs/problemStatement.md` and the design decisions ag
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │  Companion UI (Next.js · Vercel)                                        │
-│  Voice orb (MediaRecorder → POST /stt) · STT normalize · chat history   │
-│  Day blocks · travel legs · References · pipeline log · email form      │
+│  Voice orb (MediaRecorder → POST /stt) · STT normalize · chat sidebar   │
+│  Day blocks · travel legs · References · pipeline log · Eval CSV · email│
 └───────────────────────────────┬─────────────────────────────────────────┘
                                 │ POST /invoke  ·  POST /stt
                                 ▼
@@ -58,17 +58,19 @@ This plan is derived from `docs/problemStatement.md` and the design decisions ag
 **Workflow vs autonomous:** Default `AGENT_WORKFLOW_MODE=true` uses fixed specialist waves for stable voice demos. Edit/explain always use workflow routing. Optional LLM orchestration for *plan* only when workflow mode is off and `ORCHESTRATOR_LLM=true`.
 
 **Ownership split**
-- **Itinerary Agent** — plan optimization *and* **scoped voice edits** via `apply_edit_patch` (only target day/block changes; other days copied). **Pace block floors / soft caps** (when POIs exist):
+- **Itinerary Agent** — plan optimization *and* **scoped voice edits** via `apply_edit_patch` (only target day/block changes; other days copied). **Day starts / hard end** and **pace block floors / soft caps** (when POIs exist):
 
-  | Pace | Morning | Afternoon | Evening | Day seed (`STOPS_PER_DAY`) |
-  |------|---------|-----------|---------|----------------------------|
-  | Relaxed | 1–3 | 1–3 | 1–2 | 6 |
-  | Balanced (`moderate`) | 2–4 | 2–4 | 1–3 | 10 |
-  | Packed | ≥3 until window fill | ≥3 until window fill | ≥2 until window fill | 24 (densify by clock) |
+  | Pace | Day start | Morning | Afternoon | Evening* | Day seed (`STOPS_PER_DAY`) | Day window |
+  |------|-----------|---------|-----------|----------|----------------------------|------------|
+  | Relaxed | 10:00 | 1 | 1 | 0–1 | 3 | 10:00→21:00 |
+  | Balanced (`moderate`) | 09:00 | 2 | 2 | 0–1 | 5 | 09:00→21:00 |
+  | Packed | 08:30 | ≥3 (densify to window) | ≥3 by **18:00** | 0–1 | 24 | 08:30→21:00 |
 
-  Must-sees + heritage/museum/temple are prioritized over food/market/garden when interests are mixed (~3:1 culture:soft). Near-duplicate places blocked (`Amer`↔`Amber Fort` via `place_identity`). Transit junk (bus stop/stand, metro, parking) filtered from POI pool. Meal rules when food + other interests: breakfast-first, dinner-last. **`densify_packed_am_pm`** now densifies **relaxed / moderate / packed** toward floors (packed also fills by time window). **`reassert_meal_pace_layout`** after optimize/LLM; **`ensure_interest_coverage`** restores missing stated interests. Confirmed **`pace_known`** is preserved (Reviewer “reduce stops” must not rewrite packed→relaxed).
-- **Synthesis Agent** — presentation; for explain, grounds answers in place-matched RAG tips (or honest “no citation”); for plan/edit attaches OSM stop + weather + travel sources only (no topic-RAG dump).
-- **Orchestrator** — clarify (max 6), **confirm before generate**, dispatch waves; **also** answers standalone Weather MCP and Knowledge RAG tip questions (safety / etiquette / areas / POI tips / **opening hours**) with **`(Source: Title - URL)`** citations or explicit missing-data refusals. STT phrase normalize (`packt`→packed, `Can fun`→confirm) before intent parse.
+  \*Evening stops are lifestyle only (food / cafe / park / market / viewpoint / shopping) — not heritage/temple/museum. Hard day end **21:00**; each travel leg soft-cap **≤ 90 min**. Per-day pace after edits is tracked for Eval as `day_paces_json`.
+
+  Must-sees + heritage/museum/temple are prioritized over food/market/garden when interests are mixed (~3:1 culture:soft). Near-duplicate places blocked (`Amer`↔`Amber Fort` via `place_identity`). Transit junk (bus stop/stand, metro, parking) filtered from POI pool. Meal rules when food + other interests: breakfast-first, dinner-last. **`densify_packed_am_pm`** densifies toward floors (packed also fills by time window). **`reassert_meal_pace_layout`** after optimize/LLM; **`ensure_interest_coverage`** restores missing stated interests. Confirmed **`pace_known`** is preserved (Reviewer “reduce stops” must not rewrite packed→relaxed). Voice edits like **“make day N relaxed”** retarget that day’s pace without rewriting other days.
+- **Synthesis Agent** — presentation; for tip/hours explain, grounds answers in place-matched RAG (or honest “no citation”); **why-pick / “why this place?”** is itinerary-owned (planner path — **not** RAG; empty grounding / `source_channel: none` in Eval). Plan/edit attaches OSM stop + weather + travel sources only (no topic-RAG dump). `rag_on_plan: false`.
+- **Orchestrator** — clarify (max 6), **confirm before generate**, dispatch waves; **also** answers standalone Weather MCP and Knowledge RAG tip questions (safety / etiquette / areas / POI tips / **opening hours**) with **`(Source: Title - URL)`** citations or explicit missing-data refusals. Full selected grounding text is returned as `grounding_documents` for Eval (UI Sources stay short snippets). STT phrase normalize (`packt`→packed, `Can fun`→confirm) before intent parse.
 - **Reviewer** — structured feedback (`target_agent` + `constraints`), not free-form inter-agent chat; must not force pace downgrades when user pace is confirmed.
 
 ### Current product behaviour (voice / clarify)
@@ -82,14 +84,16 @@ This plan is derived from `docs/problemStatement.md` and the design decisions ag
 | Off-topic briefs | Europe / multi-country paste during clarify is rejected; re-ask Jaipur interests |
 | Preference tweaks | Before confirm, “remove couple friendly” (etc.) updates trip slots — **not** itinerary edit |
 | Confirm | Required (“yes” / “confirm”) before generating |
-| RAG tips | Practical guidance + justifications; **every tip has `(Source: Title - URL)`** when a URL exists (official website preferred over Maps link); UI References panel; TTS stays short |
+| RAG tips | Tip / hours Q&A only (`rag_on_plan: false`); practical guidance + **`(Source: Title - URL)`** when a URL exists; UI References = short snippets; Eval CSV keeps **full** selected grounding |
+| Why-pick | “Why this place / stop?” → planner / itinerary path (not RAG); Eval `source_channel: none`, empty retrieval |
 | Opening hours | Place-matched RAG (OSM / Google Places cards); refuse to invent when corpus has no hours |
-| Empty RAG | Explicit “won’t invent” / corpus missing — no hallucinated facts |
-| Edits | Scoped to named day(s); compound “and” edits; **`pack_block`** / **`balance_block`** / **`relax_block`** densify or trim to pace floors; rain indoor swaps cover **whole day** (not evening-only) |
+| Empty RAG | Cite-or-refuse without inventing Day/itinerary framing; Eval still logs `retrieval_context` (may be `[]`) |
+| Edits | Scoped to named day(s); compound “and” edits; **`pack_block`** / **`balance_block`** / **`relax_block`** densify or trim to pace floors; “make day N relaxed/packed/balanced”; rain indoor swaps cover **whole day** |
 | POI quality | Drop generic OSM stubs, banks, campus/numbered parks, ice-cream-as-heritage, transit stops; pin Jaipur must-sees; famous bazaars stay **market** |
 | Interest coverage | Post-pack guard: every stated interest must appear when a live POI exists; culture preferred when mixed with soft interests |
 | Weather Q&A | Open-Meteo only; Jaipur-scoped; never invents forecast |
-| Voice UI | Speech-reactive orb; chat history in sidebar; stop cards show time left + spend; brand “Jaipur · 2–4 days” |
+| Eval CSV | Download `rag_eval.csv`: `retrieval_context` (full selected text), `retrieved_documents` (full pool + `selected`), `itinerary_json`, `day_paces_json`, sources, latency |
+| Voice UI | Speech-reactive orb; chat sidebar **open by default** (collapse `‹` / **Chats** rail); Eval tab (active style, no underline); stop cards show time left + spend; brand “Jaipur · 2–4 days” |
 
 Example execution plan object:
 
@@ -109,7 +113,7 @@ Example execution plan object:
 }
 ```
 
-`knowledge_agent` runs on **explain** / place-tip questions only (not during itinerary generation).
+`knowledge_agent` runs on **tip / hours** questions only (not during itinerary generation, and not for why-pick / doability — those stay on the itinerary/synthesis planner path).
 
 ### Runtime split: LangGraph vs LangChain
 
@@ -276,7 +280,7 @@ Build: `python -m agent.rag.build_corpus` → `ingest --force-chunks`. Retrieval
 - [x] **Legacy diversify** (`ITINERARY_STRATEGY=legacy`, default): ≥1 stop per stated interest, then score fill
 - [x] **Hybrid mode** (optional): interest quotas + geographic clusters via POI shortlist
 - [x] Meal/pace block packing: breakfast-first, dinner-last; adaptive AM/PM/evening targets by pace
-- [x] Pace floors + densify: relaxed 1–3/1–3/1–2 · balanced 2–4/2–4/1–3 · packed ≥3/≥3/≥2 until window fill (`BLOCK_FLOOR_BY_PACE`, `densify_packed_am_pm`)
+- [x] Pace floors + densify: relaxed 1/1/0–1 · balanced 2/2/0–1 · packed ≥3/≥3/0–1 (day starts 10:00 / 09:00 / 08:30; hard end 21:00; packed afternoon by 18:00) — `BLOCK_FLOOR_BY_PACE`, `DAY_START_MIN`, `densify_packed_am_pm`
 - [x] POI quality filters: transit junk, generic stubs, wrong-city landmarks, low-signal parks; Amer↔Amber near-dupe; culture priority over soft interests
 - [x] **`ensure_interest_coverage`** post-pack guard (after build + after optimize): swap or add missing interest when live POI exists; trim never drops sole interest cover
 - [x] **`reassert_meal_pace_layout`**: rebuild day blocks after optimizer/LLM so caps and meal order stick
@@ -324,15 +328,16 @@ Build: `python -m agent.rag.build_corpus` → `ingest --force-chunks`. Retrieval
 ### Tasks
 - [x] Collect Wikivoyage / Wikipedia content for major Indian cities (start with trip city; expand corpus over time)
 - [x] Chunk + embed; store in a LangChain-compatible vector store
-- [x] Build retriever used by Knowledge Agent for planning context and “why / doable / rain” answers
+- [x] Build retriever used by Knowledge Agent for tip/hours grounding (plan generation does **not** run RAG; why-pick / doability stay itinerary-owned)
 - [x] Citation objects: title, URL/source id, snippet
-- [x] Empty retrieval → explicit “data missing” (no hallucinated tips)
+- [x] Empty retrieval → explicit “data missing” (no hallucinated tips); Eval still logs empty `retrieval_context`
 - [x] Topic-aware retrieve + lexical boost (safety / etiquette / areas / timing / highlights)
 - [x] Orchestrator **knowledge Q&A** path (no trip required): safety, scams, etiquette, areas to visit, POI tips, **opening hours**
 - [x] Out-of-scope tip places refused (e.g. Paris) — never substitute foreign tips with Jaipur invents
-- [x] Place-matched stop citations in Synthesis (no unrelated Wikivoyage round-robin)
+- [x] Place-matched stop citations in Synthesis for tip/hours (no unrelated Wikivoyage round-robin)
 - [x] Multi-source Jaipur corpus: Wikivoyage + Wikipedia + OSM facts + Google Places + tourism + curated stubs
 - [x] **Source URLs in replies:** `ensure_source_link` appends `(Source: Title - URL)`; prefers official website from card text over Maps link
+- [x] **Eval grounding:** `/invoke` returns `grounding_documents` (full selected text) + `retrieved_documents` (full candidate pool with `selected`); UI Sources stay truncated
 
 ### Exit criteria
 - [x] Tips include citations (`(Source: Title - URL)` in reply when URL exists + `sources[]` for UI)
@@ -394,7 +399,8 @@ Build: `python -m agent.rag.build_corpus` → `ingest --force-chunks`. Retrieval
 - [x] Attach **place-matched** Knowledge citations + aggregate `sources[]`
 - [x] User-friendly summary / `user_reply` (optional `SYNTHESIS_LLM`)
 - [x] Deduplicate sources; ensure uncertainty notes where citations missing
-- [x] Explain / “why this stop”: place-matched RAG tip + Source, or honest no-citation fallback (no invented justification)
+- [x] Explain / tip / hours: place-matched RAG + Source, or honest no-citation fallback
+- [x] Why-pick / doability: itinerary-owned (no RAG dump, no invented justification)
 - [x] **Does not** move/skip/reorder stops (Itinerary Agent owns optimization)
 - [x] Record `agent_trace` `{agent: synthesis, action: compose}`
 
@@ -441,18 +447,18 @@ Build: `python -m agent.rag.build_corpus` → `ingest --force-chunks`. Retrieval
 - [x] Auto-send after speech (toggle); transcript is read-only; typed-only Send and confirm bypass removed (strict Capstone STT)
 - [x] Confirm-before-plan gate + voice confirm (no typed bypass)
 - [x] Session memory (`session_id`) for unconfirmed trip slots + finished itinerary follow-ups
-- [x] Conversation history in left sidebar (localStorage); New Trip / Log in CTA / Evals placeholder
-- [x] Scoped voice edits (`nodes/edit_apply.py`) — only target day/block changes; compound edits; ops: relax/pack/**balance_block**/balance_categories/add/remove/swap/trim/indoor/reduce_travel
-- [x] Grounded explain (place-matched RAG, doable load, rain + sources)
-- [x] Short TTS (`speakableReply`); citations remain on-screen in References
+- [x] Conversation history in left sidebar (localStorage; **open by default**, collapse to **Chats** rail); New Trip / Log in CTA / **Eval** tab
+- [x] Scoped voice edits (`nodes/edit_apply.py`) — only target day/block changes; compound edits; ops: relax/pack/**balance_block**/balance_categories/add/remove/swap/trim/indoor/reduce_travel; per-day pace (“make day N relaxed”)
+- [x] Grounded tip/hours explain (place-matched RAG); why-pick / doable / rain via itinerary + weather (not topic-RAG)
+- [x] Short TTS (`speakableReply`); citations remain on-screen in References (short); Eval CSV keeps full grounding
 - [x] Sample utterances for required capabilities
 
 ### Exit criteria
 - [x] Spoken plan asks for confirm, then generates after “yes”
 - [x] Voice edits change only the affected day/block
-- [x] “Why / doable / rain / safe / etiquette?” answers are itinerary- or citation-grounded
+- [x] Tip / hours answers are citation-grounded; why-pick / doable / rain stay itinerary- or weather-grounded
 
-**Delivered:** `/stt` + MediaRecorder + STT normalize; confirm gate; edit applicator; grounded synthesis/orchestrator explain; pipeline log; session trip + itinerary memory; TTS shortened while Sources stay visible.
+**Delivered:** `/stt` + MediaRecorder + STT normalize; confirm gate; edit applicator; grounded synthesis/orchestrator tip path; pipeline log; session trip + itinerary memory; TTS shortened while Sources stay visible; Eval CSV logging from live turns.
 
 ---
 
@@ -464,36 +470,40 @@ Build: `python -m agent.rag.build_corpus` → `ingest --force-chunks`. Retrieval
 - [x] Day-wise itinerary (Day 1 / 2 / 3…) — `ItineraryView`
 - [x] Morning / Afternoon / Evening blocks
 - [x] Duration + estimated travel time between stops (distance + walk/car mode when available); stop cards show time left + spend
-- [x] Speech-reactive voice orb + mic — `VoicePlanner` (chat box removed; history restored in sidebar)
-- [x] Sources / References section — `SourcesPanel` (API `sources` + stop citations)
+- [x] Speech-reactive voice orb + mic — `VoicePlanner` (chat box removed; history in sidebar open by default)
+- [x] Sources / References section — `SourcesPanel` (API `sources` short snippets + stop citations)
 - [x] LangGraph / MCP pipeline trace panel for demo — `PipelineTrace`
 - [x] Brand strip “Jaipur · 2–4 days”; email itinerary form under plan
+- [x] **Eval** view — live sheet + CSV download (`rag_eval.csv`); active nav style without underline
 
 ### Exit criteria
 - [x] UI renders approved `merged_itinerary` + `sources` from graph state
 - [x] Mobile-usable enough for demo recording
 
-**Delivered:** Next.js companion at `apps/web` calling `POST /invoke` on the agent service (prod: Vercel → Railway); day blocks + travel legs; References panel; pipeline stage log; pending-trip confirm UX; voice orb composer.
+**Delivered:** Next.js companion at `apps/web` calling `POST /invoke` on the agent service (prod: Vercel → Railway); day blocks + travel legs; References panel; pipeline stage log; pending-trip confirm UX; voice orb composer; Eval CSV with full grounding + retrieval pool.
 
 ---
 
 ## Phase 7 — AI evaluations (2 days, iterate)
 
-**Goal:** Three runnable evals; iterate on graph nodes/prompts/tools.
+**Goal:** Three runnable evals; iterate on graph nodes/prompts/tools. Online CLI suites + offline Colab notebooks that score **live Eval CSV** from the companion UI.
 
 ### 7a — Feasibility Eval
-- [x] Daily duration ≤ available time
-- [x] Reasonable travel times (leg ≤ 120 min)
-- [x] Pace consistency (stops within pace floors/caps — see Architecture pace table; `STOPS_PER_DAY` seeds densify)
+- [x] Daily duration ≤ available time (pace day start → hard end **21:00**)
+- [x] Reasonable travel times (**each** leg ≤ **90 min**)
+- [x] Pace consistency (soft M/A/E counts + evening lifestyle categories — aligned with live planner)
+- [x] Offline Colab: `evals/notebooks/feasibility_eval_colab.py` (wide Pass/Fail + reasons; uses `itinerary_json` + optional `day_paces_json`)
 
 ### 7b — Edit Correctness Eval
 - [x] Before/after + edit command fixtures (`evals/fixtures/edits/`)
 - [x] Only intended day/block changed (`apply_edit_patches`)
+- [x] Offline Colab: `evals/notebooks/edit_correctness_eval_colab.py` (pairs live CSV edit turns via `Session_Id`; checks intended change, no unintended drift, OSM ids)
 
 ### 7c — Grounding & Hallucination Eval
 - [x] POIs map to OSM records (`osm_type` + `osm_id > 0`)
 - [x] Tips cite RAG sources (`evals/fixtures/tips/hours_cited.json`)
 - [x] Missing data → explicit uncertainty / won’t invent (`hours_missing.json`)
+- [x] Offline Colab: `evals/notebooks/rag_llm_judge_colab.py` — faithfulness vs **selected** grounding only (`retrieval_context` full text preferred; else selected `retrieved_documents`); relevance separate; empty retrieval → cite-or-refuse PASS / else FAIL
 
 ### Tasks
 - [x] CLI entrypoint: `python -m evals --suite {all|fixtures|feasibility|edit|grounding}`
@@ -501,12 +511,14 @@ Build: `python -m agent.rag.build_corpus` → `ingest --force-chunks`. Retrieval
 - [x] Expand fixtures for edit scope + tip cite-or-refuse; align golden plans with pace caps
 - [x] Document how to run evals in README
 - [x] Re-run until all suites PASS
+- [x] Live Eval CSV columns: `retrieval_context`, `retrieved_documents`, `day_paces_json`, `itinerary_json`, `source_channel`, …
 
 ### Exit criteria
-- [x] All three evals runnable from README
+- [x] All three evals runnable from README **and** Colab notebooks against exported CSV
 - [ ] At least one eval shown in the demo video (Phase 9)
 
-**Delivered:** `python -m evals --suite all` → fixtures + feasibility + edit_correctness + grounding all PASS.
+**Delivered:** `python -m evals --suite all` → fixtures + feasibility + edit_correctness + grounding all PASS; Colab notebooks under `evals/notebooks/` for live CSV scoring.
+
 ---
 
 ## Phase 8 — n8n workflow: PDF + email (1 day)
@@ -571,9 +583,9 @@ Build: `python -m agent.rag.build_corpus` → `ingest --force-chunks`. Retrieval
 | Days 6–7 | Phase 3 (LangChain RAG) |
 | Days 8–11 | Phase 4 (full LangGraph multi-agent graph) |
 | Days 12–13 | Phase 5–6 (Voice + UI) — **done** |
-| Days 14–15 | Phase 7 (Evals + harden) — **done** |
+| Days 14–15 | Phase 7 (Evals + harden) — **done** (CLI + Colab notebooks Jul 21–22) |
 | Day 16 | Phase 8 (n8n) — **app wiring done**; finish PDF/email in n8n Cloud |
-| Days 17–18 | Phase 9 (deploy + demo) — **agent+UI live**; smoke + demo video remaining |
+| Days 17–22 | Phase 9 (deploy + demo) — **agent+UI live**; Eval CSV / Colab polish **done**; smoke + demo video remaining |
 
 Never cut Phase 1, 2, 3, or 7. Phase 4 is the longest build block because of LangGraph wiring + all agent nodes.
 
@@ -588,7 +600,7 @@ Never cut Phase 1, 2, 3, or 7. Phase 4 is the longest build block because of Lan
 - [x] RAG citations for tips (with URLs when available); OSM-backed POIs; missing data stated
 - [x] **LangGraph** multi-agent graph: Orchestrator (safety + wave planning + parallel `Send`) → specialists → **Synthesis/Merger** → **agentic Reviewer**
 - [x] **LangChain** used for tools and/or RAG
-- [x] 3 runnable evals documented (`python -m evals --suite all`)
+- [x] 3 runnable evals documented (`python -m evals --suite all` + Colab notebooks on live CSV)
 - [ ] n8n PDF + email works
 - [ ] Git repo + README with architecture, LangGraph diagram, MCPs, datasets, evals, sample transcripts
 - [ ] 5-minute demo video recorded
@@ -622,20 +634,20 @@ Never cut Phase 1, 2, 3, or 7. Phase 4 is the longest build block because of Lan
 
 ## Next immediate action
 
-Phases **0–7** done; **Phase 8** app wiring done; **Phase 9** agent + UI **deployed**. Remaining for submission: finish n8n PDF + email nodes, re-smoke voice/plan/edit on public URLs, polish sample transcripts, record ≤5 min demo.
+Phases **0–7** done (incl. Colab feasibility / RAG faithfulness / edit-correctness on Eval CSV); **Phase 8** app wiring done; **Phase 9** agent + UI **deployed**. Remaining for submission: finish n8n PDF + email nodes, re-smoke voice/plan/edit/Eval on public URLs, polish sample transcripts, record ≤5 min demo (show at least one Colab or CLI eval).
 
 ## Post–Phase 6 hardening (Jul 15–17, 2026)
 
 | Area | Change | Key files |
 |------|--------|-----------|
 | Meal / pace packing | Breakfast-first, dinner-last; block targets by pace; reassert after optimize/edits | `itinerary_builder.py`, `itinerary_optimize.py` |
-| Pace floors (Jul 17) | Relaxed 1–3/1–3/1–2 · balanced 2–4/2–4/1–3 · packed ≥3/≥3/≥2 + densify for all paces | `BLOCK_FLOOR_BY_PACE`, `densify_packed_am_pm`, `poi_shortlist.py` |
+| Pace floors (Jul 17→22) | Relaxed 1/1/0–1 · balanced 2/2/0–1 · packed ≥3/≥3/0–1; starts 10:00 / 09:00 / 08:30; end 21:00 | `BLOCK_FLOOR_BY_PACE`, `DAY_START_MIN`, `densify_packed_am_pm`, `poi_shortlist.py` |
 | After-5:00 PM evening (Jul 17) | No museums; prefer not fort/palace interiors; market/food only if chosen; temple if interest; garden/viewpoint/sunset heritage soft-allow; else empty + relax | `_is_evening_eligible`, pack/densify/edit |
 | Pace lock | Confirmed packed not overwritten to relaxed by Reviewer “reduce stops” | `orchestrator.py`, `reviewer.py`, `itinerary_builder.py` |
 | Near-dupe / transit | Amer↔Amber alias; filter bus stop/stand/metro/parking | `place_identity.py`, `poi_search.py` |
 | Culture priority | Must-sees + heritage/museum/temple over food/market/garden (~3:1); forts not markets | `poi_search.py`, `poi_shortlist.py`, `edit_apply.py` |
 | Interest coverage | Post-pack guard: ≥1 stop per stated interest when live POI exists | `ensure_interest_coverage` |
-| Balance / pack edits | `balance_block` → ~7–8 stops; `pack_block` meets packed floors; POI top-up when thin | `edit_apply.py`, `specialists.py` |
+| Balance / pack edits | `balance_block` → densify to floors; `pack_block` meets packed floors; POI top-up when thin | `edit_apply.py`, `specialists.py` |
 | Rain indoor | Whole-day indoor swaps (not evening-only) | `edit_apply.py` |
 | Junk POI filters | Generic stubs, banks, numbered/campus parks, ice-cream-as-heritage, junk food labels | `poi_search.py` |
 | RAG citations | Opening-hours + tips include `(Source: Title - URL)`; website preferred | `llm_utils.py`, `orchestrator.py` |
@@ -643,14 +655,27 @@ Phases **0–7** done; **Phase 8** app wiring done; **Phase 9** agent + UI **dep
 | Voice UI | Speech orb, sidebar history, stop card layout, STT normalize | `VoicePlanner.tsx`, `sttNormalize.ts`, `stt_normalize.py` |
 | Deploy | Railway agent + Vercel web | `docs/deploy-railway.md`, `docs/deploy-vercel.md` |
 
-## Deferred follow-ups (remind before polish / evals)
+## Post–Jul 17 hardening (Jul 21–22, 2026)
+
+| Area | Change | Key files |
+|------|--------|-----------|
+| Voice pace edit | “Make day N relaxed/packed/balanced” routes to scoped day pace without clarifying dialog false positives | `orchestrator.py`, `edit_apply.py` |
+| Why-pick ≠ RAG | Why-this-place / doability use planner path; Eval `source_channel: none`, empty retrieval | `synthesis.py`, `agent_planner.py`, `evalCsv.ts` |
+| Full grounding logs | `retrieval_context` = full selected grounding; `retrieved_documents` = full RAG pool + `selected`; UI Sources stay short | `main.py`, `VoicePlanner.tsx`, `evalCsv.ts` |
+| Feasibility Colab | Per-day pace, load window start→21:00, travel ≤90, M/A/E counts `M2 A2 E1`, Pass/Fail + reasons | `evals/notebooks/feasibility_eval_colab.py` |
+| RAG LLM-judge Colab | Faithfulness vs selected context only; empty retrieval cite-or-refuse rules | `evals/notebooks/rag_llm_judge_colab.py` |
+| Edit Correctness Colab | Live CSV before/after pairing; intended day/block + OSM id checks | `evals/notebooks/edit_correctness_eval_colab.py` |
+| UI polish | Eval tab active text (no underline); sidebar open by default + Chats rail; removed mic “say yes” chrome | `VoicePlanner.tsx`, `voice-planner.module.css` |
+
+## Deferred follow-ups (remind before polish / demo)
 
 - [ ] **Itinerary balance after Reviewer revise:** Gemini Reviewer can request re-clustering that leaves Day 1 too light (e.g. food-only). Tune Itinerary Agent + Reviewer prompts (and/or post-revise balance checks) so revise rounds keep days reasonably filled under a relaxed pace.
-- [ ] **RAG long-tail coverage:** Itinerary OSM POIs not in Wikivoyage/Places corpus still get thin tips — consider batch enrichment (Places API / curated cards keyed by `osm_id`).
+- [ ] **RAG long-tail / sibling pages:** Attractions answers can be faithful to the wrong Wikipedia page (e.g. Jaigarh via Amber Fort chunk). Consider stricter place-id match or POI-keyed cards.
 - [ ] Expand `ALLOWED_CITIES` beyond Jaipur when demo scope unlocks (schema + RAG corpus already multi-city capable).
-- [ ] Align feasibility eval fixtures with new pace floors/caps (README still mentions older 4/6/11 soft caps).
+- [x] **Align feasibility eval with live pace floors/caps** — Colab notebook + soft ranges (Jul 22); CLI fixtures may still need a light README pass.
 - [x] **Post-pack interest coverage** — implemented (`ensure_interest_coverage`).
 - [x] **`balance_block` voice edit** — implemented (parse + apply + POI fetch).
 - [x] **Source URLs in knowledge Q&A** — implemented (`ensure_source_link`).
 - [x] **Pace floors + Amer/Amber dedupe + transit filter** — implemented (Jul 17).
 - [x] **Public deploy (agent + UI)** — Railway + Vercel live.
+- [x] **Offline Colab evals + full Eval CSV grounding** — implemented (Jul 21–22).
