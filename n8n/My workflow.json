@@ -1,0 +1,172 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "45b93862-980e-441d-b86b-5a606c0fb7fe",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "f83380ac-e56f-4547-a078-d7600ee7da05",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "45b93862-980e-441d-b86b-5a606c0fb7fe"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "\nconst body = $json.body || {};\nconst itinerary = body.itinerary || {};\nconst trip = itinerary.trip || {};\n\nconst esc = (v) => {\n  if (v === null || v === undefined) return '';\n  return String(v)\n    .replace(/&/g, '&amp;')\n    .replace(/</g, '&lt;')\n    .replace(/>/g, '&gt;');\n};\n\nconst city = esc(body.city || trip.city || 'your destination');\nconst country = esc(trip.country || '');\nconst numDays = trip.num_days || (Array.isArray(itinerary.days) ? itinerary.days.length : 0);\nconst interests = Array.isArray(trip.interests) ? trip.interests.map(esc).join(', ') : '';\nconst pace = esc(trip.pace || '');\n\nconst titleCase = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;\n\nconst blockLabels = ['morning', 'afternoon', 'evening'];\n\nconst parts = [];\nparts.push('<div style=\"font-family:Arial,Helvetica,sans-serif;color:#222;max-width:680px;margin:0 auto;\">');\nparts.push('<h1 style=\"color:#1a73e8;margin-bottom:4px;\">' + numDays + '-Day Trip to ' + city + (country ? ', ' + country : '') + '</h1>');\n\nconst meta = [];\nif (interests) meta.push('<strong>Interests:</strong> ' + interests);\nif (pace) meta.push('<strong>Pace:</strong> ' + titleCase(pace));\nif (meta.length) {\n  parts.push('<p style=\"color:#555;margin-top:0;\">' + meta.join(' &nbsp;&bull;&nbsp; ') + '</p>');\n}\n\nconst days = Array.isArray(itinerary.days) ? itinerary.days : [];\nfor (const day of days) {\n  const dayIndex = day.day_index || '';\n  const theme = esc(day.theme || '');\n  parts.push('<h2 style=\"border-bottom:2px solid #eee;padding-bottom:6px;margin-top:28px;\">Day ' + dayIndex + (theme ? ' — ' + theme : '') + '</h2>');\n\n  for (const label of blockLabels) {\n    const block = day[label];\n    if (!block || !Array.isArray(block.stops) || block.stops.length === 0) continue;\n    parts.push('<h3 style=\"color:#1a73e8;margin-bottom:6px;\">' + titleCase(label) + '</h3>');\n    parts.push('<ul style=\"margin-top:0;padding-left:20px;\">');\n    for (const stop of block.stops) {\n      const name = esc(stop.name || 'Unnamed stop');\n      const category = esc(stop.category || '');\n      const duration = stop.duration_min ? stop.duration_min + ' min' : '';\n      const details = [];\n      if (category) details.push(titleCase(category));\n      if (duration) details.push(duration);\n      if (stop.travel_to_next_min && stop.travel_to_next_mode) {\n        details.push('then ' + stop.travel_to_next_min + ' min ' + esc(stop.travel_to_next_mode) + ' to next');\n      }\n      const detailStr = details.length ? ' <span style=\"color:#777;font-size:13px;\">(' + details.join(' · ') + ')</span>' : '';\n      parts.push('<li style=\"margin-bottom:6px;\"><strong>' + name + '</strong>' + detailStr + '</li>');\n    }\n    parts.push('</ul>');\n  }\n}\n\nif (days.length === 0) {\n  parts.push('<p>No itinerary details were included in this request.</p>');\n}\n\nparts.push('<hr style=\"border:none;border-top:1px solid #eee;margin-top:28px;\">');\nparts.push('<p style=\"color:#999;font-size:12px;\">Travel times are heuristic estimates. Confirm opening hours on-site.</p>');\nparts.push('</div>');\n\nconst html = parts.join('\\n');\nconst recipient = body.email || 'mpan49@gmail.com';\nconst subject = numDays + '-Day Itinerary for ' + city;\n\nreturn { html, recipient, subject };\n"
+      },
+      "id": "559624db-f08b-4d97-893b-d75781185e78",
+      "name": "Format Itinerary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://rest.apitemplate.io/v2/create-pdf-from-html",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ body: $json.html, settings: { paper_size: \"A4\", orientation: \"1\", margin_top: \"30\", margin_bottom: \"30\", margin_left: \"20\", margin_right: \"20\", print_background: \"1\" } }) }}",
+        "options": {}
+      },
+      "id": "25726b3e-0d2c-43c3-8de3-d58dcb7db839",
+      "name": "Generate PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        448,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "r1u9Vv9tw6PxPKMd",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.download_url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "82486e24-b3b1-4bef-b3bd-902c5bf9f575",
+      "name": "Download PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        672,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Format Itinerary').item.json.recipient }}",
+        "subject": "={{ $('Format Itinerary').item.json.subject }}",
+        "message": "={{ $('Format Itinerary').item.json.html }}",
+        "options": {
+          "attachmentsUi": {
+            "attachmentsBinary": [
+              {}
+            ]
+          }
+        }
+      },
+      "id": "dd882952-66a2-436c-81c5-a25277aec4eb",
+      "name": "Send an Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        896,
+        0
+      ],
+      "webhookId": "ceb68865-6e20-4bed-a713-731926319cd7",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "RkgHUad9cHAD6n71",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Format Itinerary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Itinerary": {
+      "main": [
+        [
+          {
+            "node": "Generate PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate PDF": {
+      "main": [
+        [
+          {
+            "node": "Download PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download PDF": {
+      "main": [
+        [
+          {
+            "node": "Send an Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "51b0b7a3-35be-43e7-b0ef-21830d792d89",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "20c8ced2c905cf84615cd211b85ba38727836835317599955178e808837947be"
+  },
+  "nodeGroups": [],
+  "id": "EgG8M64WmPP0z26V",
+  "tags": []
+}
