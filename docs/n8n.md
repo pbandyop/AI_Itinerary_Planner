@@ -6,9 +6,17 @@ and email delivery.
 
 ## App wiring
 
-1. Set `N8N_WEBHOOK_URL` in `apps/web/.env.local` (already documented in `.env.example`).
-2. Restart `next dev` after changing the env var.
+1. Set `N8N_WEBHOOK_URL` in `apps/web/.env.local` (and Vercel Production/Preview) to the
+   **production** webhook URL from the Active workflow, e.g.
+   `https://mpa4.app.n8n.cloud/webhook/<path-id>` (not the `/workflow/...` editor link,
+   and not `/webhook-test/...`).
+2. Restart `next dev` after changing the local env var; **redeploy** after changing Vercel.
 3. Generate a plan in the UI → **Email this plan** → enter email → **Send PDF**.
+
+**Current Capstone instance (Jul 2026):** n8n Cloud `mpa4.app.n8n.cloud` — workflow
+[Qw5YUacDLjGDwp1C](https://mpa4.app.n8n.cloud/workflow/Qw5YUacDLjGDwp1C). If you re-import
+and the Webhook path changes, update `N8N_WEBHOOK_URL` to match the Webhook node’s
+Production URL.
 
 Proxy route: `POST /api/email-itinerary`
 
