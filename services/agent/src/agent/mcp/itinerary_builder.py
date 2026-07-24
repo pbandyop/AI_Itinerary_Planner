@@ -967,25 +967,38 @@ def _has_evening_lifestyle_interest(interests: list[str]) -> bool:
     )
 
 
-def reserve_evening_lifestyle_slots(
-    days: list[DayPlan],
+EVENING_CLOSES_RELAX_NOTE = (
+    "Relax / free evening — no food, market, or park stop left to schedule. "
+    "Most heritage sights and museums close by about 5:00 PM, so this is a "
+    "good time to rest or turn in early."
+)
+
+
+def claim_evening_lifestyle_pois(
     *,
+    num_days: int,
     interests: list[str],
     candidate_pois: list[POICandidate],
     pace: Pace = "moderate",
     city: str = "Jaipur",
-) -> tuple[list[DayPlan], list[str]]:
-    """Pin one evening lifestyle stop per day *before* AM/PM densify.
+) -> tuple[list[POICandidate | None], list[str]]:
+    """Claim one evening lifestyle POI per day *before* day packing.
 
-    Packed (≥3/≥3) otherwise burns food/park/market on morning/afternoon and
-    leaves evenings empty. Prefers food → market → park; must-sees first;
-    skips junk / out-of-city. No invented POIs.
+    Priority: food → market/shopping → park/garden (only if those interests
+    were selected). Returns parallel list (len=num_days); None means leave
+    evening as intentional relax time.
     """
     notes: list[str] = []
-    if pace not in {"relaxed", "moderate", "packed"} or not days:
-        return days, notes
+    n = clamp_trip_days(num_days)
+    claims: list[POICandidate | None] = [None] * n
+    if pace not in {"relaxed", "moderate", "packed"}:
+        return claims, notes
     if not _has_evening_lifestyle_interest(interests):
-        return days, notes
+        notes.append(
+            "No food/market/park interest — evenings stay relax "
+            "(most places close by ~5:00 PM)."
+        )
+        return claims, notes
 
     interest_keys = list(
         dict.fromkeys(
@@ -1001,15 +1014,6 @@ def reserve_evening_lifestyle_slots(
         is_must_see_poi,
         selection_score,
     )
-
-    working = [d.model_copy(deep=True) for d in days]
-    eve_floor = int(
-        BLOCK_FLOOR_BY_PACE.get(pace, BLOCK_FLOOR_BY_PACE["moderate"]).get(
-            "evening", 1
-        )
-    )
-    if eve_floor <= 0:
-        return working, notes
 
     pool = [
         p
@@ -1027,13 +1031,149 @@ def reserve_evening_lifestyle_slots(
     def _eve_rank(p: POICandidate) -> tuple:
         cat = (p.category or "").lower()
         must = 1 if is_must_see_poi(p) or _MUST_SEE_NAME_RE.search(p.name or "") else 0
-        # Prefer real meals / bazaars over random gardens when food+shopping set.
         food = 1 if cat in {"food", "cafe", "restaurant"} else 0
         market = 1 if cat in {"market", "shopping"} else 0
         park = 1 if cat in {"park", "garden", "viewpoint"} else 0
-        # Ice-cream / parlour names are weaker dinner stands.
         name_l = (p.name or "").lower()
-        snack_pen = 1 if re.search(r"ice\s*cream|parlour|parlor|ccd|donut", name_l) else 0
+        snack_pen = (
+            1 if re.search(r"ice\s*cream|parlour|parlor|ccd|donut", name_l) else 0
+        )
+        return (
+            -must,
+            -food,
+            -market,
+            -park,
+            snack_pen,
+            -selection_score(p, interest_keys or interests),
+            p.name or "",
+        )
+
+    pool = sorted(pool, key=_eve_rank)
+    used: set[str] = set()
+    for i in range(n):
+        pick = None
+        for p in pool:
+            key = f"{p.osm_type}/{p.osm_id}"
+            if key in used:
+                continue
+            pick = p
+            used.add(key)
+            break
+        claims[i] = pick
+        if pick is None:
+            notes.append(
+                f"Day {i + 1} evening: no unused food/market/park — "
+                f"will stay relax (closes ~5:00 PM)."
+            )
+        else:
+            notes.append(
+                f"Day {i + 1} evening: pre-claimed {pick.name} "
+                f"({(pick.category or '').lower()}) before breakfast pack."
+            )
+    return claims, notes
+
+
+def _apply_evening_claim(
+    day: DayPlan,
+    claim: POICandidate | None,
+    *,
+    pace: Pace,
+    interests: list[str],
+) -> DayPlan:
+    """Force evening from a pre-claim, or intentional relax + closes-by-5 note."""
+    d = day.model_copy(deep=True)
+    if claim is not None:
+        stop = _make_stop(
+            claim, pace=pace, interests=interests, meal_slot=True
+        ).model_copy(
+            update={
+                "reason": (
+                    f"Evening lifestyle pre-claimed (food/market/park first); "
+                    f"OSM {claim.osm_type}/{claim.osm_id}."
+                )
+            }
+        )
+        d.evening = TimeBlock(time_of_day="evening", stops=[stop], notes=None)
+        return d
+    d.evening = TimeBlock(
+        time_of_day="evening",
+        stops=[],
+        notes=EVENING_CLOSES_RELAX_NOTE,
+    )
+    return d
+
+
+def reserve_evening_lifestyle_slots(
+    days: list[DayPlan],
+    *,
+    interests: list[str],
+    candidate_pois: list[POICandidate],
+    pace: Pace = "moderate",
+    city: str = "Jaipur",
+) -> tuple[list[DayPlan], list[str]]:
+    """Fill empty evenings: food → market → park; else relax + closes-by-5 note.
+
+    Safe to run after pack/densify/optimize. Does not invent POIs. Empty evening
+    is allowed when no lifestyle leftover remains.
+    """
+    notes: list[str] = []
+    if pace not in {"relaxed", "moderate", "packed"} or not days:
+        return days, notes
+
+    interest_keys = list(
+        dict.fromkeys(
+            (normalize_interest(i) or i).lower()
+            for i in (interests or [])
+            if (normalize_interest(i) or i)
+        )
+    )
+    want_lifestyle = _has_evening_lifestyle_interest(interests)
+    working = [d.model_copy(deep=True) for d in days]
+
+    if not want_lifestyle:
+        for day in working:
+            if not day.evening.stops:
+                day.evening = TimeBlock(
+                    time_of_day="evening",
+                    stops=[],
+                    notes=EVENING_CLOSES_RELAX_NOTE,
+                )
+                notes.append(
+                    f"Day {day.day_index} evening: relax (no lifestyle interest)."
+                )
+        return working, notes
+
+    from agent.mcp.poi_search import _MUST_SEE_NAME_RE, _is_low_signal_poi
+    from agent.mcp.poi_shortlist import (
+        _is_out_of_city_poi,
+        _matches_low_quality_name,
+        is_must_see_poi,
+        selection_score,
+    )
+
+    pool = [
+        p
+        for p in (candidate_pois or [])
+        if _is_evening_eligible(p, interest_keys or interests)
+        and not _is_low_signal_poi(
+            p.name or "", p.tags or {}, (p.category or "").lower()
+        )
+        and not _is_out_of_city_poi(p, city)
+        and not (
+            _matches_low_quality_name(p.name or "") and not is_must_see_poi(p)
+        )
+    ]
+
+    def _eve_rank(p: POICandidate) -> tuple:
+        cat = (p.category or "").lower()
+        must = 1 if is_must_see_poi(p) or _MUST_SEE_NAME_RE.search(p.name or "") else 0
+        food = 1 if cat in {"food", "cafe", "restaurant"} else 0
+        market = 1 if cat in {"market", "shopping"} else 0
+        park = 1 if cat in {"park", "garden", "viewpoint"} else 0
+        name_l = (p.name or "").lower()
+        snack_pen = (
+            1 if re.search(r"ice\s*cream|parlour|parlor|ccd|donut", name_l) else 0
+        )
         return (
             -must,
             -food,
@@ -1054,42 +1194,44 @@ def reserve_evening_lifestyle_slots(
         return seen
 
     for day in working:
-        block = day.evening
         stops = [
             s
-            for s in list(block.stops)
+            for s in list(day.evening.stops)
             if _is_evening_eligible_fields(
                 s.name, s.category, interest_keys or interests
             )
         ]
-        while len(stops) < eve_floor:
-            used = _used()
-            pick = next((p for p in pool if not used.contains(p)), None)
-            if pick is None:
-                notes.append(
-                    f"Day {day.day_index} evening: could not reserve lifestyle "
-                    f"slot (need {eve_floor}, have {len(stops)})."
-                )
-                break
-            new_stop = _make_stop(
-                pick, pace=pace, interests=interest_keys or interests, meal_slot=True
-            ).model_copy(
-                update={
-                    "reason": (
-                        f"Evening lifestyle reserved before AM/PM densify; "
-                        f"OSM {pick.osm_type}/{pick.osm_id}."
-                    )
-                }
+        if stops:
+            day.evening = TimeBlock(
+                time_of_day="evening", stops=stops, notes=day.evening.notes
             )
-            stops.append(new_stop)
+            continue
+        used = _used()
+        pick = next((p for p in pool if not used.contains(p)), None)
+        if pick is None:
+            day.evening = TimeBlock(
+                time_of_day="evening",
+                stops=[],
+                notes=EVENING_CLOSES_RELAX_NOTE,
+            )
             notes.append(
-                f"Day {day.day_index} evening: reserved {new_stop.name} "
-                f"before packed/relaxed AM/PM fill."
+                f"Day {day.day_index} evening: relax — no leftover food/market/park "
+                f"(most places close by ~5:00 PM)."
             )
-        day.evening = TimeBlock(
-            time_of_day="evening",
-            stops=stops,
-            notes=block.notes,
+            continue
+        new_stop = _make_stop(
+            pick, pace=pace, interests=interest_keys or interests, meal_slot=True
+        ).model_copy(
+            update={
+                "reason": (
+                    f"Evening lifestyle fill (food→market→park); "
+                    f"OSM {pick.osm_type}/{pick.osm_id}."
+                )
+            }
+        )
+        day.evening = TimeBlock(time_of_day="evening", stops=[new_stop], notes=None)
+        notes.append(
+            f"Day {day.day_index} evening: filled with {new_stop.name}."
         )
 
     return working, notes
@@ -1427,8 +1569,12 @@ def ensure_pace_block_floors(
         return days, notes
 
     floors = dict(BLOCK_FLOOR_BY_PACE.get(pace, BLOCK_FLOOR_BY_PACE["moderate"]))
+    # Evening is soft: fill when possible; otherwise intentional relax (closes ~5 PM).
+    # Hard floors still apply to morning/afternoon.
+    soft_evening = True
     if not _has_evening_lifestyle_interest(interests):
         floors["evening"] = 0
+        soft_evening = False
 
     interest_keys = list(
         dict.fromkeys(
@@ -1530,6 +1676,16 @@ def ensure_pace_block_floors(
         for bname in ("morning", "afternoon", "evening"):
             floor = int(floors.get(bname, 0))
             if floor <= 0:
+                if (
+                    bname == "evening"
+                    and soft_evening
+                    and not day.evening.stops
+                ):
+                    day.evening = TimeBlock(
+                        time_of_day="evening",
+                        stops=[],
+                        notes=EVENING_CLOSES_RELAX_NOTE,
+                    )
                 continue
             block: TimeBlock = getattr(day, bname)
             stops = list(block.stops)
@@ -1544,10 +1700,16 @@ def ensure_pace_block_floors(
             while len(stops) < floor:
                 pick = _pick_for_block(bname, stops)
                 if pick is None:
-                    notes.append(
-                        f"Day {day.day_index} {bname}: could not meet floor "
-                        f"{floor} (have {len(stops)}) — no unused eligible POIs."
-                    )
+                    if bname == "evening" and soft_evening:
+                        notes.append(
+                            f"Day {day.day_index} evening: soft floor unmet — "
+                            f"relax OK (most places close by ~5:00 PM)."
+                        )
+                    else:
+                        notes.append(
+                            f"Day {day.day_index} {bname}: could not meet floor "
+                            f"{floor} (have {len(stops)}) — no unused eligible POIs."
+                        )
                     break
                 new_stop = _make_stop(
                     pick, pace=pace, interests=interest_keys or interests
@@ -1565,13 +1727,16 @@ def ensure_pace_block_floors(
                     f"Day {day.day_index} {bname}: added {new_stop.name} "
                     f"to meet pace floor {floor}."
                 )
+            eve_note = block.notes
+            if bname == "evening" and not stops and soft_evening:
+                eve_note = EVENING_CLOSES_RELAX_NOTE
             setattr(
                 day,
                 bname,
                 TimeBlock(
                     time_of_day=bname,  # type: ignore[arg-type]
                     stops=stops,
-                    notes=block.notes,
+                    notes=eve_note,
                 ),
             )
 
@@ -1691,17 +1856,30 @@ def annotate_block_flex_time(
             )
             end_label = _format_clock_ampm(window_end)
             if not block.stops:
-                flex = (
-                    f"Relax / free {bname} — no stops scheduled; "
-                    f"enjoy downtime until {until_label} (around {end_label})."
-                )
+                if bname == "evening":
+                    existing = (block.notes or "").strip()
+                    flex = (
+                        existing
+                        if existing.startswith("Relax / free evening")
+                        or "close by about 5:00 PM" in existing
+                        else EVENING_CLOSES_RELAX_NOTE
+                    )
+                else:
+                    flex = (
+                        f"Relax / free {bname} — no stops scheduled; "
+                        f"enjoy downtime until {until_label} (around {end_label})."
+                    )
                 setattr(
                     d,
                     bname,
                     TimeBlock(
                         time_of_day=bname,  # type: ignore[arg-type]
                         stops=[],
-                        notes=_merge_block_note(block.notes, flex),
+                        notes=_merge_block_note(
+                            None if bname == "evening" else block.notes, flex
+                        )
+                        if bname != "evening"
+                        else flex,
                     ),
                 )
                 notes.append(f"Day {day.day_index} {bname}: {flex}")
@@ -3144,6 +3322,32 @@ def build_itinerary(
             f"({max_total} places across {num_days} days)."
         )
 
+    # Pre-claim evenings (food→market→park) so breakfast pack cannot burn dinners.
+    evening_claims, claim_notes = claim_evening_lifestyle_pois(
+        num_days=num_days,
+        interests=interest_list,
+        candidate_pois=list(ranked) + list(candidate_pois),
+        pace=effective_pace,
+        city=city,
+    )
+    notes.extend(claim_notes)
+    claimed_keys = {
+        f"{p.osm_type}/{p.osm_id}"
+        for p in evening_claims
+        if p is not None
+    }
+    if claimed_keys:
+        before_n = len(ranked)
+        ranked = [
+            p
+            for p in ranked
+            if f"{p.osm_type}/{p.osm_id}" not in claimed_keys
+        ]
+        notes.append(
+            f"Held {before_n - len(ranked)} evening lifestyle POIs out of "
+            f"AM/PM pack pool."
+        )
+
     if len(ranked) < num_days * min_per_day:
         missing = True
         notes.append(
@@ -3249,25 +3453,41 @@ def build_itinerary(
         if not group:
             missing = True
             notes.append(f"Day {i} has no POIs — data insufficient for a full plan.")
+            claim = (
+                evening_claims[i - 1]
+                if 0 <= (i - 1) < len(evening_claims)
+                else None
+            )
+            empty = DayPlan(
+                day_index=i,
+                pace=effective_pace,
+                theme="Light day — limited grounded POIs",
+                morning=TimeBlock(
+                    time_of_day="morning",
+                    notes="No grounded POI available for this slot.",
+                ),
+                afternoon=TimeBlock(
+                    time_of_day="afternoon",
+                    notes="No grounded POI available for this slot.",
+                ),
+                evening=TimeBlock(time_of_day="evening"),
+            )
             days.append(
-                DayPlan(
-                    day_index=i,
-                    pace=effective_pace,
-                    theme="Light day — limited grounded POIs",
-                    morning=TimeBlock(
-                        time_of_day="morning",
-                        notes="No grounded POI available for this slot.",
-                    ),
-                    afternoon=TimeBlock(
-                        time_of_day="afternoon",
-                        notes="No grounded POI available for this slot.",
-                    ),
-                    evening=TimeBlock(time_of_day="evening"),
+                _apply_evening_claim(
+                    empty, claim, pace=effective_pace, interests=interest_list
                 )
             )
             continue
         day = _assign_blocks(
             group, pace=effective_pace, day_index=i, interests=interest_list
+        )
+        claim = (
+            evening_claims[i - 1]
+            if 0 <= (i - 1) < len(evening_claims)
+            else None
+        )
+        day = _apply_evening_claim(
+            day, claim, pace=effective_pace, interests=interest_list
         )
         if not day.morning.stops or not day.afternoon.stops:
             missing = True

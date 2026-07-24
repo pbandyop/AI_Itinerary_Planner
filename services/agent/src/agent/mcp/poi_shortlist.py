@@ -346,29 +346,58 @@ def shortlist_pois(
                 f"Quota shortfall for interest={key}: needed {quota}, filled {quota - need}."
             )
 
-    # 3) Evening / meal reserve: ≥1 food POI per day when food is an interest.
+    # 3) Meal + evening reserves: ~2 foods/day (breakfast + dinner) when food
+    # is selected; ≥1 market/day when shopping — so evenings are not starved.
     if "food" in keys:
         food_cats = categories_for_interest("food")
-        foods_in = [
-            p
-            for p in picks
-            if (p.category or "").lower() in food_cats
-        ]
-        food_need = max(days_n, quotas.get("food", 0))
-        if len(foods_in) < food_need:
-            for p in buckets.get("food", []) + [
-                x for x in scored if (x.category or "").lower() in food_cats
-            ]:
-                if len([x for x in picks if (x.category or "").lower() in food_cats]) >= food_need:
-                    break
-                # Prefer known food icons over random cafes.
-                if selection_score(p, interests_list) < -5 and not is_must_see_poi(p):
-                    continue
-                _try_add(p)
-            notes.append(
-                f"Food reserve for evenings/breakfasts: want≥{food_need}, "
-                f"have={sum(1 for x in picks if (x.category or '').lower() in food_cats)}."
+        food_need = max(2 * days_n, quotas.get("food", 0))
+        for p in buckets.get("food", []) + [
+            x for x in scored if (x.category or "").lower() in food_cats
+        ]:
+            have = sum(
+                1 for x in picks if (x.category or "").lower() in food_cats
             )
+            if have >= food_need or len(picks) >= size:
+                break
+            name_l = (p.name or "").lower()
+            if re.search(r"ice\s*cream|parlour|parlor|ccd|donut", name_l):
+                continue  # weak dinner stands — only fill later if needed
+            if selection_score(p, interests_list) < -5 and not is_must_see_poi(p):
+                continue
+            _try_add(p)
+        # Top up with weaker food names only if still short.
+        for p in buckets.get("food", []) + [
+            x for x in scored if (x.category or "").lower() in food_cats
+        ]:
+            have = sum(
+                1 for x in picks if (x.category or "").lower() in food_cats
+            )
+            if have >= food_need or len(picks) >= size:
+                break
+            _try_add(p)
+        notes.append(
+            f"Food reserve for breakfasts+evenings: want≥{food_need}, "
+            f"have={sum(1 for x in picks if (x.category or '').lower() in food_cats)}."
+        )
+
+    if set(keys) & {"shopping", "market"}:
+        market_cats = categories_for_interest("shopping") | categories_for_interest(
+            "market"
+        )
+        market_need = max(days_n, quotas.get("shopping", 0), quotas.get("market", 0))
+        for p in scored:
+            have = sum(
+                1 for x in picks if (x.category or "").lower() in market_cats
+            )
+            if have >= market_need or len(picks) >= size:
+                break
+            if (p.category or "").lower() not in market_cats:
+                continue
+            _try_add(p)
+        notes.append(
+            f"Market reserve for evenings: want≥{market_need}, "
+            f"have={sum(1 for x in picks if (x.category or '').lower() in market_cats)}."
+        )
 
     pinned_names = [p.name for p in picks if is_must_see_poi(p)]
     if pinned_names:

@@ -390,7 +390,13 @@ def itinerary_agent_node(state: GraphState) -> dict[str, Any]:
         poi=poi,
     )
     # After optimize, restore any stated interest that disappeared (e.g. park).
-    from agent.mcp.itinerary_builder import ensure_interest_coverage
+    from agent.mcp.itinerary_builder import (
+        ensure_interest_coverage,
+        ensure_pace_block_floors,
+        reserve_evening_lifestyle_slots,
+        restamp_day_travel_and_clocks,
+        annotate_block_flex_time,
+    )
 
     cov_days, cov_notes = ensure_interest_coverage(
         list(optimized.days),
@@ -400,9 +406,37 @@ def itinerary_agent_node(state: GraphState) -> dict[str, Any]:
     )
     if cov_notes:
         reasoning = list(dict.fromkeys([*(reasoning or []), *cov_notes]))
-        optimized = optimized.model_copy(
-            update={"days": cov_days, "reasoning": reasoning}
-        )
+    # Re-fill evenings after optimize (food→market→park); else closes-by-5 relax.
+    eve_days, eve_notes = reserve_evening_lifestyle_slots(
+        cov_days,
+        interests=list(trip.interests or []),
+        candidate_pois=pois,
+        pace=trip.pace or "relaxed",
+        city=trip.city or "Jaipur",
+    )
+    if eve_notes:
+        reasoning = list(dict.fromkeys([*(reasoning or []), *eve_notes]))
+    floor_days, floor_notes = ensure_pace_block_floors(
+        eve_days,
+        interests=list(trip.interests or []),
+        candidate_pois=pois,
+        pace=trip.pace or "relaxed",
+        city=trip.city or "Jaipur",
+    )
+    if floor_notes:
+        reasoning = list(dict.fromkeys([*(reasoning or []), *floor_notes]))
+    stamped = [
+        restamp_day_travel_and_clocks(d, pace=trip.pace or "relaxed")
+        for d in floor_days
+    ]
+    stamped, flex_notes = annotate_block_flex_time(
+        stamped, pace=trip.pace or "relaxed"
+    )
+    if flex_notes:
+        reasoning = list(dict.fromkeys([*(reasoning or []), *flex_notes[:4]]))
+    optimized = optimized.model_copy(
+        update={"days": stamped, "reasoning": reasoning}
+    )
     draft = draft.model_copy(
         update={
             "days": optimized.days,
