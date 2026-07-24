@@ -21,19 +21,23 @@ from agent.trip_limits import clamp_trip_days
 logger = logging.getLogger(__name__)
 
 # Soft must-see priors for Jaipur (boost when present in pool).
+# Higher scores pin icons ahead of chains / low-signal Nominatim noise.
 MUST_SEE_PATTERNS: tuple[tuple[str, float], ...] = (
-    (r"\bhawa\s*mahal\b", 22.0),
-    (r"\bcity\s*palace\b", 20.0),
-    (r"\b(?:amber|amer)\s*(?:fort|palace)\b", 20.0),
-    (r"\bjantar\s*mantar\b", 18.0),
-    (r"\balbert\s*hall\b", 16.0),
-    (r"\bgovind\s*dev|\bbirla\s*mandir\b|\bgalta\s*ji\b", 16.0),
-    (r"\banokhi\b", 14.0),
-    (r"\bjohari\b", 14.0),
-    (r"\bbapu\s*bazaar\b", 14.0),
-    (r"\bnahargarh\b", 12.0),
-    (r"\bjal\s*mahal\b", 10.0),
-    (r"\bram\s*niwas\b|\bsisodia\b|\bvidyadhar\b", 10.0),
+    (r"\bhawa\s*mahal\b", 40.0),
+    (r"\bcity\s*palace\b", 38.0),
+    (r"\b(?:amber|amer)\s*(?:fort|palace)\b", 38.0),
+    (r"\bjantar\s*mantar\b", 36.0),
+    (r"\bnahargarh(?:\s+fort)?\b", 32.0),
+    (r"\bjaigarh(?:\s+fort)?\b", 30.0),
+    (r"\balbert\s*hall\b", 28.0),
+    (r"\bjal\s*mahal\b", 26.0),
+    (r"\bgovind\s*dev|\bbirla\s*mandir\b|\bgalta\s*ji\b|\bgaltaji\b", 28.0),
+    (r"\brawat\s*misthan\b|\blaxmi\s*misthan\b", 24.0),
+    (r"\banokhi\b", 22.0),
+    (r"\bjohari\b", 22.0),
+    (r"\bbapu\s*bazaar\b", 22.0),
+    (r"\bchokhi\s*dhani\b|\btapri\s+central\b", 18.0),
+    (r"\bram\s*niwas\b|\bsisodia\b|\bvidyadhar\b|\bkanak\s*vrindavan\b", 16.0),
 )
 
 # Demote chains / low-signal Nominatim noise unless shopping/food pool is thin.
@@ -69,6 +73,20 @@ LOW_QUALITY_PATTERNS: tuple[str, ...] = (
     r"\bmess\b",
 )
 
+# Famous sights that belong to other cities — never shortlist for Jaipur trips.
+OUT_OF_CITY_PATTERNS: tuple[str, ...] = (
+    r"\blake\s*palace\b",  # Udaipur
+    r"\bcity\s*palace\s*,?\s*udaipur\b",
+    r"\btaj\s*mahal\b",
+    r"\bred\s*fort\b",
+    r"\bgateway\s*of\s*india\b",
+    r"\bindia\s*gate\b",
+    r"\bqutub\s*minar\b",
+    r"\bmeenakshi\b",
+    r"\bcharminar\b",
+    r"\bhowrah\s*bridge\b",
+)
+
 
 def active_itinerary_strategy() -> str:
     """Return ``legacy`` (default) or ``hybrid`` from env."""
@@ -79,18 +97,35 @@ def active_itinerary_strategy() -> str:
 
 
 def shortlist_target_size(*, num_days: int, pace: Pace) -> int:
-    """Shortlist larger than final stops so each day can fill morning/afternoon/evening."""
+    """Shortlist larger than final stops so each day can fill morning/afternoon/evening.
+
+    Sized for hard pace floors (incl. evening food) + must-see pins + junk margin,
+    without needing a second Overpass fetch.
+    """
     num_days = clamp_trip_days(num_days)
-    # Per-day seed so densify/pack can meet pace floors without inventing POIs.
-    per_day = {"relaxed": 6, "moderate": 10, "packed": 14}.get(pace, 8)
-    panel_floor = num_days * 3
+    # Seed per day above STOPS_PER_DAY so Day 2–3 still have fillers.
+    per_day = {"relaxed": 10, "moderate": 16, "packed": 22}.get(pace, 12)
+    panel_floor = num_days * 4  # AM/PM/E + spare
     final = max(panel_floor, num_days * max(STOPS_PER_DAY.get(pace, 4), per_day))
-    # Extra slack for travel clustering / meal swaps / low-signal drops.
-    return max(final + 12, panel_floor + 10, 18)
+    # Slack: meal swaps, near-dupe drops, evening food reserve, densify.
+    return max(final + 20, panel_floor + 16, 28)
 
 
 def _poi_key(p: POICandidate) -> str:
     return f"{p.osm_type}/{p.osm_id}"
+
+
+def _is_out_of_city_poi(p: POICandidate, city: str) -> bool:
+    """Drop famous landmarks that belong to another city (e.g. Lake Palace)."""
+    if (city or "").strip().lower() not in {"jaipur", ""}:
+        return False
+    low = (p.name or "").lower()
+    return any(re.search(pat, low, flags=re.I) for pat in OUT_OF_CITY_PATTERNS)
+
+
+def _matches_low_quality_name(name: str) -> bool:
+    low = (name or "").lower()
+    return any(re.search(pat, low, flags=re.I) for pat in LOW_QUALITY_PATTERNS)
 
 
 def _quality_adjustment(p: POICandidate) -> float:
@@ -103,11 +138,11 @@ def _quality_adjustment(p: POICandidate) -> float:
         adj -= 30.0
     for pat in LOW_QUALITY_PATTERNS:
         if re.search(pat, low, flags=re.I):
-            adj -= 18.0
+            adj -= 28.0
             break
     tags = p.tags or {}
     if tags.get("wikidata") or tags.get("wikipedia"):
-        adj += 6.0
+        adj += 8.0
     if p.lat is not None and p.lon is not None:
         adj += 1.5
     return adj
@@ -122,12 +157,20 @@ def _must_see_boost(p: POICandidate) -> float:
     return boost
 
 
+def is_must_see_poi(p: POICandidate) -> bool:
+    """True when the place matches a curated Jaipur icon prior."""
+    return _must_see_boost(p) >= 16.0
+
+
 def selection_score(p: POICandidate, interests: list[str]) -> float:
     base = float(p.rank_score or 0.0)
+    must = _must_see_boost(p)
+    # Must-sees dominate chains / generic cafes even when base OSM score is flat.
     return (
         base
         + interest_match_score(p.category, interests)
-        + _must_see_boost(p)
+        + must
+        + (12.0 if must >= 28.0 else 0.0)
         + _quality_adjustment(p)
     )
 
@@ -197,6 +240,9 @@ def shortlist_pois(
 
     Capstone hybrid strategy (light B): discover with ``poi_search``, shortlist
     here, estimate travel on this set, then pack days from it.
+
+    Must-sees are pinned first. Food (when requested) reserves at least one
+    dinner-capable slot per day so evening floors can fill without a refetch.
     """
     interests_list = [i for i in (interests or []) if str(i).strip()]
     keys = list(
@@ -204,9 +250,10 @@ def shortlist_pois(
             normalize_interest(i) or i.strip().lower() for i in interests_list if i.strip()
         )
     )
-    size = target_size or shortlist_target_size(num_days=num_days, pace=pace)
+    days_n = clamp_trip_days(num_days)
+    size = target_size or shortlist_target_size(num_days=days_n, pace=pace)
     notes: list[str] = [
-        f"Shortlist strategy=hybrid target={size} pace={pace} days={clamp_trip_days(num_days)}."
+        f"Shortlist strategy=hybrid target={size} pace={pace} days={days_n}."
     ]
 
     if not candidate_pois:
@@ -223,13 +270,22 @@ def shortlist_pois(
     ranked = dedupe_pois(list(candidate_pois))
     filtered: list[POICandidate] = []
     dropped_low = 0
+    dropped_oos = 0
     for p in ranked:
+        if _is_out_of_city_poi(p, city):
+            dropped_oos += 1
+            continue
+        if _matches_low_quality_name(p.name or "") and not is_must_see_poi(p):
+            dropped_low += 1
+            continue
         if _is_low_signal_poi(
             p.name or "", p.tags or {}, (p.category or "").lower()
         ):
             dropped_low += 1
             continue
         filtered.append(p)
+    if dropped_oos:
+        notes.append(f"Dropped {dropped_oos} out-of-city landmarks (e.g. Lake Palace).")
     if dropped_low:
         notes.append(f"Dropped {dropped_low} low-signal POIs before quotas.")
     scored = sorted(
@@ -255,43 +311,83 @@ def shortlist_pois(
     used: set[str] = set()
     quotas = _quota_slots(size, keys) if keys else {}
 
-    # Must-sees are score-boosted in ``selection_score``; quotas stay hard so
-    # shopping/food are not crowded out by too many heritage icons.
+    def _try_add(p: POICandidate, *, min_score: float = -8.0) -> bool:
+        if len(picks) >= size:
+            return False
+        ref = _poi_key(p)
+        if ref in used:
+            return False
+        if selection_score(p, interests_list) < min_score and not is_must_see_poi(p):
+            return False
+        picks.append(p)
+        used.add(ref)
+        return True
+
+    # 1) Pin must-sees first so quotas cannot crowd out Amber / Hawa Mahal / etc.
+    must_pinned = 0
+    for p in scored:
+        if not is_must_see_poi(p):
+            continue
+        if _try_add(p, min_score=-40.0):
+            must_pinned += 1
+    if must_pinned:
+        notes.append(f"Pinned {must_pinned} must-see POIs before interest quotas.")
+
+    # 2) Interest quotas (culture weighted heavier when mixed with soft).
     for key, quota in quotas.items():
         need = quota
         for p in buckets.get(key, []):
             if need <= 0 or len(picks) >= size:
                 break
-            ref = _poi_key(p)
-            if ref in used:
-                continue
-            if selection_score(p, interests_list) < -5:
-                continue
-            picks.append(p)
-            used.add(ref)
-            need -= 1
+            if _try_add(p):
+                need -= 1
         if need > 0:
-            notes.append(f"Quota shortfall for interest={key}: needed {quota}, filled {quota - need}.")
+            notes.append(
+                f"Quota shortfall for interest={key}: needed {quota}, filled {quota - need}."
+            )
 
-    pinned = [p.name for p in picks if _must_see_boost(p) >= 12.0]
-    if pinned:
-        notes.append("Must-see priors present in shortlist: " + ", ".join(pinned))
+    # 3) Evening / meal reserve: ≥1 food POI per day when food is an interest.
+    if "food" in keys:
+        food_cats = categories_for_interest("food")
+        foods_in = [
+            p
+            for p in picks
+            if (p.category or "").lower() in food_cats
+        ]
+        food_need = max(days_n, quotas.get("food", 0))
+        if len(foods_in) < food_need:
+            for p in buckets.get("food", []) + [
+                x for x in scored if (x.category or "").lower() in food_cats
+            ]:
+                if len([x for x in picks if (x.category or "").lower() in food_cats]) >= food_need:
+                    break
+                # Prefer known food icons over random cafes.
+                if selection_score(p, interests_list) < -5 and not is_must_see_poi(p):
+                    continue
+                _try_add(p)
+            notes.append(
+                f"Food reserve for evenings/breakfasts: want≥{food_need}, "
+                f"have={sum(1 for x in picks if (x.category or '').lower() in food_cats)}."
+            )
 
+    pinned_names = [p.name for p in picks if is_must_see_poi(p)]
+    if pinned_names:
+        notes.append("Must-see priors present in shortlist: " + ", ".join(pinned_names[:12]))
+
+    # 4) Fill remaining slots by score (still skip junk).
     for p in scored:
         if len(picks) >= size:
             break
-        ref = _poi_key(p)
-        if ref in used:
-            continue
-        if selection_score(p, interests_list) < -10:
-            continue
-        picks.append(p)
-        used.add(ref)
+        _try_add(p)
 
-    # Final order: selection score (travel agent reads prefix of shortlist).
+    # Final order: must-sees first, then selection score (travel agent reads prefix).
     picks = sorted(
         picks[:size],
-        key=lambda p: (-selection_score(p, interests_list), p.name or ""),
+        key=lambda p: (
+            0 if is_must_see_poi(p) else 1,
+            -selection_score(p, interests_list),
+            p.name or "",
+        ),
     )
 
     cat_counts: dict[str, int] = defaultdict(int)

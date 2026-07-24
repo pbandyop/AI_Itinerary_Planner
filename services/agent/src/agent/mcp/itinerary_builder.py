@@ -1015,12 +1015,12 @@ def densify_packed_am_pm(
         park = 1 if cat in {"park", "garden", "viewpoint"} else 0
         market = 1 if cat in {"market", "shopping"} else 0
         prefer = 0
+        if must and not market:
+            prefer += 8
         if want_culture and heritage:
             prefer += 4
         if want_park and park:
             prefer += 2
-        if must and not market:
-            prefer += 3
         if market and mixed_culture_soft:
             prefer -= 2
         return (-prefer, -(p.rank_score or 0.0), name)
@@ -1223,6 +1223,206 @@ def densify_packed_am_pm(
                     notes=block.notes,
                 ),
             )
+
+    return working, notes
+
+
+def _has_evening_lifestyle_interest(interests: list[str]) -> bool:
+    """Evening floors only apply when food/park/market interests can fill them."""
+    keys = {
+        (normalize_interest(i) or i).lower()
+        for i in (interests or [])
+        if (normalize_interest(i) or i)
+    }
+    return bool(
+        keys
+        & {
+            "food",
+            "cafe",
+            "restaurant",
+            "shopping",
+            "market",
+            "park",
+            "garden",
+            "nature",
+            "viewpoint",
+            "outdoor",
+        }
+    )
+
+
+def ensure_pace_block_floors(
+    days: list[DayPlan],
+    *,
+    interests: list[str],
+    candidate_pois: list[POICandidate],
+    pace: Pace = "moderate",
+    city: str = "Jaipur",
+) -> tuple[list[DayPlan], list[str]]:
+    """Hard per-day floors after pack/densify: top-up from unused eligible POIs.
+
+    Does not invent places. Skips junk / out-of-city. Prefers must-sees.
+    Evening floor applies only when lifestyle interests (e.g. food) are present.
+    """
+    notes: list[str] = []
+    if pace not in {"relaxed", "moderate", "packed"} or not days:
+        return days, notes
+
+    floors = dict(BLOCK_FLOOR_BY_PACE.get(pace, BLOCK_FLOOR_BY_PACE["moderate"]))
+    if not _has_evening_lifestyle_interest(interests):
+        floors["evening"] = 0
+
+    interest_keys = list(
+        dict.fromkeys(
+            (normalize_interest(i) or i).lower()
+            for i in (interests or [])
+            if (normalize_interest(i) or i)
+        )
+    )
+    from agent.mcp.poi_search import _MUST_SEE_NAME_RE, _is_low_signal_poi
+    from agent.mcp.poi_shortlist import (
+        _is_out_of_city_poi,
+        _matches_low_quality_name,
+        is_must_see_poi,
+        selection_score,
+    )
+
+    working = [d.model_copy(deep=True) for d in days]
+    pool = [
+        p
+        for p in (candidate_pois or [])
+        if not _is_low_signal_poi(
+            p.name or "", p.tags or {}, (p.category or "").lower()
+        )
+        and not _is_out_of_city_poi(p, city)
+        and not (
+            _matches_low_quality_name(p.name or "") and not is_must_see_poi(p)
+        )
+        and (
+            is_must_see_poi(p)
+            or selection_score(p, interest_keys or interests) >= -8.0
+        )
+    ]
+
+    def _floor_rank(p: POICandidate, *, bname: str) -> tuple:
+        must = 1 if is_must_see_poi(p) or _MUST_SEE_NAME_RE.search(p.name or "") else 0
+        cat = (p.category or "").lower()
+        culture = 1 if cat in {"heritage", "museum", "temple", "attraction"} else 0
+        food = 1 if cat in {"food", "cafe", "restaurant"} else 0
+        # Afternoon/morning: must-see culture first; evening: must-see food first.
+        if bname == "evening":
+            return (-must, -food, -selection_score(p, interest_keys or interests), p.name or "")
+        return (-must, -culture, -selection_score(p, interest_keys or interests), p.name or "")
+
+    pool = sorted(pool, key=lambda p: _floor_rank(p, bname="afternoon"))
+
+    def _used() -> PlaceSeen:
+        seen = PlaceSeen()
+        for day in working:
+            for s in day.all_stops:
+                seen.add(s)
+        return seen
+
+    def _pick_for_block(bname: str, block_stops: list[Stop]) -> POICandidate | None:
+        used = _used()
+        ranked = sorted(pool, key=lambda p: _floor_rank(p, bname=bname))
+        block_has_food = any(
+            (s.category or "").lower() in {"food", "cafe", "restaurant"}
+            for s in block_stops
+        )
+        for p in ranked:
+            if used.contains(p):
+                continue
+            if bname == "evening" and not _is_evening_eligible(
+                p, interest_keys or interests
+            ):
+                continue
+            cat = (p.category or "").lower()
+            is_food = cat in {"food", "cafe", "restaurant"} or _is_food(p)
+            # Avoid stacking a second meal into AM/PM when filling culture floors.
+            if bname in {"morning", "afternoon"} and block_has_food and is_food:
+                if interest_keys and any(
+                    k in {"heritage", "temple", "museum", "culture", "history"}
+                    for k in interest_keys
+                ):
+                    continue
+            if bname != "evening" and interest_keys:
+                if not any(_stop_covers_interest(p, key) for key in interest_keys):
+                    # Allow must-sees as fill even if category mapping is odd.
+                    if not (
+                        is_must_see_poi(p) or _MUST_SEE_NAME_RE.search(p.name or "")
+                    ):
+                        continue
+            return p
+        # Last resort: any unused eligible (still no junk — already filtered).
+        for p in ranked:
+            if used.contains(p):
+                continue
+            if bname == "evening" and not _is_evening_eligible(
+                p, interest_keys or interests
+            ):
+                continue
+            if bname != "evening":
+                return p
+            return p
+        return None
+
+    changed = False
+    for day in working:
+        for bname in ("morning", "afternoon", "evening"):
+            floor = int(floors.get(bname, 0))
+            if floor <= 0:
+                continue
+            block: TimeBlock = getattr(day, bname)
+            stops = list(block.stops)
+            if bname == "evening":
+                stops = [
+                    s
+                    for s in stops
+                    if _is_evening_eligible_fields(
+                        s.name, s.category, interest_keys or interests
+                    )
+                ]
+            while len(stops) < floor:
+                pick = _pick_for_block(bname, stops)
+                if pick is None:
+                    notes.append(
+                        f"Day {day.day_index} {bname}: could not meet floor "
+                        f"{floor} (have {len(stops)}) — no unused eligible POIs."
+                    )
+                    break
+                new_stop = _make_stop(
+                    pick, pace=pace, interests=interest_keys or interests
+                ).model_copy(
+                    update={
+                        "reason": (
+                            f"Pace floor fill ({bname} ≥{floor}) from shortlist; "
+                            f"OSM {pick.osm_type}/{pick.osm_id}."
+                        )
+                    }
+                )
+                stops.append(new_stop)
+                changed = True
+                notes.append(
+                    f"Day {day.day_index} {bname}: added {new_stop.name} "
+                    f"to meet pace floor {floor}."
+                )
+            setattr(
+                day,
+                bname,
+                TimeBlock(
+                    time_of_day=bname,  # type: ignore[arg-type]
+                    stops=stops,
+                    notes=block.notes,
+                ),
+            )
+
+    if changed:
+        packed, pack_notes = reassert_meal_pace_layout(
+            working, pace=pace, interests=interest_keys
+        )
+        working = packed
+        notes.extend(pack_notes)
 
     return working, notes
 
@@ -2598,12 +2798,19 @@ def build_itinerary(
         _looks_like_food_name,
         normalize_poi_name,
     )
+    from agent.mcp.poi_shortlist import _is_out_of_city_poi, _matches_low_quality_name
 
     filtered_pois: list[POICandidate] = []
+    dropped_oos = 0
     for p in candidate_pois:
         cleaned = normalize_poi_name(p.name or "")
         if cleaned and cleaned != (p.name or ""):
             p = p.model_copy(update={"name": cleaned})
+        if _is_out_of_city_poi(p, city):
+            dropped_oos += 1
+            continue
+        if _matches_low_quality_name(p.name or ""):
+            continue
         cat = (p.category or "").lower()
         # Reclassify famous bazaars / market names wrongly tagged as heritage.
         if _FAMOUS_BAZAAR_RE.search(p.name or "") or (
@@ -2628,10 +2835,14 @@ def build_itinerary(
         if _is_low_signal_poi(p.name or "", p.tags or {}, cat):
             continue
         filtered_pois.append(p)
-    if len(filtered_pois) < len(candidate_pois):
+    if dropped_oos:
         notes.append(
-            f"Dropped {len(candidate_pois) - len(filtered_pois)} low-signal POIs "
-            "(generic/junk names)."
+            f"Dropped {dropped_oos} out-of-city landmarks (not in {city})."
+        )
+    dropped_junk = len(candidate_pois) - len(filtered_pois) - dropped_oos
+    if dropped_junk > 0:
+        notes.append(
+            f"Dropped {dropped_junk} low-signal POIs (generic/junk names)."
         )
     if any("avoid nightlife" in c or "kid_friendly" in c or "senior_friendly" in c for c in constraints_l):
         before = len(filtered_pois)
@@ -2932,7 +3143,17 @@ def build_itinerary(
     )
     notes.extend(densify_notes)
 
-    # Recompute travel after coverage/densify, then stamp arrive/depart clocks.
+    # Hard floors: top-up thin days from unused shortlist/pool (must-sees first).
+    days, floor_notes = ensure_pace_block_floors(
+        days,
+        interests=interest_list,
+        candidate_pois=list(candidate_pois) + list(ranked),
+        pace=effective_pace,
+        city=city,
+    )
+    notes.extend(floor_notes)
+
+    # Recompute travel after coverage/densify/floors, then stamp arrive/depart clocks.
     days = [
         restamp_day_travel_and_clocks(d, pace=effective_pace) for d in days
     ]

@@ -116,7 +116,9 @@ def poi_agent_node(state: GraphState) -> dict[str, Any]:
             }
         ),
     }
-    if active_itinerary_strategy() == "hybrid" and result.pois:
+    if result.pois:
+        # Always shortlist: larger must-see-first pool so pace floors can fill
+        # Day 2–3 / evenings without a second Overpass call.
         short = shortlist_pois(
             city=trip.city or "Jaipur",
             candidate_pois=list(result.pois),
@@ -130,7 +132,7 @@ def poi_agent_node(state: GraphState) -> dict[str, Any]:
                 "agent": "poi_agent",
                 "tool": "poi_shortlist_mcp",
                 "action": "shortlist",
-                "strategy": "hybrid",
+                "strategy": active_itinerary_strategy(),
                 "shortlist_count": len(short.pois),
                 "sample_pois": [p.name for p in short.pois[:10]],
                 "notes": short.notes,
@@ -160,7 +162,7 @@ def itinerary_agent_node(state: GraphState) -> dict[str, Any]:
             )
         }
     strategy = active_itinerary_strategy()
-    if strategy == "hybrid" and shortlist and shortlist.pois:
+    if shortlist and shortlist.pois:
         pois = list(shortlist.pois)
         selection_mode = "preselected"
     else:
