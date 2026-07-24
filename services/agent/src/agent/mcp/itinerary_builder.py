@@ -943,6 +943,158 @@ def _estimate_block_fill_mins(stops: list[Stop]) -> int:
     return total
 
 
+def _has_evening_lifestyle_interest(interests: list[str]) -> bool:
+    """Evening floors only apply when food/park/market interests can fill them."""
+    keys = {
+        (normalize_interest(i) or i).lower()
+        for i in (interests or [])
+        if (normalize_interest(i) or i)
+    }
+    return bool(
+        keys
+        & {
+            "food",
+            "cafe",
+            "restaurant",
+            "shopping",
+            "market",
+            "park",
+            "garden",
+            "nature",
+            "viewpoint",
+            "outdoor",
+        }
+    )
+
+
+def reserve_evening_lifestyle_slots(
+    days: list[DayPlan],
+    *,
+    interests: list[str],
+    candidate_pois: list[POICandidate],
+    pace: Pace = "moderate",
+    city: str = "Jaipur",
+) -> tuple[list[DayPlan], list[str]]:
+    """Pin one evening lifestyle stop per day *before* AM/PM densify.
+
+    Packed (≥3/≥3) otherwise burns food/park/market on morning/afternoon and
+    leaves evenings empty. Prefers food → market → park; must-sees first;
+    skips junk / out-of-city. No invented POIs.
+    """
+    notes: list[str] = []
+    if pace not in {"relaxed", "moderate", "packed"} or not days:
+        return days, notes
+    if not _has_evening_lifestyle_interest(interests):
+        return days, notes
+
+    interest_keys = list(
+        dict.fromkeys(
+            (normalize_interest(i) or i).lower()
+            for i in (interests or [])
+            if (normalize_interest(i) or i)
+        )
+    )
+    from agent.mcp.poi_search import _MUST_SEE_NAME_RE, _is_low_signal_poi
+    from agent.mcp.poi_shortlist import (
+        _is_out_of_city_poi,
+        _matches_low_quality_name,
+        is_must_see_poi,
+        selection_score,
+    )
+
+    working = [d.model_copy(deep=True) for d in days]
+    eve_floor = int(
+        BLOCK_FLOOR_BY_PACE.get(pace, BLOCK_FLOOR_BY_PACE["moderate"]).get(
+            "evening", 1
+        )
+    )
+    if eve_floor <= 0:
+        return working, notes
+
+    pool = [
+        p
+        for p in (candidate_pois or [])
+        if _is_evening_eligible(p, interest_keys or interests)
+        and not _is_low_signal_poi(
+            p.name or "", p.tags or {}, (p.category or "").lower()
+        )
+        and not _is_out_of_city_poi(p, city)
+        and not (
+            _matches_low_quality_name(p.name or "") and not is_must_see_poi(p)
+        )
+    ]
+
+    def _eve_rank(p: POICandidate) -> tuple:
+        cat = (p.category or "").lower()
+        must = 1 if is_must_see_poi(p) or _MUST_SEE_NAME_RE.search(p.name or "") else 0
+        # Prefer real meals / bazaars over random gardens when food+shopping set.
+        food = 1 if cat in {"food", "cafe", "restaurant"} else 0
+        market = 1 if cat in {"market", "shopping"} else 0
+        park = 1 if cat in {"park", "garden", "viewpoint"} else 0
+        # Ice-cream / parlour names are weaker dinner stands.
+        name_l = (p.name or "").lower()
+        snack_pen = 1 if re.search(r"ice\s*cream|parlour|parlor|ccd|donut", name_l) else 0
+        return (
+            -must,
+            -food,
+            -market,
+            -park,
+            snack_pen,
+            -selection_score(p, interest_keys or interests),
+            p.name or "",
+        )
+
+    pool = sorted(pool, key=_eve_rank)
+
+    def _used() -> PlaceSeen:
+        seen = PlaceSeen()
+        for day in working:
+            for s in day.all_stops:
+                seen.add(s)
+        return seen
+
+    for day in working:
+        block = day.evening
+        stops = [
+            s
+            for s in list(block.stops)
+            if _is_evening_eligible_fields(
+                s.name, s.category, interest_keys or interests
+            )
+        ]
+        while len(stops) < eve_floor:
+            used = _used()
+            pick = next((p for p in pool if not used.contains(p)), None)
+            if pick is None:
+                notes.append(
+                    f"Day {day.day_index} evening: could not reserve lifestyle "
+                    f"slot (need {eve_floor}, have {len(stops)})."
+                )
+                break
+            new_stop = _make_stop(
+                pick, pace=pace, interests=interest_keys or interests, meal_slot=True
+            ).model_copy(
+                update={
+                    "reason": (
+                        f"Evening lifestyle reserved before AM/PM densify; "
+                        f"OSM {pick.osm_type}/{pick.osm_id}."
+                    )
+                }
+            )
+            stops.append(new_stop)
+            notes.append(
+                f"Day {day.day_index} evening: reserved {new_stop.name} "
+                f"before packed/relaxed AM/PM fill."
+            )
+        day.evening = TimeBlock(
+            time_of_day="evening",
+            stops=stops,
+            notes=block.notes,
+        )
+
+    return working, notes
+
+
 def densify_packed_am_pm(
     days: list[DayPlan],
     *,
@@ -989,6 +1141,11 @@ def densify_packed_am_pm(
     want_culture = bool(set(interest_keys) & culture_keys)
     want_park = bool(set(interest_keys) & park_keys)
     mixed_culture_soft = culture_soft_mix_active(interest_keys)
+    # After evening reservation, still prefer culture for AM/PM densify so we
+    # do not burn leftover dinners/parks needed if a later floor pass runs.
+    protect_evening_lifestyle = _has_evening_lifestyle_interest(
+        interest_keys or interests
+    )
 
     def _is_culture_poi(p: POICandidate) -> bool:
         return (p.category or "").lower() in culture_cats
@@ -1014,12 +1171,16 @@ def densify_packed_am_pm(
         heritage = 1 if cat in culture_cats else 0
         park = 1 if cat in {"park", "garden", "viewpoint"} else 0
         market = 1 if cat in {"market", "shopping"} else 0
+        food = 1 if cat in {"food", "cafe", "restaurant"} else 0
+        lifestyle = 1 if food or park or market else 0
         prefer = 0
         if must and not market:
             prefer += 8
         if want_culture and heritage:
-            prefer += 4
-        if want_park and park:
+            prefer += 5
+        if protect_evening_lifestyle and lifestyle:
+            prefer -= 3
+        if want_park and park and not protect_evening_lifestyle:
             prefer += 2
         if market and mixed_culture_soft:
             prefer -= 2
@@ -1074,6 +1235,20 @@ def densify_packed_am_pm(
             cat = (p.category or "").lower()
             is_food = cat in {"food", "cafe", "restaurant"} or _is_food(p)
             is_market = cat in {"market", "shopping"}
+            is_park = cat in {"park", "garden", "viewpoint"}
+            # AM/PM densify: prefer culture over burning evening-capable lifestyle.
+            if (
+                bname in {"morning", "afternoon"}
+                and protect_evening_lifestyle
+                and want_culture
+                and (is_food or is_market or is_park)
+                and not _is_culture_poi(p)
+            ):
+                # Allow lifestyle only if no unused culture remains in pool.
+                if any(
+                    (not used.contains(c)) and _is_culture_poi(c) for c in pool
+                ):
+                    return False
             if require_non_food and is_food:
                 return False
             if prefer_sight and is_food:
@@ -1087,7 +1262,7 @@ def densify_packed_am_pm(
                 is_p = cat in {"park", "garden", "viewpoint"}
                 if want_culture and is_h:
                     return True
-                if want_park and is_p:
+                if want_park and is_p and not protect_evening_lifestyle:
                     return True
                 if _MUST_SEE_NAME_RE.search(p.name or "") and not is_market:
                     return True
@@ -1137,7 +1312,14 @@ def densify_packed_am_pm(
         return None
 
     for day in working:
-        for bname in ("morning", "afternoon", "evening"):
+        # Evening first when lifestyle interests exist so densify cannot
+        # spend dinners/parks on AM/PM before evening floor is met.
+        block_order = (
+            ("evening", "morning", "afternoon")
+            if protect_evening_lifestyle
+            else ("morning", "afternoon", "evening")
+        )
+        for bname in block_order:
             floor = floors[bname]
             soft_cap = soft_caps[bname]
             # Evening floors only apply when eligible POIs exist for after-5 policy.
@@ -1225,30 +1407,6 @@ def densify_packed_am_pm(
             )
 
     return working, notes
-
-
-def _has_evening_lifestyle_interest(interests: list[str]) -> bool:
-    """Evening floors only apply when food/park/market interests can fill them."""
-    keys = {
-        (normalize_interest(i) or i).lower()
-        for i in (interests or [])
-        if (normalize_interest(i) or i)
-    }
-    return bool(
-        keys
-        & {
-            "food",
-            "cafe",
-            "restaurant",
-            "shopping",
-            "market",
-            "park",
-            "garden",
-            "nature",
-            "viewpoint",
-            "outdoor",
-        }
-    )
 
 
 def ensure_pace_block_floors(
@@ -3133,6 +3291,17 @@ def build_itinerary(
         pace=effective_pace,
     )
     notes.extend(coverage_notes)
+
+    # Reserve evening food/park/market *before* AM/PM densify so packed
+    # ≥3/≥3 floors cannot consume all lifestyle POIs.
+    days, eve_reserve_notes = reserve_evening_lifestyle_slots(
+        days,
+        interests=interest_list,
+        candidate_pois=list(candidate_pois) + list(ranked),
+        pace=effective_pace,
+        city=city,
+    )
+    notes.extend(eve_reserve_notes)
 
     # Packed: densify thin morning/afternoon with interest POIs (no fake places).
     days, densify_notes = densify_packed_am_pm(
